@@ -3,43 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Зелёный фон + загрузка изображения</title>
+    <title>Загрузка изображения на зелёный фон</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             margin: 20px;
-            background-color: #f0f0f0;
         }
         #canvas {
             background-color: #00ff00; /* Зелёный фон */
             display: block;
-            margin: 0 auto;
+            margin: 20px auto;
             border: 2px solid #333;
+            max-width: 100%;
         }
-        #downloadBtn {
-            margin: 15px;
-            padding: 10px 20px;
+        .controls {
+            margin: 20px;
+        }
+        button, input {
+            padding: 10px;
             font-size: 16px;
-            cursor: pointer;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Загрузите изображение на зелёный фон</h1>
-        <p>Размер холста: 1920×1080 пикселей</p>
-        
-        <canvas id="canvas" width="1920" height="1080"></canvas>
-        
-        <div>
-            <input type="file" id="imageInput" accept="image/*" />
-            <button id="downloadBtn">Скачать результат</button>
-        </div>
+    <h1>Загрузите изображение на зелёный фон 1920×1080</h1>
+    
+    <!-- Холст для отрисовки -->
+    <canvas id="canvas" width="1920" height="1080"></canvas>
+    
+    <div class="controls">
+        <!-- Поле для загрузки изображения -->
+        <input type="file" id="imageInput" accept="image/*" />
+        <!-- Кнопка для скачивания результата -->
+        <button id="downloadBtn">Скачать результат</button>
     </div>
 
     <script>
@@ -48,11 +45,11 @@
         const imageInput = document.getElementById('imageInput');
         const downloadBtn = document.getElementById('downloadBtn');
 
-        // Создаём зелёный фон
+        // Изначально заливаем холст зелёным
         ctx.fillStyle = '#00ff00';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Загрузка изображения
+        // Обработчик загрузки изображения
         imageInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -65,11 +62,11 @@
                     ctx.fillStyle = '#00ff00';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    // Рассчитываем позицию для центрирования
+                    // Рассчитываем позицию для центрирования изображения
                     const x = (canvas.width - img.width) / 2;
                     const y = (canvas.height - img.height) / 2;
 
-                    // Рисуем изображение
+                    // Рисуем изображение поверх фона
                     ctx.drawImage(img, x, y);
                 };
                 img.src = event.target.result;
@@ -80,7 +77,7 @@
         // Скачивание результата
         downloadBtn.addEventListener('click', function() {
             const link = document.createElement('a');
-            link.download = 'green_background_with_image.png';
+            link.download = 'image_on_green_background.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
         });

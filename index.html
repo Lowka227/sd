@@ -1,1 +1,89 @@
-xcx
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Зелёный фон + загрузка изображения</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        #canvas {
+            background-color: #00ff00; /* Зелёный фон */
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #333;
+        }
+        #downloadBtn {
+            margin: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Загрузите изображение на зелёный фон</h1>
+        <p>Размер холста: 1920×1080 пикселей</p>
+        
+        <canvas id="canvas" width="1920" height="1080"></canvas>
+        
+        <div>
+            <input type="file" id="imageInput" accept="image/*" />
+            <button id="downloadBtn">Скачать результат</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const imageInput = document.getElementById('imageInput');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Создаём зелёный фон
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Загрузка изображения
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    // Очищаем холст и снова заливаем зелёным
+                    ctx.fillStyle = '#00ff00';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // Рассчитываем позицию для центрирования
+                    const x = (canvas.width - img.width) / 2;
+                    const y = (canvas.height - img.height) / 2;
+
+                    // Рисуем изображение
+                    ctx.drawImage(img, x, y);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Скачивание результата
+        downloadBtn.addEventListener('click', function() {
+            const link = document.createElement('a');
+            link.download = 'green_background_with_image.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    </script>
+</body>
+</html>

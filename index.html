@@ -47,22 +47,27 @@
             touch-action: none;
             transition: opacity 0.3s;
             opacity: 0.85;
-            transform: translate(0, 0); /* Для плавного перемещения */
+            background-color: white;
+            box-shadow: 0 0 0 1px white;
+        }
+        .draggable-image img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
         }
         .selected {
             outline: 2px dashed #4285f4;
         }
-        .resize-handle {
+        .resize-area {
             position: absolute;
-            width: 16px;
-            height: 16px;
-            right: -8px;
-            bottom: -8px;
-            background: rgba(0,0,0,0.5);
-            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            right: 0;
+            bottom: 0;
             cursor: nwse-resize;
-            z-index: 10;
-            touch-action: none;
+            opacity: 0;
         }
         button {
             padding: 8px 12px;
@@ -188,9 +193,6 @@
                     imgElement.style.opacity = newOpacity;
                     imagesRef.child(selectedImageId).update({ 
                         opacity: newOpacity 
-                    }).catch(error => {
-                        console.error("Ошибка обновления:", error);
-                        imgElement.style.opacity = currentOpacity;
                     });
                 }
             });
@@ -313,14 +315,14 @@
             img.style.width = '100%';
             img.style.height = '100%';
             img.style.objectFit = 'contain';
-            img.draggable = false; // Предотвращаем стандартное поведение перетаскивания
+            img.draggable = false;
             imgWrapper.appendChild(img);
             
-            const resizeHandle = document.createElement('div');
-            resizeHandle.className = 'resize-handle';
-            resizeHandle.addEventListener('mousedown', startResize);
-            resizeHandle.addEventListener('touchstart', startResize, { passive: false });
-            imgWrapper.appendChild(resizeHandle);
+            const resizeArea = document.createElement('div');
+            resizeArea.className = 'resize-area';
+            resizeArea.addEventListener('mousedown', startResize);
+            resizeArea.addEventListener('touchstart', startResize, { passive: false });
+            imgWrapper.appendChild(resizeArea);
             
             imgWrapper.addEventListener('mousedown', startDrag);
             imgWrapper.addEventListener('touchstart', startDrag, { passive: false });
@@ -350,7 +352,7 @@
         }
         
         function startDrag(e) {
-            if (e.target.classList.contains('resize-handle')) return;
+            if (e.target.classList.contains('resize-area')) return;
             
             e.preventDefault();
             e.stopPropagation();
@@ -358,18 +360,17 @@
             activeInteraction = 'drag';
             activeElement = e.currentTarget;
             
-            // Получаем текущие координаты элемента
-            const rect = activeElement.getBoundingClientRect();
+            const currentX = parseInt(activeElement.style.left) || 0;
+            const currentY = parseInt(activeElement.style.top) || 0;
             
             if (e.type === 'touchstart') {
-                startX = e.touches[0].clientX - rect.left;
-                startY = e.touches[0].clientY - rect.top;
+                startX = e.touches[0].clientX - currentX;
+                startY = e.touches[0].clientY - currentY;
             } else {
-                startX = e.clientX - rect.left;
-                startY = e.clientY - rect.top;
+                startX = e.clientX - currentX;
+                startY = e.clientY - currentY;
             }
             
-            // Выделяем изображение
             document.querySelectorAll('.draggable-image').forEach(img => {
                 img.classList.remove('selected');
             });
@@ -417,7 +418,6 @@
                 const x = clientX - startX;
                 const y = clientY - startY;
                 
-                // Ограничиваем перемещение границами холста
                 const container = document.getElementById('canvas-container');
                 const maxX = container.offsetWidth - activeElement.offsetWidth;
                 const maxY = container.offsetHeight - activeElement.offsetHeight;

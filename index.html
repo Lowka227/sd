@@ -10,12 +10,13 @@
             padding: 0;
             font-family: Arial, sans-serif;
             overflow: hidden;
+            background-color: #f0f0f0;
         }
         #app-container {
             display: flex;
             flex-direction: column;
-            width: 1920px;
-            height: 1080px;
+            width: 100vw;
+            height: 100vh;
         }
         #controls {
             background: #f0f0f0;
@@ -25,13 +26,23 @@
             align-items: center;
             height: 60px;
             box-sizing: border-box;
+            border-bottom: 1px solid #ccc;
+        }
+        #canvas-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            background-color: #f0f0f0;
         }
         #canvas-container {
             width: 1920px;
-            height: 1020px; /* 1080 - 60 (панель управления) */
+            height: 1080px;
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
+            flex-shrink: 0;
         }
         .draggable-image {
             position: absolute;
@@ -101,7 +112,9 @@
             <div id="status">Синхронизировано</div>
         </div>
         
-        <div id="canvas-container"></div>
+        <div id="canvas-wrapper">
+            <div id="canvas-container"></div>
+        </div>
     </div>
     
     <input type="file" id="file-input" accept="image/*">
@@ -150,19 +163,6 @@
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
             document.addEventListener('touchend', endInteraction);
-            
-            // Настройка масштабирования для мобильных устройств
-            setupViewport();
-        }
-        
-        function setupViewport() {
-            const appContainer = document.getElementById('app-container');
-            const scale = Math.min(
-                window.innerWidth / 1920,
-                window.innerHeight / 1080
-            );
-            appContainer.style.transform = `scale(${scale})`;
-            appContainer.style.transformOrigin = 'top left';
         }
         
         function handleFileUpload(e) {
@@ -372,7 +372,6 @@
         }
         
         window.addEventListener('DOMContentLoaded', initApp);
-        window.addEventListener('resize', setupViewport);
     </script>
 </body>
 </html>

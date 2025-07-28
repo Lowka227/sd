@@ -155,7 +155,7 @@
           authDomain: "greenbackgroundapp.firebaseapp.com",
           databaseURL: "https://greenbackgroundapp-default-rtdb.europe-west1.firebasedatabase.app",
           projectId: "greenbackgroundapp",
-          storageBucket: "greenbackgroundapp.firebasestorage.app",
+          storageBucket: "greenbackgroundapp.appspot.com",
           messagingSenderId: "857271333291",
           appId: "1:857271333291:web:e754824268f37341c7e2ee",
           measurementId: "G-S5HL7Q45NE"
@@ -272,15 +272,20 @@
         }
         
         function createImageElement(imgData) {
+            const imgWrapper = document.createElement('div');
+            imgWrapper.id = imgData.id;
+            imgWrapper.className = 'draggable-image';
+            imgWrapper.style.left = imgData.x + 'px';
+            imgWrapper.style.top = imgData.y + 'px';
+            imgWrapper.style.width = imgData.width + 'px';
+            imgWrapper.style.height = imgData.height + 'px';
+            
             const img = document.createElement('img');
-            img.id = imgData.id;
-            img.className = 'draggable-image';
             img.src = imgData.src;
-            img.style.width = imgData.width + 'px';
-            img.style.height = imgData.height + 'px';
-            img.style.left = imgData.x + 'px';
-            img.style.top = imgData.y + 'px';
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            imgWrapper.appendChild(img);
             
             // Добавляем элементы управления
             const controls = document.createElement('div');
@@ -306,7 +311,7 @@
             
             controls.appendChild(hideBtn);
             controls.appendChild(settingsBtn);
-            img.appendChild(controls);
+            imgWrapper.appendChild(controls);
             
             // Добавляем элемент для изменения размера
             const resizeHandle = document.createElement('div');
@@ -314,13 +319,13 @@
             resizeHandle.addEventListener('mousedown', startResize);
             resizeHandle.addEventListener('touchstart', startResize, { passive: false });
             
-            img.appendChild(resizeHandle);
+            imgWrapper.appendChild(resizeHandle);
             
             // Обработчики перетаскивания
-            img.addEventListener('mousedown', startDrag);
-            img.addEventListener('touchstart', startDrag, { passive: false });
+            imgWrapper.addEventListener('mousedown', startDrag);
+            imgWrapper.addEventListener('touchstart', startDrag, { passive: false });
             
-            return img;
+            return imgWrapper;
         }
         
         function updateImagePositionAndSize(img, imgData) {

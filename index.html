@@ -45,7 +45,7 @@
             cursor: move;
             user-select: none;
             touch-action: none;
-            transition: opacity 0.3s;
+            transition: opacity 0.3s, filter 0.3s;
             opacity: 0.9;
         }
         .draggable-image img {
@@ -131,6 +131,10 @@
             Прозрачность:
             <input type="range" id="opacity-slider" min="0" max="100" value="90">
         </label>
+        <label>
+            Яркость:
+            <input type="range" id="brightness-slider" min="0" max="200" value="100">
+        </label>
         <button id="close-properties">Закрыть</button>
     </div>
     
@@ -160,7 +164,6 @@
         let activeElement = null;
         let startX = 0, startY = 0;
         let startWidth = 0, startHeight = 0;
-        let startAspectRatio = 1;
         let selectedImageId = null;
 
         function initApp() {
@@ -169,6 +172,8 @@
             document.getElementById('close-properties').addEventListener('click', () => {
                 document.getElementById('properties-panel').style.display = 'none';
             });
+            
+            // Слайдер прозрачности
             document.getElementById('opacity-slider').addEventListener('input', (e) => {
                 if (selectedImageId) {
                     const opacity = e.target.value / 100;
@@ -177,6 +182,18 @@
                         imgElement.style.opacity = opacity;
                     }
                     imagesRef.child(selectedImageId).update({ opacity: opacity });
+                }
+            });
+            
+            // Слайдер яркости
+            document.getElementById('brightness-slider').addEventListener('input', (e) => {
+                if (selectedImageId) {
+                    const brightness = e.target.value;
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (imgElement) {
+                        imgElement.style.filter = `brightness(${brightness}%)`;
+                    }
+                    imagesRef.child(selectedImageId).update({ brightness: brightness });
                 }
             });
             
@@ -206,11 +223,17 @@
             document.getElementById('settings-btn').addEventListener('click', () => {
                 if (selectedImageId) {
                     const panel = document.getElementById('properties-panel');
-                    const slider = document.getElementById('opacity-slider');
+                    const opacitySlider = document.getElementById('opacity-slider');
+                    const brightnessSlider = document.getElementById('brightness-slider');
                     
                     const imgElement = document.getElementById(selectedImageId);
                     const currentOpacity = parseFloat(imgElement.style.opacity) || 0.9;
-                    slider.value = currentOpacity * 100;
+                    opacitySlider.value = currentOpacity * 100;
+                    
+                    // Получаем текущую яркость
+                    const currentBrightness = imgElement.style.filter.includes('brightness') ? 
+                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 100;
+                    brightnessSlider.value = currentBrightness;
                     
                     panel.style.display = 'block';
                 }
@@ -258,7 +281,8 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        opacity: 0.9
+                        opacity: 0.9,
+                        brightness: 100
                     });
                 };
                 img.src = event.target.result;
@@ -291,6 +315,7 @@
                 
                 updateImagePositionAndSize(img, imgData);
                 updateImageOpacity(img, imgData);
+                updateImageBrightness(img, imgData);
                 
                 img.classList.toggle('selected', id === selectedImageId);
             }
@@ -307,6 +332,10 @@
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
             imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.9;
+            
+            if (imgData.brightness !== undefined) {
+                imgWrapper.style.filter = `brightness(${imgData.brightness}%)`;
+            }
             
             const img = document.createElement('img');
             img.src = imgData.src;
@@ -339,6 +368,14 @@
         
         function updateImageOpacity(img, imgData) {
             img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.9;
+        }
+        
+        function updateImageBrightness(img, imgData) {
+            if (imgData.brightness !== undefined) {
+                img.style.filter = `brightness(${imgData.brightness}%)`;
+            } else {
+                img.style.filter = 'brightness(100%)';
+            }
         }
         
         function clearCanvas() {
@@ -394,9 +431,9 @@
                 startY = e.clientY;
             }
             
-            startWidth = rect.width;
-            startHeight = rect.height;
-            startAspectRatio = startWidth / startHeight;
+            // Берем текущие размеры из стилей
+            startWidth = parseFloat(activeElement.style.width);
+            startHeight = parseFloat(activeElement.style.height);
         }
         
         function handleMove(e) {
@@ -436,17 +473,21 @@
                 const deltaX = clientX - startX;
                 const deltaY = clientY - startY;
                 
-                // Изменение размера с сохранением пропорций
-                const scale = 1 + deltaX / startWidth;
-                let newWidth = startWidth * scale;
-                let newHeight = startHeight * scale;
+                // Изменение размера относительно текущего размера
+                let newWidth = startWidth + deltaX;
+                let newHeight = startHeight + deltaY;
+                
+                // Сохраняем пропорции
+                const aspectRatio = startWidth / startHeight;
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    newHeight = newWidth / aspectRatio;
+                } else {
+                    newWidth = newHeight * aspectRatio;
+                }
                 
                 // Ограничение минимального размера
-                if (newWidth < 50 || newHeight < 50) {
-                    const minScale = Math.max(50/startWidth, 50/startHeight);
-                    newWidth = startWidth * minScale;
-                    newHeight = startHeight * minScale;
-                }
+                newWidth = Math.max(50, newWidth);
+                newHeight = Math.max(50, newHeight);
                 
                 activeElement.style.width = newWidth + 'px';
                 activeElement.style.height = newHeight + 'px';

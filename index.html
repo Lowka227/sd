@@ -46,12 +46,9 @@
             user-select: none;
             touch-action: none;
             transition: opacity 0.3s;
-            opacity: 0.85;
-            background-color: white;
-            box-shadow: 0 0 0 1px white;
+            opacity: 0.9;
         }
         .draggable-image img {
-            display: block;
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -132,7 +129,7 @@
         <h3>Свойства изображения</h3>
         <label>
             Прозрачность:
-            <input type="range" id="opacity-slider" min="0" max="100" value="85">
+            <input type="range" id="opacity-slider" min="0" max="100" value="90">
         </label>
         <button id="close-properties">Закрыть</button>
     </div>
@@ -188,7 +185,7 @@
                     if (!imgElement) return;
                     
                     const currentOpacity = parseFloat(imgElement.style.opacity);
-                    const newOpacity = currentOpacity > 0 ? 0 : 0.85;
+                    const newOpacity = currentOpacity > 0 ? 0 : 0.9; // Установка 90% при показе
                     
                     imgElement.style.opacity = newOpacity;
                     imagesRef.child(selectedImageId).update({ 
@@ -211,7 +208,7 @@
                     const slider = document.getElementById('opacity-slider');
                     
                     const imgElement = document.getElementById(selectedImageId);
-                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.85;
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.9;
                     slider.value = currentOpacity * 100;
                     
                     panel.style.display = 'block';
@@ -260,7 +257,7 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        opacity: 0.85
+                        opacity: 0.9
                     });
                 };
                 img.src = event.target.result;
@@ -308,7 +305,7 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.85;
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.9;
             
             const img = document.createElement('img');
             img.src = imgData.src;
@@ -340,7 +337,7 @@
         }
         
         function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.85;
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.9;
         }
         
         function clearCanvas() {
@@ -437,12 +434,17 @@
                 const newWidth = Math.max(50, startWidth + (clientX - startX));
                 const newHeight = Math.max(50, startHeight + (clientY - startY));
                 
-                activeElement.style.width = newWidth + 'px';
-                activeElement.style.height = newHeight + 'px';
+                // Сохраняем пропорции при изменении размера
+                const aspectRatio = startWidth / startHeight;
+                const finalWidth = aspectRatio > 1 ? newWidth : newHeight * aspectRatio;
+                const finalHeight = aspectRatio > 1 ? newWidth / aspectRatio : newHeight;
+                
+                activeElement.style.width = finalWidth + 'px';
+                activeElement.style.height = finalHeight + 'px';
                 
                 imagesRef.child(activeElement.id).update({
-                    width: newWidth,
-                    height: newHeight
+                    width: finalWidth,
+                    height: finalHeight
                 });
             }
         }

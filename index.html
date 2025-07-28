@@ -45,7 +45,7 @@
             user-select: none;
             touch-action: none;
             transition: opacity 0.3s;
-            opacity: 0.8;
+            opacity: 0.9; /* Изменено с 0.8 на 0.9 */
         }
         .selected {
             outline: 2px dashed #4285f4;
@@ -124,7 +124,7 @@
         <h3>Свойства изображения</h3>
         <label>
             Прозрачность:
-            <input type="range" id="opacity-slider" min="0" max="100" value="80">
+            <input type="range" id="opacity-slider" min="0" max="100" value="90">
         </label>
         <button id="close-properties">Закрыть</button>
     </div>
@@ -175,14 +175,14 @@
                 }
             });
             
-            // Рабочая кнопка Скрыть/Показать
+            // Исправленная кнопка Скрыть/Показать
             document.getElementById('hide-btn').addEventListener('click', () => {
                 if (selectedImageId) {
                     const imgElement = document.getElementById(selectedImageId);
                     if (!imgElement) return;
                     
-                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.8;
-                    const newOpacity = currentOpacity > 0 ? 0 : 0.8;
+                    const currentOpacity = parseFloat(imgElement.style.opacity);
+                    const newOpacity = currentOpacity > 0 ? 0 : 0.9; // Изменено на 0.9
                     
                     imgElement.style.opacity = newOpacity;
                     imagesRef.child(selectedImageId).update({ 
@@ -208,7 +208,7 @@
                     const slider = document.getElementById('opacity-slider');
                     
                     const imgElement = document.getElementById(selectedImageId);
-                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.8;
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.9; // Изменено на 0.9
                     slider.value = currentOpacity * 100;
                     
                     panel.style.display = 'block';
@@ -257,7 +257,7 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        opacity: 0.8
+                        opacity: 0.9 // Изменено с 0.8 на 0.9
                     });
                 };
                 img.src = event.target.result;
@@ -305,7 +305,7 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.8;
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.9; // Изменено с 0.8 на 0.9
             
             const img = document.createElement('img');
             img.src = imgData.src;
@@ -365,7 +365,7 @@
         }
         
         function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.8;
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.9; // Изменено с 0.8 на 0.9
         }
         
         function clearCanvas() {

@@ -82,14 +82,25 @@
             link.click();
         });
     </script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    
+    <script>
+      // Ваша конфигурация
+      const firebaseConfig = {
+        apiKey: "ваш-api-key",
+        authDomain: "ваш-project-id.firebaseapp.com",
+        databaseURL: "https://ваш-project-id.firebaseio.com",
+        projectId: "ваш-project-id",
+        storageBucket: "ваш-project-id.appspot.com",
+        messagingSenderId: "ваш-sender-id",
+        appId: "ваш-app-id"
+      };
+    
+      // Инициализация Firebase
+      const app = firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+    </script>
 </body>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<style>
-    body {
-        margin: 0;
-        padding: 0;
-        overflow-x: hidden;
-        background-color: #ffffff;
-    }
-</style>
 </html>

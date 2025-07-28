@@ -30,7 +30,7 @@
             display: flex;
             gap: 10px;
             margin-left: 20px;
-            display: none; /* Скрыто по умолчанию */
+            display: none;
         }
         #canvas-container {
             width: 1920px;
@@ -51,6 +51,7 @@
         }
         .hidden {
             opacity: 0.3;
+            pointer-events: none;
         }
         .resize-handle {
             position: absolute;
@@ -111,7 +112,7 @@
             <button id="clear-btn">Очистить</button>
             
             <div id="image-controls">
-                <button id="hide-btn">Скрыть</button>
+                <button id="hide-btn">Скрыть/Показать</button>
                 <button id="delete-btn">Удалить</button>
                 <button id="settings-btn">Настройки</button>
             </div>
@@ -161,7 +162,6 @@
         let selectedImageId = null;
 
         function initApp() {
-            // Обработчики
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
             document.getElementById('close-properties').addEventListener('click', () => {
@@ -174,11 +174,13 @@
                 }
             });
             
-            // Кнопки управления изображением
+            // Кнопка скрытия/показа
             document.getElementById('hide-btn').addEventListener('click', () => {
                 if (selectedImageId) {
-                    const currentState = images[selectedImageId]?.hidden || false;
-                    imagesRef.child(selectedImageId).update({ hidden: !currentState });
+                    const currentHiddenState = images[selectedImageId]?.hidden || false;
+                    imagesRef.child(selectedImageId).update({ 
+                        hidden: !currentHiddenState 
+                    });
                 }
             });
             
@@ -202,13 +204,11 @@
                 }
             });
             
-            // Слушаем изменения в Firebase
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 updateCanvas(data);
             });
             
-            // Глобальные обработчики
             document.addEventListener('mousemove', handleMove);
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
@@ -282,7 +282,6 @@
                 updateImageVisibility(img, imgData);
                 updateImageOpacity(img, imgData);
                 
-                // Обновляем выделение
                 img.classList.toggle('selected', id === selectedImageId);
             }
             
@@ -306,28 +305,23 @@
             img.style.objectFit = 'contain';
             imgWrapper.appendChild(img);
             
-            // Добавляем элемент для изменения размера
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'resize-handle';
             resizeHandle.addEventListener('mousedown', startResize);
             resizeHandle.addEventListener('touchstart', startResize, { passive: false });
             imgWrapper.appendChild(resizeHandle);
             
-            // Обработчики выбора изображения
             imgWrapper.addEventListener('mousedown', (e) => {
                 if (e.target === resizeHandle) return;
                 
-                // Выделяем изображение
                 document.querySelectorAll('.draggable-image').forEach(img => {
                     img.classList.remove('selected');
                 });
                 imgWrapper.classList.add('selected');
                 
-                // Показываем кнопки управления
                 document.getElementById('image-controls').style.display = 'flex';
                 selectedImageId = imgWrapper.id;
                 
-                // Если не начали перетаскивание
                 if (e.target === imgWrapper || e.target === img) {
                     startDrag(e);
                 }

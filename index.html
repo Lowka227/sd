@@ -35,16 +35,13 @@
             align-items: center;
             overflow: hidden;
             background-color: #f0f0f0;
-            padding: 20px;
         }
         #canvas-container {
             width: 1920px;
-            height: 1080px;
+            height: 1020px;
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
-            flex-shrink: 0;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
         }
         .draggable-image {
             position: absolute;
@@ -125,7 +122,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     
     <script>
-        // Конфигурация Firebase (замените на свою)
+        // Конфигурация Firebase
         const firebaseConfig = {
           apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
           authDomain: "greenbackgroundapp.firebaseapp.com",
@@ -143,28 +140,37 @@
         const imagesRef = database.ref('images');
         
         let images = {};
-        let activeInteraction = null; // 'drag' или 'resize'
+        let activeInteraction = null;
         let activeElement = null;
         let offsetX = 0, offsetY = 0;
         let startWidth = 0, startHeight = 0;
         let startX = 0, startY = 0;
 
         function initApp() {
-            // Обработчики
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
             
-            // Слушаем изменения в Firebase
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 updateCanvas(data);
             });
             
-            // Глобальные обработчики
             document.addEventListener('mousemove', handleMove);
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
             document.addEventListener('touchend', endInteraction);
+            
+            setupViewport();
+        }
+        
+        function setupViewport() {
+            const appContainer = document.getElementById('app-container');
+            const scale = Math.min(
+                window.innerWidth / 1920,
+                (window.innerHeight - 60) / 1020
+            );
+            appContainer.style.transform = `scale(${scale})`;
+            appContainer.style.transformOrigin = 'top left';
         }
         
         function handleFileUpload(e) {
@@ -179,7 +185,6 @@
                     const x = 100;
                     const y = 100;
                     
-                    // Сохраняем в Firebase
                     imagesRef.child(id).set({
                         id: id,
                         src: event.target.result,
@@ -199,12 +204,10 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
-            // Удаляем отсутствующие изображения
             document.querySelectorAll('.draggable-image').forEach(img => {
                 if (!imagesData[img.id]) img.remove();
             });
             
-            // Добавляем/обновляем изображения
             for (const id in imagesData) {
                 const imgData = imagesData[id];
                 let img = document.getElementById(id);
@@ -231,10 +234,11 @@
             img.style.left = imgData.x + 'px';
             img.style.top = imgData.y + 'px';
             
-            // Добавляем элементы управления
+            // Элементы управления для изображения
             const controls = document.createElement('div');
             controls.className = 'image-controls';
             
+            // Кнопка скрытия/показа
             const hideBtn = document.createElement('div');
             hideBtn.className = 'control-btn';
             hideBtn.innerHTML = '👁';
@@ -247,7 +251,7 @@
             controls.appendChild(hideBtn);
             img.appendChild(controls);
             
-            // Добавляем элемент для изменения размера
+            // Элемент для изменения размера
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'resize-handle';
             resizeHandle.addEventListener('mousedown', startResize);
@@ -255,7 +259,6 @@
             
             img.appendChild(resizeHandle);
             
-            // Обработчики перетаскивания
             img.addEventListener('mousedown', startDrag);
             img.addEventListener('touchstart', startDrag, { passive: false });
             
@@ -347,7 +350,6 @@
                 activeElement.style.left = x + 'px';
                 activeElement.style.top = y + 'px';
                 
-                // Обновляем позицию в Firebase
                 imagesRef.child(activeElement.id).update({
                     x: x,
                     y: y
@@ -360,7 +362,6 @@
                 activeElement.style.width = newWidth + 'px';
                 activeElement.style.height = newHeight + 'px';
                 
-                // Обновляем размер в Firebase
                 imagesRef.child(activeElement.id).update({
                     width: newWidth,
                     height: newHeight
@@ -374,6 +375,7 @@
         }
         
         window.addEventListener('DOMContentLoaded', initApp);
+        window.addEventListener('resize', setupViewport);
     </script>
 </body>
 </html>

@@ -174,12 +174,27 @@
                 }
             });
             
-            // Кнопка скрытия/показа
+            // Исправленный обработчик кнопки скрытия/показа
             document.getElementById('hide-btn').addEventListener('click', () => {
                 if (selectedImageId) {
                     const currentHiddenState = images[selectedImageId]?.hidden || false;
+                    const newHiddenState = !currentHiddenState;
+                    
+                    // Мгновенное обновление интерфейса
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (imgElement) {
+                        imgElement.classList.toggle('hidden', newHiddenState);
+                    }
+                    
+                    // Обновление в Firebase
                     imagesRef.child(selectedImageId).update({ 
-                        hidden: !currentHiddenState 
+                        hidden: newHiddenState 
+                    }).catch(error => {
+                        console.error("Ошибка при обновлении:", error);
+                        // Откат изменений при ошибке
+                        if (imgElement) {
+                            imgElement.classList.toggle('hidden', currentHiddenState);
+                        }
                     });
                 }
             });
@@ -246,7 +261,7 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        hidden: false,
+                        hidden: false,  // Явно устанавливаем начальное значение
                         opacity: 1
                     });
                 };
@@ -259,6 +274,7 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
+            // Удаляем изображения, которых больше нет в данных
             document.querySelectorAll('.draggable-image').forEach(img => {
                 if (!imagesData[img.id]) {
                     img.remove();
@@ -269,6 +285,7 @@
                 }
             });
             
+            // Обновляем или создаем изображения
             for (const id in imagesData) {
                 const imgData = imagesData[id];
                 let img = document.getElementById(id);
@@ -356,7 +373,7 @@
         }
         
         function updateImageVisibility(img, imgData) {
-            img.classList.toggle('hidden', imgData.hidden);
+            img.classList.toggle('hidden', imgData.hidden || false);
         }
         
         function updateImageOpacity(img, imgData) {

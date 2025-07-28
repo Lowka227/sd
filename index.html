@@ -10,6 +10,7 @@
             padding: 0;
             font-family: Arial, sans-serif;
             overflow: hidden;
+            touch-action: none;
         }
         #app-container {
             display: flex;
@@ -45,7 +46,8 @@
             user-select: none;
             touch-action: none;
             transition: opacity 0.3s;
-            opacity: 0.85; /* Изменено на 0.85 */
+            opacity: 0.85;
+            transform: translate(0, 0); /* Для плавного перемещения */
         }
         .selected {
             outline: 2px dashed #4285f4;
@@ -60,6 +62,7 @@
             border-radius: 50%;
             cursor: nwse-resize;
             z-index: 10;
+            touch-action: none;
         }
         button {
             padding: 8px 12px;
@@ -153,9 +156,8 @@
         let images = {};
         let activeInteraction = null;
         let activeElement = null;
-        let offsetX = 0, offsetY = 0;
-        let startWidth = 0, startHeight = 0;
         let startX = 0, startY = 0;
+        let startWidth = 0, startHeight = 0;
         let selectedImageId = null;
 
         function initApp() {
@@ -175,14 +177,13 @@
                 }
             });
             
-            // Исправленная кнопка Скрыть/Показать
             document.getElementById('hide-btn').addEventListener('click', () => {
                 if (selectedImageId) {
                     const imgElement = document.getElementById(selectedImageId);
                     if (!imgElement) return;
                     
                     const currentOpacity = parseFloat(imgElement.style.opacity);
-                    const newOpacity = currentOpacity > 0 ? 0 : 0.85; // Изменено на 0.85
+                    const newOpacity = currentOpacity > 0 ? 0 : 0.85;
                     
                     imgElement.style.opacity = newOpacity;
                     imagesRef.child(selectedImageId).update({ 
@@ -208,7 +209,7 @@
                     const slider = document.getElementById('opacity-slider');
                     
                     const imgElement = document.getElementById(selectedImageId);
-                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.85; // Изменено на 0.85
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.85;
                     slider.value = currentOpacity * 100;
                     
                     panel.style.display = 'block';
@@ -257,7 +258,7 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        opacity: 0.85 // Изменено на 0.85
+                        opacity: 0.85
                     });
                 };
                 img.src = event.target.result;
@@ -305,13 +306,14 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.85; // Изменено на 0.85
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.85;
             
             const img = document.createElement('img');
             img.src = imgData.src;
             img.style.width = '100%';
             img.style.height = '100%';
             img.style.objectFit = 'contain';
+            img.draggable = false; // Предотвращаем стандартное поведение перетаскивания
             imgWrapper.appendChild(img);
             
             const resizeHandle = document.createElement('div');
@@ -320,37 +322,8 @@
             resizeHandle.addEventListener('touchstart', startResize, { passive: false });
             imgWrapper.appendChild(resizeHandle);
             
-            imgWrapper.addEventListener('mousedown', (e) => {
-                if (e.target === resizeHandle) return;
-                
-                document.querySelectorAll('.draggable-image').forEach(img => {
-                    img.classList.remove('selected');
-                });
-                imgWrapper.classList.add('selected');
-                
-                document.getElementById('image-controls').style.display = 'flex';
-                selectedImageId = imgWrapper.id;
-                
-                if (e.target === imgWrapper || e.target === img) {
-                    startDrag(e);
-                }
-            });
-            
-            imgWrapper.addEventListener('touchstart', (e) => {
-                if (e.target === resizeHandle) return;
-                
-                document.querySelectorAll('.draggable-image').forEach(img => {
-                    img.classList.remove('selected');
-                });
-                imgWrapper.classList.add('selected');
-                
-                document.getElementById('image-controls').style.display = 'flex';
-                selectedImageId = imgWrapper.id;
-                
-                if (e.target === imgWrapper || e.target === img) {
-                    startDrag(e);
-                }
-            }, { passive: false });
+            imgWrapper.addEventListener('mousedown', startDrag);
+            imgWrapper.addEventListener('touchstart', startDrag, { passive: false });
             
             return imgWrapper;
         }
@@ -365,7 +338,7 @@
         }
         
         function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.85; // Изменено на 0.85
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.85;
         }
         
         function clearCanvas() {
@@ -380,25 +353,36 @@
             if (e.target.classList.contains('resize-handle')) return;
             
             e.preventDefault();
+            e.stopPropagation();
+            
             activeInteraction = 'drag';
             activeElement = e.currentTarget;
             
+            // Получаем текущие координаты элемента
             const rect = activeElement.getBoundingClientRect();
+            
             if (e.type === 'touchstart') {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
+                startX = e.touches[0].clientX - rect.left;
+                startY = e.touches[0].clientY - rect.top;
             } else {
-                startX = e.clientX;
-                startY = e.clientY;
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
             }
             
-            offsetX = startX - rect.left;
-            offsetY = startY - rect.top;
+            // Выделяем изображение
+            document.querySelectorAll('.draggable-image').forEach(img => {
+                img.classList.remove('selected');
+            });
+            activeElement.classList.add('selected');
+            
+            document.getElementById('image-controls').style.display = 'flex';
+            selectedImageId = activeElement.id;
         }
         
         function startResize(e) {
             e.preventDefault();
             e.stopPropagation();
+            
             activeInteraction = 'resize';
             activeElement = e.currentTarget.parentElement;
             
@@ -430,15 +414,23 @@
             }
             
             if (activeInteraction === 'drag') {
-                const x = clientX - offsetX;
-                const y = clientY - offsetY;
+                const x = clientX - startX;
+                const y = clientY - startY;
                 
-                activeElement.style.left = x + 'px';
-                activeElement.style.top = y + 'px';
+                // Ограничиваем перемещение границами холста
+                const container = document.getElementById('canvas-container');
+                const maxX = container.offsetWidth - activeElement.offsetWidth;
+                const maxY = container.offsetHeight - activeElement.offsetHeight;
+                
+                const boundedX = Math.max(0, Math.min(x, maxX));
+                const boundedY = Math.max(0, Math.min(y, maxY));
+                
+                activeElement.style.left = boundedX + 'px';
+                activeElement.style.top = boundedY + 'px';
                 
                 imagesRef.child(activeElement.id).update({
-                    x: x,
-                    y: y
+                    x: boundedX,
+                    y: boundedY
                 });
             } 
             else if (activeInteraction === 'resize') {

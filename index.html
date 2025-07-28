@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Синхронизированный холст</title>
+    <title>Зелёный холст</title>
     <style>
         body {
             margin: 0;
@@ -21,96 +21,75 @@
         }
         .draggable-image {
             position: absolute;
-            max-width: 300px;
-            max-height: 300px;
             cursor: move;
             user-select: none;
             touch-action: none;
             transform: translate(0, 0);
-            transition: opacity 0.3s;
         }
-        .hidden {
-            opacity: 0.3;
-        }
-        #controls {
-            position: fixed;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 10px;
-            display: flex;
-            gap: 10px;
-            z-index: 100;
-        }
-        button {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 5px;
-            background: #4285f4;
-            color: white;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        #status {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 12px;
-        }
-        .image-controls {
+        .resize-handle {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            display: flex;
-            gap: 5px;
+            width: 16px;
+            height: 16px;
+            right: -8px;
+            bottom: -8px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 50%;
+            cursor: nwse-resize;
             z-index: 10;
         }
-        .control-btn {
-            width: 24px;
-            height: 24px;
+        #hidden-controls {
+            position: fixed;
+            bottom: -35px;
+            left: 0;
+            width: 100%;
+            height: 40px;
             background: rgba(0,0,0,0.5);
-            color: white;
-            border-radius: 50%;
+            transition: bottom 0.3s;
             display: flex;
-            align-items: center;
             justify-content: center;
-            font-size: 12px;
+            gap: 10px;
+            padding: 5px 0;
+        }
+        #hidden-controls:hover {
+            bottom: 0;
+        }
+        #hidden-controls button {
+            background: rgba(255,255,255,0.8);
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
             cursor: pointer;
+        }
+        #file-input {
+            display: none;
         }
     </style>
 </head>
 <body>
     <div id="canvas-container"></div>
     
-    <div id="controls">
-        <input type="file" id="file-input" accept="image/*" style="display: none;">
-        <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
-        <button id="clear-btn">Очистить все</button>
+    <!-- Скрытые элементы управления -->
+    <div id="hidden-controls">
+        <button onclick="document.getElementById('file-input').click()">+</button>
+        <button id="clear-btn">×</button>
     </div>
     
-    <div id="status">Синхронизировано</div>
+    <input type="file" id="file-input" accept="image/*">
 
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     
     <script>
         // Конфигурация Firebase (замените на свою)
-         const firebaseConfig = {
-              apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
-              authDomain: "greenbackgroundapp.firebaseapp.com",
-              databaseURL: "https://greenbackgroundapp-default-rtdb.europe-west1.firebasedatabase.app",
-              projectId: "greenbackgroundapp",
-              storageBucket: "greenbackgroundapp.firebasestorage.app",
-              messagingSenderId: "857271333291",
-              appId: "1:857271333291:web:e754824268f37341c7e2ee",
-              measurementId: "G-S5HL7Q45NE"
-            };
+        const firebaseConfig = {
+            apiKey: "ВАШ_API_KEY",
+            authDomain: "ВАШ_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://ВАШ_PROJECT_ID.firebaseio.com",
+            projectId: "ВАШ_PROJECT_ID",
+            storageBucket: "ВАШ_PROJECT_ID.appspot.com",
+            messagingSenderId: "ВАШ_SENDER_ID",
+            appId: "ВАШ_APP_ID"
+        };
 
         // Инициализация Firebase
         firebase.initializeApp(firebaseConfig);
@@ -118,10 +97,11 @@
         const imagesRef = database.ref('images');
         
         let images = {};
-        let isDragging = false;
-        let draggedImage = null;
+        let activeInteraction = null; // 'drag' или 'resize'
+        let activeElement = null;
         let offsetX = 0, offsetY = 0;
-        let userId = 'user_' + Math.random().toString(36).substr(2, 9);
+        let startWidth = 0, startHeight = 0;
+        let startX = 0, startY = 0;
 
         function initApp() {
             // Обработчики
@@ -133,6 +113,12 @@
                 const data = snapshot.val() || {};
                 updateCanvas(data);
             });
+            
+            // Глобальные обработчики
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('touchmove', handleMove, { passive: false });
+            document.addEventListener('mouseup', endInteraction);
+            document.addEventListener('touchend', endInteraction);
         }
         
         function handleFileUpload(e) {
@@ -143,7 +129,7 @@
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    const id = 'img_' + Date.now() + '_' + userId;
+                    const id = 'img_' + Date.now();
                     const x = 100;
                     const y = 100;
                     
@@ -153,10 +139,8 @@
                         src: event.target.result,
                         x: x,
                         y: y,
-                        width: Math.min(img.width, 300),
-                        height: Math.min(img.height, 300),
-                        hidden: false,
-                        owner: userId
+                        width: img.width,
+                        height: img.height
                     });
                 };
                 img.src = event.target.result;
@@ -183,8 +167,7 @@
                     container.appendChild(img);
                 }
                 
-                updateImagePosition(img, imgData);
-                updateImageVisibility(img, imgData);
+                updateImagePositionAndSize(img, imgData);
             }
             
             images = {...imagesData};
@@ -195,73 +178,75 @@
             img.id = imgData.id;
             img.className = 'draggable-image';
             img.src = imgData.src;
-            img.style.width = imgData.width + 'px';
-            img.style.height = imgData.height + 'px';
-            img.style.left = imgData.x + 'px';
-            img.style.top = imgData.y + 'px';
-            
-            // Добавляем кнопки управления
-            const controls = document.createElement('div');
-            controls.className = 'image-controls';
-            
-            const hideBtn = document.createElement('div');
-            hideBtn.className = 'control-btn';
-            hideBtn.innerHTML = '👁';
-            hideBtn.title = 'Скрыть/показать';
-            hideBtn.onclick = (e) => {
-                e.stopPropagation();
-                toggleImageVisibility(imgData.id);
-            };
-            
-            controls.appendChild(hideBtn);
-            img.appendChild(controls);
             
             // Обработчики перетаскивания
             img.addEventListener('mousedown', startDrag);
             img.addEventListener('touchstart', startDrag, { passive: false });
             
+            // Добавляем элемент для изменения размера
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle';
+            resizeHandle.addEventListener('mousedown', startResize);
+            resizeHandle.addEventListener('touchstart', startResize, { passive: false });
+            
+            img.appendChild(resizeHandle);
             return img;
         }
         
-        function updateImagePosition(img, imgData) {
-            if (!isDragging || draggedImage?.id !== imgData.id) {
+        function updateImagePositionAndSize(img, imgData) {
+            if (activeElement !== img) {
                 img.style.left = imgData.x + 'px';
                 img.style.top = imgData.y + 'px';
+                img.style.width = imgData.width + 'px';
+                img.style.height = imgData.height + 'px';
             }
         }
         
-        function updateImageVisibility(img, imgData) {
-            img.classList.toggle('hidden', imgData.hidden);
-        }
-        
-        function toggleImageVisibility(imgId) {
-            const currentState = images[imgId]?.hidden || false;
-            imagesRef.child(imgId).update({ hidden: !currentState });
-        }
-        
         function clearCanvas() {
-            if (confirm("Очистить холст для всех пользователей?")) {
+            if (confirm("Очистить весь холст?")) {
                 imagesRef.remove();
             }
         }
         
         function startDrag(e) {
             e.preventDefault();
-            isDragging = true;
-            draggedImage = e.currentTarget;
+            activeInteraction = 'drag';
+            activeElement = e.currentTarget;
             
-            const rect = draggedImage.getBoundingClientRect();
+            const rect = activeElement.getBoundingClientRect();
             if (e.type === 'touchstart') {
-                offsetX = e.touches[0].clientX - rect.left;
-                offsetY = e.touches[0].clientY - rect.top;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
             } else {
-                offsetX = e.clientX - rect.left;
-                offsetY = e.clientY - rect.top;
+                startX = e.clientX;
+                startY = e.clientY;
             }
+            
+            offsetX = startX - rect.left;
+            offsetY = startY - rect.top;
         }
         
-        function drag(e) {
-            if (!isDragging || !draggedImage) return;
+        function startResize(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            activeInteraction = 'resize';
+            activeElement = e.currentTarget.parentElement;
+            
+            const rect = activeElement.getBoundingClientRect();
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+            
+            startWidth = rect.width;
+            startHeight = rect.height;
+        }
+        
+        function handleMove(e) {
+            if (!activeInteraction || !activeElement) return;
             
             e.preventDefault();
             let clientX, clientY;
@@ -274,29 +259,37 @@
                 clientY = e.clientY;
             }
             
-            const x = clientX - offsetX;
-            const y = clientY - offsetY;
-            
-            draggedImage.style.left = x + 'px';
-            draggedImage.style.top = y + 'px';
-            
-            // Обновляем позицию в Firebase
-            imagesRef.child(draggedImage.id).update({
-                x: x,
-                y: y
-            });
+            if (activeInteraction === 'drag') {
+                const x = clientX - offsetX;
+                const y = clientY - offsetY;
+                
+                activeElement.style.left = x + 'px';
+                activeElement.style.top = y + 'px';
+            } 
+            else if (activeInteraction === 'resize') {
+                const newWidth = Math.max(50, startWidth + (clientX - startX));
+                const newHeight = Math.max(50, startHeight + (clientY - startY));
+                
+                activeElement.style.width = newWidth + 'px';
+                activeElement.style.height = newHeight + 'px';
+            }
         }
         
-        function endDrag() {
-            isDragging = false;
-            draggedImage = null;
+        function endInteraction() {
+            if (activeInteraction && activeElement) {
+                // Сохраняем изменения в Firebase
+                const rect = activeElement.getBoundingClientRect();
+                imagesRef.child(activeElement.id).update({
+                    x: rect.left,
+                    y: rect.top,
+                    width: rect.width,
+                    height: rect.height
+                });
+            }
+            
+            activeInteraction = null;
+            activeElement = null;
         }
-        
-        // Глобальные обработчики
-        document.addEventListener('mousemove', drag);
-        document.addEventListener('touchmove', drag, { passive: false });
-        document.addEventListener('mouseup', endDrag);
-        document.addEventListener('touchend', endDrag);
         
         window.addEventListener('DOMContentLoaded', initApp);
     </script>

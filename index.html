@@ -10,13 +10,12 @@
             padding: 0;
             font-family: Arial, sans-serif;
             overflow: hidden;
-            background-color: #f0f0f0;
         }
         #app-container {
             display: flex;
             flex-direction: column;
-            width: 100vw;
-            height: 100vh;
+            width: 1920px;
+            height: 1080px;
         }
         #controls {
             background: #f0f0f0;
@@ -26,19 +25,10 @@
             align-items: center;
             height: 60px;
             box-sizing: border-box;
-            border-bottom: 1px solid #ccc;
-        }
-        #canvas-wrapper {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            background-color: #f0f0f0;
         }
         #canvas-container {
             width: 1920px;
-            height: 1020px;
+            height: 1020px; /* 1080 - 60 (панель управления) */
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
@@ -111,9 +101,7 @@
             <div id="status">Синхронизировано</div>
         </div>
         
-        <div id="canvas-wrapper">
-            <div id="canvas-container"></div>
-        </div>
+        <div id="canvas-container"></div>
     </div>
     
     <input type="file" id="file-input" accept="image/*">
@@ -122,7 +110,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     
     <script>
-        // Конфигурация Firebase
+        // Конфигурация Firebase (замените на свою)
         const firebaseConfig = {
           apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
           authDomain: "greenbackgroundapp.firebaseapp.com",
@@ -140,26 +128,30 @@
         const imagesRef = database.ref('images');
         
         let images = {};
-        let activeInteraction = null;
+        let activeInteraction = null; // 'drag' или 'resize'
         let activeElement = null;
         let offsetX = 0, offsetY = 0;
         let startWidth = 0, startHeight = 0;
         let startX = 0, startY = 0;
 
         function initApp() {
+            // Обработчики
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
             
+            // Слушаем изменения в Firebase
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 updateCanvas(data);
             });
             
+            // Глобальные обработчики
             document.addEventListener('mousemove', handleMove);
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
             document.addEventListener('touchend', endInteraction);
             
+            // Настройка масштабирования для мобильных устройств
             setupViewport();
         }
         
@@ -167,7 +159,7 @@
             const appContainer = document.getElementById('app-container');
             const scale = Math.min(
                 window.innerWidth / 1920,
-                (window.innerHeight - 60) / 1020
+                window.innerHeight / 1080
             );
             appContainer.style.transform = `scale(${scale})`;
             appContainer.style.transformOrigin = 'top left';
@@ -185,6 +177,7 @@
                     const x = 100;
                     const y = 100;
                     
+                    // Сохраняем в Firebase
                     imagesRef.child(id).set({
                         id: id,
                         src: event.target.result,
@@ -204,10 +197,12 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
+            // Удаляем отсутствующие изображения
             document.querySelectorAll('.draggable-image').forEach(img => {
                 if (!imagesData[img.id]) img.remove();
             });
             
+            // Добавляем/обновляем изображения
             for (const id in imagesData) {
                 const imgData = imagesData[id];
                 let img = document.getElementById(id);
@@ -234,11 +229,10 @@
             img.style.left = imgData.x + 'px';
             img.style.top = imgData.y + 'px';
             
-            // Элементы управления для изображения
+            // Добавляем элементы управления
             const controls = document.createElement('div');
             controls.className = 'image-controls';
             
-            // Кнопка скрытия/показа
             const hideBtn = document.createElement('div');
             hideBtn.className = 'control-btn';
             hideBtn.innerHTML = '👁';
@@ -251,7 +245,7 @@
             controls.appendChild(hideBtn);
             img.appendChild(controls);
             
-            // Элемент для изменения размера
+            // Добавляем элемент для изменения размера
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'resize-handle';
             resizeHandle.addEventListener('mousedown', startResize);
@@ -259,6 +253,7 @@
             
             img.appendChild(resizeHandle);
             
+            // Обработчики перетаскивания
             img.addEventListener('mousedown', startDrag);
             img.addEventListener('touchstart', startDrag, { passive: false });
             
@@ -350,6 +345,7 @@
                 activeElement.style.left = x + 'px';
                 activeElement.style.top = y + 'px';
                 
+                // Обновляем позицию в Firebase
                 imagesRef.child(activeElement.id).update({
                     x: x,
                     y: y
@@ -362,6 +358,7 @@
                 activeElement.style.width = newWidth + 'px';
                 activeElement.style.height = newHeight + 'px';
                 
+                // Обновляем размер в Firebase
                 imagesRef.child(activeElement.id).update({
                     width: newWidth,
                     height: newHeight

@@ -8,13 +8,20 @@
         body {
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            touch-action: none;
             font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #controls {
+            background: #f0f0f0;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
         }
         #canvas-container {
-            width: 100vw;
-            height: 100vh;
+            flex-grow: 1;
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
@@ -24,7 +31,10 @@
             cursor: move;
             user-select: none;
             touch-action: none;
-            transform: translate(0, 0);
+            transition: opacity 0.3s;
+        }
+        .hidden {
+            opacity: 0.3;
         }
         .resize-handle {
             position: absolute;
@@ -37,42 +47,53 @@
             cursor: nwse-resize;
             z-index: 10;
         }
-        #hidden-controls {
-            position: fixed;
-            bottom: -35px;
-            left: 0;
-            width: 100%;
-            height: 40px;
-            background: rgba(0,0,0,0.5);
-            transition: bottom 0.3s;
+        .image-controls {
+            position: absolute;
+            top: 5px;
+            right: 5px;
             display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+        .control-btn {
+            width: 24px;
+            height: 24px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
             justify-content: center;
-            gap: 10px;
-            padding: 5px 0;
+            font-size: 12px;
+            cursor: pointer;
         }
-        #hidden-controls:hover {
-            bottom: 0;
-        }
-        #hidden-controls button {
-            background: rgba(255,255,255,0.8);
+        button {
+            padding: 8px 12px;
             border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
+            border-radius: 4px;
+            background: #4285f4;
+            color: white;
+            font-size: 14px;
             cursor: pointer;
         }
         #file-input {
             display: none;
         }
+        #status {
+            margin-left: auto;
+            font-size: 14px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
-    <div id="canvas-container"></div>
-    
-    <!-- Скрытые элементы управления -->
-    <div id="hidden-controls">
-        <button onclick="document.getElementById('file-input').click()">+</button>
-        <button id="clear-btn">×</button>
+    <div id="controls">
+        <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
+        <button id="clear-btn">Очистить</button>
+        <div id="status">Синхронизировано</div>
     </div>
+    
+    <div id="canvas-container"></div>
     
     <input type="file" id="file-input" accept="image/*">
 
@@ -91,7 +112,6 @@
           appId: "1:857271333291:web:e754824268f37341c7e2ee",
           measurementId: "G-S5HL7Q45NE"
         };
-              
 
         // Инициализация Firebase
         firebase.initializeApp(firebaseConfig);
@@ -142,7 +162,8 @@
                         x: x,
                         y: y,
                         width: img.width,
-                        height: img.height
+                        height: img.height,
+                        hidden: false
                     });
                 };
                 img.src = event.target.result;
@@ -170,6 +191,7 @@
                 }
                 
                 updateImagePositionAndSize(img, imgData);
+                updateImageVisibility(img, imgData);
             }
             
             images = {...imagesData};
@@ -180,10 +202,26 @@
             img.id = imgData.id;
             img.className = 'draggable-image';
             img.src = imgData.src;
+            img.style.width = imgData.width + 'px';
+            img.style.height = imgData.height + 'px';
+            img.style.left = imgData.x + 'px';
+            img.style.top = imgData.y + 'px';
             
-            // Обработчики перетаскивания
-            img.addEventListener('mousedown', startDrag);
-            img.addEventListener('touchstart', startDrag, { passive: false });
+            // Добавляем элементы управления
+            const controls = document.createElement('div');
+            controls.className = 'image-controls';
+            
+            const hideBtn = document.createElement('div');
+            hideBtn.className = 'control-btn';
+            hideBtn.innerHTML = '👁';
+            hideBtn.title = 'Скрыть/показать';
+            hideBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleImageVisibility(imgData.id);
+            };
+            
+            controls.appendChild(hideBtn);
+            img.appendChild(controls);
             
             // Добавляем элемент для изменения размера
             const resizeHandle = document.createElement('div');
@@ -192,6 +230,11 @@
             resizeHandle.addEventListener('touchstart', startResize, { passive: false });
             
             img.appendChild(resizeHandle);
+            
+            // Обработчики перетаскивания
+            img.addEventListener('mousedown', startDrag);
+            img.addEventListener('touchstart', startDrag, { passive: false });
+            
             return img;
         }
         
@@ -204,13 +247,25 @@
             }
         }
         
+        function updateImageVisibility(img, imgData) {
+            img.classList.toggle('hidden', imgData.hidden);
+        }
+        
+        function toggleImageVisibility(imgId) {
+            const currentState = images[imgId]?.hidden || false;
+            imagesRef.child(imgId).update({ hidden: !currentState });
+        }
+        
         function clearCanvas() {
-            if (confirm("Очистить весь холст?")) {
+            if (confirm("Очистить холст для всех пользователей?")) {
                 imagesRef.remove();
             }
         }
         
         function startDrag(e) {
+            if (e.target.classList.contains('resize-handle') || 
+                e.target.classList.contains('control-btn')) return;
+            
             e.preventDefault();
             activeInteraction = 'drag';
             activeElement = e.currentTarget;
@@ -267,6 +322,12 @@
                 
                 activeElement.style.left = x + 'px';
                 activeElement.style.top = y + 'px';
+                
+                // Обновляем позицию в Firebase
+                imagesRef.child(activeElement.id).update({
+                    x: x,
+                    y: y
+                });
             } 
             else if (activeInteraction === 'resize') {
                 const newWidth = Math.max(50, startWidth + (clientX - startX));
@@ -274,21 +335,16 @@
                 
                 activeElement.style.width = newWidth + 'px';
                 activeElement.style.height = newHeight + 'px';
+                
+                // Обновляем размер в Firebase
+                imagesRef.child(activeElement.id).update({
+                    width: newWidth,
+                    height: newHeight
+                });
             }
         }
         
         function endInteraction() {
-            if (activeInteraction && activeElement) {
-                // Сохраняем изменения в Firebase
-                const rect = activeElement.getBoundingClientRect();
-                imagesRef.child(activeElement.id).update({
-                    x: rect.left,
-                    y: rect.top,
-                    width: rect.width,
-                    height: rect.height
-                });
-            }
-            
             activeInteraction = null;
             activeElement = null;
         }

@@ -9,19 +9,26 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+            overflow: hidden;
+            background: #f0f0f0;
+        }
+        #app-container {
+            width: 1920px;
+            height: 1140px; /* 1080 холст + 60 панель */
+            position: relative;
         }
         #controls {
-            background: #f0f0f0;
+            background: #333;
             padding: 10px;
             display: flex;
             gap: 10px;
             align-items: center;
+            height: 60px;
+            box-sizing: border-box;
         }
         #canvas-container {
-            flex-grow: 1;
+            width: 1920px;
+            height: 1080px;
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
@@ -82,18 +89,28 @@
         #status {
             margin-left: auto;
             font-size: 14px;
-            color: #666;
+            color: #ccc;
+        }
+        #viewport-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: top left;
         }
     </style>
 </head>
 <body>
-    <div id="controls">
-        <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
-        <button id="clear-btn">Очистить</button>
-        <div id="status">Синхронизировано</div>
+    <div id="viewport-wrapper">
+        <div id="app-container">
+            <div id="controls">
+                <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
+                <button id="clear-btn">Очистить</button>
+                <div id="status">Синхронизировано</div>
+            </div>
+            
+            <div id="canvas-container"></div>
+        </div>
     </div>
-    
-    <div id="canvas-container"></div>
     
     <input type="file" id="file-input" accept="image/*">
 
@@ -141,6 +158,18 @@
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
             document.addEventListener('touchend', endInteraction);
+            
+            // Настройка масштабирования
+            setupViewport();
+        }
+        
+        function setupViewport() {
+            const wrapper = document.getElementById('viewport-wrapper');
+            const scale = Math.min(
+                window.innerWidth / 1920,
+                window.innerHeight / 1140
+            );
+            wrapper.style.transform = `scale(${scale})`;
         }
         
         function handleFileUpload(e) {
@@ -350,6 +379,7 @@
         }
         
         window.addEventListener('DOMContentLoaded', initApp);
+        window.addEventListener('resize', setupViewport);
     </script>
 </body>
 </html>

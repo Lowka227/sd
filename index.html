@@ -26,6 +26,7 @@
             cursor: move;
             user-select: none;
             touch-action: none;
+            transform: translate(0, 0); /* Для плавного перемещения */
         }
         #controls {
             position: fixed;
@@ -69,38 +70,37 @@
         <button id="clear-btn">Очистить</button>
     </div>
     
-    <div id="status">Загрузка...</div>
+    <div id="status">Подключение...</div>
 
-    <!-- Добавляем Firebase -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     
     <script>
-        // Ваша конфигурация Firebase
+        // Ваша конфигурация Firebase (замените на свои значения)
         const firebaseConfig = {
-            apiKey: "ВАШ_API_KEY",
-            authDomain: "ВАШ_PROJECT_ID.firebaseapp.com",
-            databaseURL: "https://ВАШ_PROJECT_ID.firebaseio.com",
-            projectId: "ВАШ_PROJECT_ID",
-            storageBucket: "ВАШ_PROJECT_ID.appspot.com",
-            messagingSenderId: "ВАШ_SENDER_ID",
-            appId: "ВАШ_APP_ID"
-        };
+              apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
+              authDomain: "greenbackgroundapp.firebaseapp.com",
+              databaseURL: "https://greenbackgroundapp-default-rtdb.europe-west1.firebasedatabase.app",
+              projectId: "greenbackgroundapp",
+              storageBucket: "greenbackgroundapp.firebasestorage.app",
+              messagingSenderId: "857271333291",
+              appId: "1:857271333291:web:e754824268f37341c7e2ee",
+              measurementId: "G-S5HL7Q45NE"
+            };
 
         // Инициализация Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-        
-        // Ссылка на данные в Realtime Database
-        const canvasRef = database.ref('canvas');
-        const imagesRef = database.ref('canvas/images');
+        const imagesRef = database.ref('images');
         
         let images = {};
         let isDragging = false;
         let draggedImage = null;
-        let offsetX, offsetY;
+        let offsetX = 0, offsetY = 0;
         let userId = 'user_' + Math.random().toString(36).substr(2, 9);
-        
+        let ignoreNextUpdate = false;
+
         function initApp() {
             document.getElementById('status').textContent = "Подключение...";
             
@@ -115,6 +115,11 @@
             
             // Слушаем изменения в базе данных
             imagesRef.on('value', (snapshot) => {
+                if (ignoreNextUpdate) {
+                    ignoreNextUpdate = false;
+                    return;
+                }
+                
                 const data = snapshot.val() || {};
                 updateCanvas(data);
                 document.getElementById('status').textContent = "Синхронизировано";
@@ -136,7 +141,13 @@
                     
                     // Сохраняем в Firebase
                     imagesRef.child(id).set({
-                        id, src: imgData, x, y, owner: userId
+                        id: id,
+                        src: imgData,
+                        x: x,
+                        y: y,
+                        owner: userId,
+                        width: img.width > 300 ? 300 : img.width,
+                        height: img.height > 300 ? 300 : img.height
                     });
                 };
                 img.src = imgData;
@@ -148,7 +159,7 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
-            // Удаляем старые изображения
+            // Удаляем изображения, которых нет в новых данных
             const currentImages = container.querySelectorAll('.draggable-image');
             currentImages.forEach(img => {
                 if (!imagesData[img.id]) {
@@ -166,9 +177,16 @@
                     img.id = id;
                     img.className = 'draggable-image';
                     img.src = imgData.src;
+                    img.style.width = imgData.width ? imgData.width + 'px' : 'auto';
+                    img.style.height = imgData.height ? imgData.height + 'px' : 'auto';
                     container.appendChild(img);
+                    
+                    // Добавляем обработчики для нового изображения
+                    img.addEventListener('mousedown', startDrag);
+                    img.addEventListener('touchstart', startDrag, { passive: false });
                 }
                 
+                // Обновляем позицию, если это не текущее перетаскиваемое изображение
                 if (!isDragging || draggedImage?.id !== id) {
                     img.style.left = imgData.x + 'px';
                     img.style.top = imgData.y + 'px';
@@ -187,93 +205,62 @@
         function setupDragAndDrop() {
             const container = document.getElementById('canvas-container');
             
-            container.addEventListener('mousedown', startDrag);
-            container.addEventListener('touchstart', startDrag, { passive: false });
-            
             container.addEventListener('mousemove', drag);
             container.addEventListener('touchmove', drag, { passive: false });
             
             container.addEventListener('mouseup', endDrag);
             container.addEventListener('touchend', endDrag);
             container.addEventListener('mouseleave', endDrag);
+        }
+        
+        function startDrag(e) {
+            e.preventDefault();
+            isDragging = true;
+            draggedImage = e.target.closest('.draggable-image');
             
-            function startDrag(e) {
-                let clientX, clientY;
-                
-                if (e.type === 'touchstart') {
-                    e.preventDefault();
-                    clientX = e.touches[0].clientX;
-                    clientY = e.touches[0].clientY;
-                } else {
-                    clientX = e.clientX;
-                    clientY = e.clientY;
-                }
-                
-                const target = e.target.closest('.draggable-image');
-                if (target) {
-                    isDragging = true;
-                    draggedImage = target;
-                    
-                    const rect = target.getBoundingClientRect();
-                    offsetX = clientX - rect.left;
-                    offsetY = clientY - rect.top;
-                }
-            }
-            
-            function drag(e) {
-                if (!isDragging || !draggedImage) return;
-                
-                e.preventDefault();
-                let clientX, clientY;
-                
-                if (e.type === 'touchmove') {
-                    clientX = e.touches[0].clientX;
-                    clientY = e.touches[0].clientY;
-                } else {
-                    clientX = e.clientX;
-                    clientY = e.clientY;
-                }
-                
-                const x = clientX - offsetX;
-                const y = clientY - offsetY;
-                
-                draggedImage.style.left = x + 'px';
-                draggedImage.style.top = y + 'px';
-                
-                // Обновляем позицию в Firebase
-                imagesRef.child(draggedImage.id).update({
-                    x: x,
-                    y: y
-                });
-            }
-            
-            function endDrag() {
-                isDragging = false;
-                draggedImage = null;
+            if (e.type === 'touchstart') {
+                offsetX = e.touches[0].clientX - draggedImage.getBoundingClientRect().left;
+                offsetY = e.touches[0].clientY - draggedImage.getBoundingClientRect().top;
+            } else {
+                offsetX = e.clientX - draggedImage.getBoundingClientRect().left;
+                offsetY = e.clientY - draggedImage.getBoundingClientRect().top;
             }
         }
         
+        function drag(e) {
+            if (!isDragging || !draggedImage) return;
+            
+            e.preventDefault();
+            let clientX, clientY;
+            
+            if (e.type === 'touchmove') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            const x = clientX - offsetX;
+            const y = clientY - offsetY;
+            
+            draggedImage.style.left = x + 'px';
+            draggedImage.style.top = y + 'px';
+            
+            // Обновляем позицию в Firebase
+            ignoreNextUpdate = true;
+            imagesRef.child(draggedImage.id).update({
+                x: x,
+                y: y
+            });
+        }
+        
+        function endDrag() {
+            isDragging = false;
+            draggedImage = null;
+        }
+        
         window.addEventListener('DOMContentLoaded', initApp);
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
-    
-    <script>
-      // Ваша конфигурация
-      const firebaseConfig = {
-        apiKey: "ваш-api-key",
-        authDomain: "ваш-project-id.firebaseapp.com",
-        databaseURL: "https://ваш-project-id.firebaseio.com",
-        projectId: "ваш-project-id",
-        storageBucket: "ваш-project-id.appspot.com",
-        messagingSenderId: "ваш-sender-id",
-        appId: "ваш-app-id"
-      };
-    
-      // Инициализация Firebase
-      const app = firebase.initializeApp(firebaseConfig);
-      const db = firebase.database();
     </script>
 </body>
 </html>

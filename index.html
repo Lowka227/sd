@@ -10,15 +10,15 @@
             padding: 0;
             font-family: Arial, sans-serif;
             overflow: hidden;
-            background: #f0f0f0;
         }
         #app-container {
+            display: flex;
+            flex-direction: column;
             width: 1920px;
-            height: 1140px; /* 1080 холст + 60 панель */
-            position: relative;
+            height: 1080px;
         }
         #controls {
-            background: #333;
+            background: #f0f0f0;
             padding: 10px;
             display: flex;
             gap: 10px;
@@ -28,7 +28,7 @@
         }
         #canvas-container {
             width: 1920px;
-            height: 1080px;
+            height: 1020px; /* 1080 - 60 (панель управления) */
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
@@ -89,27 +89,19 @@
         #status {
             margin-left: auto;
             font-size: 14px;
-            color: #ccc;
-        }
-        #viewport-wrapper {
-            position: absolute;
-            top: 0;
-            left: 0;
-            transform-origin: top left;
+            color: #666;
         }
     </style>
 </head>
 <body>
-    <div id="viewport-wrapper">
-        <div id="app-container">
-            <div id="controls">
-                <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
-                <button id="clear-btn">Очистить</button>
-                <div id="status">Синхронизировано</div>
-            </div>
-            
-            <div id="canvas-container"></div>
+    <div id="app-container">
+        <div id="controls">
+            <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
+            <button id="clear-btn">Очистить</button>
+            <div id="status">Синхронизировано</div>
         </div>
+        
+        <div id="canvas-container"></div>
     </div>
     
     <input type="file" id="file-input" accept="image/*">
@@ -159,17 +151,18 @@
             document.addEventListener('mouseup', endInteraction);
             document.addEventListener('touchend', endInteraction);
             
-            // Настройка масштабирования
+            // Настройка масштабирования для мобильных устройств
             setupViewport();
         }
         
         function setupViewport() {
-            const wrapper = document.getElementById('viewport-wrapper');
+            const appContainer = document.getElementById('app-container');
             const scale = Math.min(
                 window.innerWidth / 1920,
-                window.innerHeight / 1140
+                window.innerHeight / 1080
             );
-            wrapper.style.transform = `scale(${scale})`;
+            appContainer.style.transform = `scale(${scale})`;
+            appContainer.style.transformOrigin = 'top left';
         }
         
         function handleFileUpload(e) {

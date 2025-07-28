@@ -26,6 +26,12 @@
             height: 60px;
             box-sizing: border-box;
         }
+        #image-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+            display: none; /* Скрыто по умолчанию */
+        }
         #canvas-container {
             width: 1920px;
             height: 1020px;
@@ -40,8 +46,11 @@
             touch-action: none;
             transition: opacity 0.3s;
         }
+        .selected {
+            outline: 2px dashed #4285f4;
+        }
         .hidden {
-            visibility: hidden;
+            opacity: 0.3;
         }
         .resize-handle {
             position: absolute;
@@ -53,27 +62,6 @@
             border-radius: 50%;
             cursor: nwse-resize;
             z-index: 10;
-        }
-        .image-controls {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            display: flex;
-            gap: 5px;
-            z-index: 10;
-        }
-        .control-btn {
-            width: 24px;
-            height: 24px;
-            background: rgba(0,0,0,0.5);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            cursor: pointer;
-            pointer-events: auto;
         }
         button {
             padding: 8px 12px;
@@ -121,6 +109,13 @@
         <div id="controls">
             <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
             <button id="clear-btn">Очистить</button>
+            
+            <div id="image-controls">
+                <button id="hide-btn">Скрыть</button>
+                <button id="delete-btn">Удалить</button>
+                <button id="settings-btn">Настройки</button>
+            </div>
+            
             <div id="status">Синхронизировано</div>
         </div>
         
@@ -166,11 +161,11 @@
         let selectedImageId = null;
 
         function initApp() {
+            // Обработчики
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
             document.getElementById('close-properties').addEventListener('click', () => {
                 document.getElementById('properties-panel').style.display = 'none';
-                selectedImageId = null;
             });
             document.getElementById('opacity-slider').addEventListener('input', (e) => {
                 if (selectedImageId) {
@@ -179,11 +174,41 @@
                 }
             });
             
+            // Кнопки управления изображением
+            document.getElementById('hide-btn').addEventListener('click', () => {
+                if (selectedImageId) {
+                    const currentState = images[selectedImageId]?.hidden || false;
+                    imagesRef.child(selectedImageId).update({ hidden: !currentState });
+                }
+            });
+            
+            document.getElementById('delete-btn').addEventListener('click', () => {
+                if (selectedImageId && confirm("Удалить это изображение?")) {
+                    imagesRef.child(selectedImageId).remove();
+                    document.getElementById('image-controls').style.display = 'none';
+                    selectedImageId = null;
+                }
+            });
+            
+            document.getElementById('settings-btn').addEventListener('click', () => {
+                if (selectedImageId) {
+                    const panel = document.getElementById('properties-panel');
+                    const slider = document.getElementById('opacity-slider');
+                    
+                    const imgData = images[selectedImageId];
+                    slider.value = (imgData.opacity !== undefined ? imgData.opacity : 1) * 100;
+                    
+                    panel.style.display = 'block';
+                }
+            });
+            
+            // Слушаем изменения в Firebase
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 updateCanvas(data);
             });
             
+            // Глобальные обработчики
             document.addEventListener('mousemove', handleMove);
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
@@ -235,7 +260,13 @@
             const container = document.getElementById('canvas-container');
             
             document.querySelectorAll('.draggable-image').forEach(img => {
-                if (!imagesData[img.id]) img.remove();
+                if (!imagesData[img.id]) {
+                    img.remove();
+                    if (selectedImageId === img.id) {
+                        document.getElementById('image-controls').style.display = 'none';
+                        selectedImageId = null;
+                    }
+                }
             });
             
             for (const id in imagesData) {
@@ -250,6 +281,9 @@
                 updateImagePositionAndSize(img, imgData);
                 updateImageVisibility(img, imgData);
                 updateImageOpacity(img, imgData);
+                
+                // Обновляем выделение
+                img.classList.toggle('selected', id === selectedImageId);
             }
             
             images = {...imagesData};
@@ -272,40 +306,48 @@
             img.style.objectFit = 'contain';
             imgWrapper.appendChild(img);
             
-            const controls = document.createElement('div');
-            controls.className = 'image-controls';
-            
-            const hideBtn = document.createElement('div');
-            hideBtn.className = 'control-btn';
-            hideBtn.innerHTML = '👁';
-            hideBtn.title = 'Скрыть/показать';
-            hideBtn.onclick = (e) => {
-                e.stopPropagation();
-                toggleImageVisibility(imgData.id);
-            };
-            
-            const settingsBtn = document.createElement('div');
-            settingsBtn.className = 'control-btn';
-            settingsBtn.innerHTML = '⚙️';
-            settingsBtn.title = 'Настройки';
-            settingsBtn.onclick = (e) => {
-                e.stopPropagation();
-                showPropertiesPanel(imgData.id);
-            };
-            
-            controls.appendChild(hideBtn);
-            controls.appendChild(settingsBtn);
-            imgWrapper.appendChild(controls);
-            
+            // Добавляем элемент для изменения размера
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'resize-handle';
             resizeHandle.addEventListener('mousedown', startResize);
             resizeHandle.addEventListener('touchstart', startResize, { passive: false });
-            
             imgWrapper.appendChild(resizeHandle);
             
-            imgWrapper.addEventListener('mousedown', startDrag);
-            imgWrapper.addEventListener('touchstart', startDrag, { passive: false });
+            // Обработчики выбора изображения
+            imgWrapper.addEventListener('mousedown', (e) => {
+                if (e.target === resizeHandle) return;
+                
+                // Выделяем изображение
+                document.querySelectorAll('.draggable-image').forEach(img => {
+                    img.classList.remove('selected');
+                });
+                imgWrapper.classList.add('selected');
+                
+                // Показываем кнопки управления
+                document.getElementById('image-controls').style.display = 'flex';
+                selectedImageId = imgWrapper.id;
+                
+                // Если не начали перетаскивание
+                if (e.target === imgWrapper || e.target === img) {
+                    startDrag(e);
+                }
+            });
+            
+            imgWrapper.addEventListener('touchstart', (e) => {
+                if (e.target === resizeHandle) return;
+                
+                document.querySelectorAll('.draggable-image').forEach(img => {
+                    img.classList.remove('selected');
+                });
+                imgWrapper.classList.add('selected');
+                
+                document.getElementById('image-controls').style.display = 'flex';
+                selectedImageId = imgWrapper.id;
+                
+                if (e.target === imgWrapper || e.target === img) {
+                    startDrag(e);
+                }
+            }, { passive: false });
             
             return imgWrapper;
         }
@@ -327,31 +369,16 @@
             img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
         }
         
-        function toggleImageVisibility(imgId) {
-            const currentState = images[imgId]?.hidden || false;
-            imagesRef.child(imgId).update({ hidden: !currentState });
-        }
-        
-        function showPropertiesPanel(imgId) {
-            selectedImageId = imgId;
-            const panel = document.getElementById('properties-panel');
-            const slider = document.getElementById('opacity-slider');
-            
-            const imgData = images[imgId];
-            slider.value = (imgData.opacity !== undefined ? imgData.opacity : 1) * 100;
-            
-            panel.style.display = 'block';
-        }
-        
         function clearCanvas() {
             if (confirm("Очистить холст для всех пользователей?")) {
                 imagesRef.remove();
+                document.getElementById('image-controls').style.display = 'none';
+                selectedImageId = null;
             }
         }
         
         function startDrag(e) {
-            if (e.target.classList.contains('resize-handle') || 
-                e.target.classList.contains('control-btn')) return;
+            if (e.target.classList.contains('resize-handle')) return;
             
             e.preventDefault();
             activeInteraction = 'drag';

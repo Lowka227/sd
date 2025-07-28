@@ -59,8 +59,8 @@
         }
         .resize-area {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 30px;
+            height: 30px;
             right: 0;
             bottom: 0;
             cursor: nwse-resize;
@@ -160,6 +160,7 @@
         let activeElement = null;
         let startX = 0, startY = 0;
         let startWidth = 0, startHeight = 0;
+        let startAspectRatio = 1;
         let selectedImageId = null;
 
         function initApp() {
@@ -185,7 +186,7 @@
                     if (!imgElement) return;
                     
                     const currentOpacity = parseFloat(imgElement.style.opacity);
-                    const newOpacity = currentOpacity > 0 ? 0 : 0.9; // Установка 90% при показе
+                    const newOpacity = currentOpacity > 0 ? 0 : 0.9;
                     
                     imgElement.style.opacity = newOpacity;
                     imagesRef.child(selectedImageId).update({ 
@@ -395,6 +396,7 @@
             
             startWidth = rect.width;
             startHeight = rect.height;
+            startAspectRatio = startWidth / startHeight;
         }
         
         function handleMove(e) {
@@ -431,20 +433,27 @@
                 });
             } 
             else if (activeInteraction === 'resize') {
-                const newWidth = Math.max(50, startWidth + (clientX - startX));
-                const newHeight = Math.max(50, startHeight + (clientY - startY));
+                const deltaX = clientX - startX;
+                const deltaY = clientY - startY;
                 
-                // Сохраняем пропорции при изменении размера
-                const aspectRatio = startWidth / startHeight;
-                const finalWidth = aspectRatio > 1 ? newWidth : newHeight * aspectRatio;
-                const finalHeight = aspectRatio > 1 ? newWidth / aspectRatio : newHeight;
+                // Изменение размера с сохранением пропорций
+                const scale = 1 + deltaX / startWidth;
+                let newWidth = startWidth * scale;
+                let newHeight = startHeight * scale;
                 
-                activeElement.style.width = finalWidth + 'px';
-                activeElement.style.height = finalHeight + 'px';
+                // Ограничение минимального размера
+                if (newWidth < 50 || newHeight < 50) {
+                    const minScale = Math.max(50/startWidth, 50/startHeight);
+                    newWidth = startWidth * minScale;
+                    newHeight = startHeight * minScale;
+                }
+                
+                activeElement.style.width = newWidth + 'px';
+                activeElement.style.height = newHeight + 'px';
                 
                 imagesRef.child(activeElement.id).update({
-                    width: finalWidth,
-                    height: finalHeight
+                    width: newWidth,
+                    height: newHeight
                 });
             }
         }

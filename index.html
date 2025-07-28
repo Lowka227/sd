@@ -45,13 +45,10 @@
             user-select: none;
             touch-action: none;
             transition: opacity 0.3s;
+            opacity: 0.8;
         }
         .selected {
             outline: 2px dashed #4285f4;
-        }
-        .hidden {
-            opacity: 0.3;
-            pointer-events: none;
         }
         .resize-handle {
             position: absolute;
@@ -127,7 +124,7 @@
         <h3>Свойства изображения</h3>
         <label>
             Прозрачность:
-            <input type="range" id="opacity-slider" min="0" max="100" value="100">
+            <input type="range" id="opacity-slider" min="0" max="100" value="80">
         </label>
         <button id="close-properties">Закрыть</button>
     </div>
@@ -170,38 +167,29 @@
             document.getElementById('opacity-slider').addEventListener('input', (e) => {
                 if (selectedImageId) {
                     const opacity = e.target.value / 100;
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (imgElement) {
+                        imgElement.style.opacity = opacity;
+                    }
                     imagesRef.child(selectedImageId).update({ opacity: opacity });
                 }
             });
             
-            // Исправленный обработчик кнопки скрытия/показа
+            // Рабочая кнопка Скрыть/Показать
             document.getElementById('hide-btn').addEventListener('click', () => {
                 if (selectedImageId) {
-                    const currentHiddenState = images[selectedImageId]?.hidden || false;
-                    const newHiddenState = !currentHiddenState;
-                    
-                    // Мгновенное обновление интерфейса
                     const imgElement = document.getElementById(selectedImageId);
-                    if (imgElement) {
-                        imgElement.classList.toggle('hidden', newHiddenState);
-                        // Обновляем локальное состояние
-                        if (images[selectedImageId]) {
-                            images[selectedImageId].hidden = newHiddenState;
-                        }
-                    }
+                    if (!imgElement) return;
                     
-                    // Обновление в Firebase
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.8;
+                    const newOpacity = currentOpacity > 0 ? 0 : 0.8;
+                    
+                    imgElement.style.opacity = newOpacity;
                     imagesRef.child(selectedImageId).update({ 
-                        hidden: newHiddenState 
+                        opacity: newOpacity 
                     }).catch(error => {
-                        console.error("Ошибка при обновлении:", error);
-                        // Откат изменений при ошибке
-                        if (imgElement) {
-                            imgElement.classList.toggle('hidden', currentHiddenState);
-                            if (images[selectedImageId]) {
-                                images[selectedImageId].hidden = currentHiddenState;
-                            }
-                        }
+                        console.error("Ошибка обновления:", error);
+                        imgElement.style.opacity = currentOpacity;
                     });
                 }
             });
@@ -219,8 +207,9 @@
                     const panel = document.getElementById('properties-panel');
                     const slider = document.getElementById('opacity-slider');
                     
-                    const imgData = images[selectedImageId];
-                    slider.value = (imgData.opacity !== undefined ? imgData.opacity : 1) * 100;
+                    const imgElement = document.getElementById(selectedImageId);
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.8;
+                    slider.value = currentOpacity * 100;
                     
                     panel.style.display = 'block';
                 }
@@ -243,7 +232,7 @@
             const appContainer = document.getElementById('app-container');
             const scale = Math.min(
                 window.innerWidth / 1920,
-                window.innerHeight / 1140
+                window.innerHeight / 1080
             );
             appContainer.style.transform = `scale(${scale})`;
             appContainer.style.transformOrigin = 'top left';
@@ -268,8 +257,7 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        hidden: false,
-                        opacity: 1
+                        opacity: 0.8
                     });
                 };
                 img.src = event.target.result;
@@ -281,7 +269,6 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
-            // Удаляем изображения, которых больше нет в данных
             document.querySelectorAll('.draggable-image').forEach(img => {
                 if (!imagesData[img.id]) {
                     img.remove();
@@ -292,7 +279,6 @@
                 }
             });
             
-            // Обновляем или создаем изображения
             for (const id in imagesData) {
                 const imgData = imagesData[id];
                 let img = document.getElementById(id);
@@ -303,7 +289,6 @@
                 }
                 
                 updateImagePositionAndSize(img, imgData);
-                updateImageVisibility(img, imgData);
                 updateImageOpacity(img, imgData);
                 
                 img.classList.toggle('selected', id === selectedImageId);
@@ -320,7 +305,7 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.8;
             
             const img = document.createElement('img');
             img.src = imgData.src;
@@ -379,16 +364,8 @@
             }
         }
         
-        function updateImageVisibility(img, imgData) {
-            if (imgData.hidden) {
-                img.classList.add('hidden');
-            } else {
-                img.classList.remove('hidden');
-            }
-        }
-        
         function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.8;
         }
         
         function clearCanvas() {

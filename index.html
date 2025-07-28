@@ -2,85 +2,258 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Загрузка изображения на зелёный фон</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Синхронизированный холст</title>
     <style>
         body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none;
             font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
         }
-        #canvas {
-            background-color: #00ff00; /* Зелёный фон */
-            display: block;
-            margin: 20px auto;
-            border: 2px solid #333;
-            max-width: 100%;
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            background-color: #00ff00;
+            position: relative;
+            overflow: hidden;
         }
-        .controls {
-            margin: 20px;
+        .draggable-image {
+            position: absolute;
+            max-width: 300px;
+            max-height: 300px;
+            cursor: move;
+            user-select: none;
+            touch-action: none;
         }
-        button, input {
+        #controls {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.8);
             padding: 10px;
-            font-size: 16px;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background: #4285f4;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        #status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <h1>Загрузите изображение на зелёный фон 1920×1080</h1>
+    <div id="canvas-container"></div>
     
-    <!-- Холст для отрисовки -->
-    <canvas id="canvas" width="1920" height="1080"></canvas>
-    
-    <div class="controls">
-        <!-- Поле для загрузки изображения -->
-        <input type="file" id="imageInput" accept="image/*" />
-        <!-- Кнопка для скачивания результата -->
-        <button id="downloadBtn">Скачать результат</button>
+    <div id="controls">
+        <input type="file" id="file-input" accept="image/*" style="display: none;">
+        <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
+        <button id="clear-btn">Очистить</button>
     </div>
+    
+    <div id="status">Загрузка...</div>
 
+    <!-- Добавляем Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const imageInput = document.getElementById('imageInput');
-        const downloadBtn = document.getElementById('downloadBtn');
+        // Ваша конфигурация Firebase
+        const firebaseConfig = {
+            apiKey: "ВАШ_API_KEY",
+            authDomain: "ВАШ_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://ВАШ_PROJECT_ID.firebaseio.com",
+            projectId: "ВАШ_PROJECT_ID",
+            storageBucket: "ВАШ_PROJECT_ID.appspot.com",
+            messagingSenderId: "ВАШ_SENDER_ID",
+            appId: "ВАШ_APP_ID"
+        };
 
-        // Изначально заливаем холст зелёным
-        ctx.fillStyle = '#00ff00';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Обработчик загрузки изображения
-        imageInput.addEventListener('change', function(e) {
+        // Инициализация Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Ссылка на данные в Realtime Database
+        const canvasRef = database.ref('canvas');
+        const imagesRef = database.ref('canvas/images');
+        
+        let images = {};
+        let isDragging = false;
+        let draggedImage = null;
+        let offsetX, offsetY;
+        let userId = 'user_' + Math.random().toString(36).substr(2, 9);
+        
+        function initApp() {
+            document.getElementById('status').textContent = "Подключение...";
+            
+            // Обработчик загрузки файлов
+            document.getElementById('file-input').addEventListener('change', handleFileUpload);
+            
+            // Обработчик очистки
+            document.getElementById('clear-btn').addEventListener('click', clearCanvas);
+            
+            // Инициализация перетаскивания
+            setupDragAndDrop();
+            
+            // Слушаем изменения в базе данных
+            imagesRef.on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                updateCanvas(data);
+                document.getElementById('status').textContent = "Синхронизировано";
+            });
+        }
+        
+        function handleFileUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-
+            
             const reader = new FileReader();
-            reader.onload = function(event) {
+            reader.onload = (event) => {
+                const imgData = event.target.result;
                 const img = new Image();
-                img.onload = function() {
-                    // Очищаем холст и снова заливаем зелёным
-                    ctx.fillStyle = '#00ff00';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                    // Рассчитываем позицию для центрирования изображения
-                    const x = (canvas.width - img.width) / 2;
-                    const y = (canvas.height - img.height) / 2;
-
-                    // Рисуем изображение поверх фона
-                    ctx.drawImage(img, x, y);
+                img.onload = () => {
+                    const id = 'img_' + Date.now() + '_' + userId;
+                    const x = 100;
+                    const y = 100;
+                    
+                    // Сохраняем в Firebase
+                    imagesRef.child(id).set({
+                        id, src: imgData, x, y, owner: userId
+                    });
                 };
-                img.src = event.target.result;
+                img.src = imgData;
             };
             reader.readAsDataURL(file);
-        });
-
-        // Скачивание результата
-        downloadBtn.addEventListener('click', function() {
-            const link = document.createElement('a');
-            link.download = 'image_on_green_background.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-        });
+            e.target.value = '';
+        }
+        
+        function updateCanvas(imagesData) {
+            const container = document.getElementById('canvas-container');
+            
+            // Удаляем старые изображения
+            const currentImages = container.querySelectorAll('.draggable-image');
+            currentImages.forEach(img => {
+                if (!imagesData[img.id]) {
+                    img.remove();
+                }
+            });
+            
+            // Добавляем/обновляем изображения
+            for (const id in imagesData) {
+                const imgData = imagesData[id];
+                let img = document.getElementById(id);
+                
+                if (!img) {
+                    img = document.createElement('img');
+                    img.id = id;
+                    img.className = 'draggable-image';
+                    img.src = imgData.src;
+                    container.appendChild(img);
+                }
+                
+                if (!isDragging || draggedImage?.id !== id) {
+                    img.style.left = imgData.x + 'px';
+                    img.style.top = imgData.y + 'px';
+                }
+            }
+            
+            images = {...imagesData};
+        }
+        
+        function clearCanvas() {
+            if (confirm("Очистить холст для всех пользователей?")) {
+                imagesRef.remove();
+            }
+        }
+        
+        function setupDragAndDrop() {
+            const container = document.getElementById('canvas-container');
+            
+            container.addEventListener('mousedown', startDrag);
+            container.addEventListener('touchstart', startDrag, { passive: false });
+            
+            container.addEventListener('mousemove', drag);
+            container.addEventListener('touchmove', drag, { passive: false });
+            
+            container.addEventListener('mouseup', endDrag);
+            container.addEventListener('touchend', endDrag);
+            container.addEventListener('mouseleave', endDrag);
+            
+            function startDrag(e) {
+                let clientX, clientY;
+                
+                if (e.type === 'touchstart') {
+                    e.preventDefault();
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+                
+                const target = e.target.closest('.draggable-image');
+                if (target) {
+                    isDragging = true;
+                    draggedImage = target;
+                    
+                    const rect = target.getBoundingClientRect();
+                    offsetX = clientX - rect.left;
+                    offsetY = clientY - rect.top;
+                }
+            }
+            
+            function drag(e) {
+                if (!isDragging || !draggedImage) return;
+                
+                e.preventDefault();
+                let clientX, clientY;
+                
+                if (e.type === 'touchmove') {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+                
+                const x = clientX - offsetX;
+                const y = clientY - offsetY;
+                
+                draggedImage.style.left = x + 'px';
+                draggedImage.style.top = y + 'px';
+                
+                // Обновляем позицию в Firebase
+                imagesRef.child(draggedImage.id).update({
+                    x: x,
+                    y: y
+                });
+            }
+            
+            function endDrag() {
+                isDragging = false;
+                draggedImage = null;
+            }
+        }
+        
+        window.addEventListener('DOMContentLoaded', initApp);
     </script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>

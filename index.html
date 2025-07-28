@@ -28,7 +28,7 @@
         }
         #canvas-container {
             width: 1920px;
-            height: 1020px; /* 1080 - 60 (панель управления) */
+            height: 1020px;
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
@@ -41,8 +41,7 @@
             transition: opacity 0.3s;
         }
         .hidden {
-            opacity: 0;
-            pointer-events: none;
+            visibility: hidden;
         }
         .resize-handle {
             position: absolute;
@@ -74,6 +73,7 @@
             justify-content: center;
             font-size: 12px;
             cursor: pointer;
+            pointer-events: auto;
         }
         button {
             padding: 8px 12px;
@@ -91,13 +91,6 @@
             margin-left: auto;
             font-size: 14px;
             color: #666;
-        }
-        .opacity-slider {
-            position: absolute;
-            bottom: 5px;
-            left: 5px;
-            width: 100px;
-            z-index: 10;
         }
         .properties-panel {
             position: absolute;
@@ -149,25 +142,23 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     
     <script>
-        // Конфигурация Firebase (замените на свою)
         const firebaseConfig = {
-          apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
-          authDomain: "greenbackgroundapp.firebaseapp.com",
-          databaseURL: "https://greenbackgroundapp-default-rtdb.europe-west1.firebasedatabase.app",
-          projectId: "greenbackgroundapp",
-          storageBucket: "greenbackgroundapp.appspot.com",
-          messagingSenderId: "857271333291",
-          appId: "1:857271333291:web:e754824268f37341c7e2ee",
-          measurementId: "G-S5HL7Q45NE"
+            apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
+            authDomain: "greenbackgroundapp.firebaseapp.com",
+            databaseURL: "https://greenbackgroundapp-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "greenbackgroundapp",
+            storageBucket: "greenbackgroundapp.appspot.com",
+            messagingSenderId: "857271333291",
+            appId: "1:857271333291:web:e754824268f37341c7e2ee",
+            measurementId: "G-S5HL7Q45NE"
         };
 
-        // Инициализация Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         const imagesRef = database.ref('images');
         
         let images = {};
-        let activeInteraction = null; // 'drag' или 'resize'
+        let activeInteraction = null;
         let activeElement = null;
         let offsetX = 0, offsetY = 0;
         let startWidth = 0, startHeight = 0;
@@ -175,7 +166,6 @@
         let selectedImageId = null;
 
         function initApp() {
-            // Обработчики
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
             document.getElementById('close-properties').addEventListener('click', () => {
@@ -189,19 +179,16 @@
                 }
             });
             
-            // Слушаем изменения в Firebase
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 updateCanvas(data);
             });
             
-            // Глобальные обработчики
             document.addEventListener('mousemove', handleMove);
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
             document.addEventListener('touchend', endInteraction);
             
-            // Настройка масштабирования для мобильных устройств
             setupViewport();
         }
         
@@ -227,7 +214,6 @@
                     const x = 100;
                     const y = 100;
                     
-                    // Сохраняем в Firebase
                     imagesRef.child(id).set({
                         id: id,
                         src: event.target.result,
@@ -248,12 +234,10 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
-            // Удаляем отсутствующие изображения
             document.querySelectorAll('.draggable-image').forEach(img => {
                 if (!imagesData[img.id]) img.remove();
             });
             
-            // Добавляем/обновляем изображения
             for (const id in imagesData) {
                 const imgData = imagesData[id];
                 let img = document.getElementById(id);
@@ -279,6 +263,7 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
             
             const img = document.createElement('img');
             img.src = imgData.src;
@@ -287,7 +272,6 @@
             img.style.objectFit = 'contain';
             imgWrapper.appendChild(img);
             
-            // Добавляем элементы управления
             const controls = document.createElement('div');
             controls.className = 'image-controls';
             
@@ -313,7 +297,6 @@
             controls.appendChild(settingsBtn);
             imgWrapper.appendChild(controls);
             
-            // Добавляем элемент для изменения размера
             const resizeHandle = document.createElement('div');
             resizeHandle.className = 'resize-handle';
             resizeHandle.addEventListener('mousedown', startResize);
@@ -321,7 +304,6 @@
             
             imgWrapper.appendChild(resizeHandle);
             
-            // Обработчики перетаскивания
             imgWrapper.addEventListener('mousedown', startDrag);
             imgWrapper.addEventListener('touchstart', startDrag, { passive: false });
             
@@ -428,7 +410,6 @@
                 activeElement.style.left = x + 'px';
                 activeElement.style.top = y + 'px';
                 
-                // Обновляем позицию в Firebase
                 imagesRef.child(activeElement.id).update({
                     x: x,
                     y: y
@@ -441,7 +422,6 @@
                 activeElement.style.width = newWidth + 'px';
                 activeElement.style.height = newHeight + 'px';
                 
-                // Обновляем размер в Firebase
                 imagesRef.child(activeElement.id).update({
                     width: newWidth,
                     height: newHeight

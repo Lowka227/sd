@@ -41,7 +41,8 @@
             transition: opacity 0.3s;
         }
         .hidden {
-            opacity: 0.3;
+            opacity: 0;
+            pointer-events: none;
         }
         .resize-handle {
             position: absolute;
@@ -91,6 +92,35 @@
             font-size: 14px;
             color: #666;
         }
+        .opacity-slider {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            width: 100px;
+            z-index: 10;
+        }
+        .properties-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            display: none;
+        }
+        .properties-panel h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .properties-panel label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .properties-panel input[type="range"] {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -102,6 +132,15 @@
         </div>
         
         <div id="canvas-container"></div>
+    </div>
+    
+    <div class="properties-panel" id="properties-panel">
+        <h3>Свойства изображения</h3>
+        <label>
+            Прозрачность:
+            <input type="range" id="opacity-slider" min="0" max="100" value="100">
+        </label>
+        <button id="close-properties">Закрыть</button>
     </div>
     
     <input type="file" id="file-input" accept="image/*">
@@ -133,11 +172,22 @@
         let offsetX = 0, offsetY = 0;
         let startWidth = 0, startHeight = 0;
         let startX = 0, startY = 0;
+        let selectedImageId = null;
 
         function initApp() {
             // Обработчики
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
+            document.getElementById('close-properties').addEventListener('click', () => {
+                document.getElementById('properties-panel').style.display = 'none';
+                selectedImageId = null;
+            });
+            document.getElementById('opacity-slider').addEventListener('input', (e) => {
+                if (selectedImageId) {
+                    const opacity = e.target.value / 100;
+                    imagesRef.child(selectedImageId).update({ opacity: opacity });
+                }
+            });
             
             // Слушаем изменения в Firebase
             imagesRef.on('value', (snapshot) => {
@@ -185,7 +235,8 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        hidden: false
+                        hidden: false,
+                        opacity: 1
                     });
                 };
                 img.src = event.target.result;
@@ -214,6 +265,7 @@
                 
                 updateImagePositionAndSize(img, imgData);
                 updateImageVisibility(img, imgData);
+                updateImageOpacity(img, imgData);
             }
             
             images = {...imagesData};
@@ -228,6 +280,7 @@
             img.style.height = imgData.height + 'px';
             img.style.left = imgData.x + 'px';
             img.style.top = imgData.y + 'px';
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
             
             // Добавляем элементы управления
             const controls = document.createElement('div');
@@ -242,7 +295,17 @@
                 toggleImageVisibility(imgData.id);
             };
             
+            const settingsBtn = document.createElement('div');
+            settingsBtn.className = 'control-btn';
+            settingsBtn.innerHTML = '⚙️';
+            settingsBtn.title = 'Настройки';
+            settingsBtn.onclick = (e) => {
+                e.stopPropagation();
+                showPropertiesPanel(imgData.id);
+            };
+            
             controls.appendChild(hideBtn);
+            controls.appendChild(settingsBtn);
             img.appendChild(controls);
             
             // Добавляем элемент для изменения размера
@@ -273,9 +336,24 @@
             img.classList.toggle('hidden', imgData.hidden);
         }
         
+        function updateImageOpacity(img, imgData) {
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
+        }
+        
         function toggleImageVisibility(imgId) {
             const currentState = images[imgId]?.hidden || false;
             imagesRef.child(imgId).update({ hidden: !currentState });
+        }
+        
+        function showPropertiesPanel(imgId) {
+            selectedImageId = imgId;
+            const panel = document.getElementById('properties-panel');
+            const slider = document.getElementById('opacity-slider');
+            
+            const imgData = images[imgId];
+            slider.value = (imgData.opacity !== undefined ? imgData.opacity : 1) * 100;
+            
+            panel.style.display = 'block';
         }
         
         function clearCanvas() {

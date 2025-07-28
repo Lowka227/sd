@@ -26,7 +26,11 @@
             cursor: move;
             user-select: none;
             touch-action: none;
-            transform: translate(0, 0); /* Для плавного перемещения */
+            transform: translate(0, 0);
+            transition: opacity 0.3s;
+        }
+        .hidden {
+            opacity: 0.3;
         }
         #controls {
             position: fixed;
@@ -59,6 +63,26 @@
             border-radius: 5px;
             font-size: 12px;
         }
+        .image-controls {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+        .control-btn {
+            width: 24px;
+            height: 24px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -67,18 +91,17 @@
     <div id="controls">
         <input type="file" id="file-input" accept="image/*" style="display: none;">
         <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
-        <button id="clear-btn">Очистить</button>
+        <button id="clear-btn">Очистить все</button>
     </div>
     
-    <div id="status">Подключение...</div>
+    <div id="status">Синхронизировано</div>
 
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     
     <script>
-        // Ваша конфигурация Firebase (замените на свои значения)
-        const firebaseConfig = {
+        // Конфигурация Firebase (замените на свою)
+         const firebaseConfig = {
               apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
               authDomain: "greenbackgroundapp.firebaseapp.com",
               databaseURL: "https://greenbackgroundapp-default-rtdb.europe-west1.firebasedatabase.app",
@@ -99,30 +122,16 @@
         let draggedImage = null;
         let offsetX = 0, offsetY = 0;
         let userId = 'user_' + Math.random().toString(36).substr(2, 9);
-        let ignoreNextUpdate = false;
 
         function initApp() {
-            document.getElementById('status').textContent = "Подключение...";
-            
-            // Обработчик загрузки файлов
+            // Обработчики
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
-            
-            // Обработчик очистки
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
             
-            // Инициализация перетаскивания
-            setupDragAndDrop();
-            
-            // Слушаем изменения в базе данных
+            // Слушаем изменения в Firebase
             imagesRef.on('value', (snapshot) => {
-                if (ignoreNextUpdate) {
-                    ignoreNextUpdate = false;
-                    return;
-                }
-                
                 const data = snapshot.val() || {};
                 updateCanvas(data);
-                document.getElementById('status').textContent = "Синхронизировано";
             });
         }
         
@@ -132,7 +141,6 @@
             
             const reader = new FileReader();
             reader.onload = (event) => {
-                const imgData = event.target.result;
                 const img = new Image();
                 img.onload = () => {
                     const id = 'img_' + Date.now() + '_' + userId;
@@ -142,15 +150,16 @@
                     // Сохраняем в Firebase
                     imagesRef.child(id).set({
                         id: id,
-                        src: imgData,
+                        src: event.target.result,
                         x: x,
                         y: y,
-                        owner: userId,
-                        width: img.width > 300 ? 300 : img.width,
-                        height: img.height > 300 ? 300 : img.height
+                        width: Math.min(img.width, 300),
+                        height: Math.min(img.height, 300),
+                        hidden: false,
+                        owner: userId
                     });
                 };
-                img.src = imgData;
+                img.src = event.target.result;
             };
             reader.readAsDataURL(file);
             e.target.value = '';
@@ -159,12 +168,9 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
-            // Удаляем изображения, которых нет в новых данных
-            const currentImages = container.querySelectorAll('.draggable-image');
-            currentImages.forEach(img => {
-                if (!imagesData[img.id]) {
-                    img.remove();
-                }
+            // Удаляем отсутствующие изображения
+            document.querySelectorAll('.draggable-image').forEach(img => {
+                if (!imagesData[img.id]) img.remove();
             });
             
             // Добавляем/обновляем изображения
@@ -173,27 +179,64 @@
                 let img = document.getElementById(id);
                 
                 if (!img) {
-                    img = document.createElement('img');
-                    img.id = id;
-                    img.className = 'draggable-image';
-                    img.src = imgData.src;
-                    img.style.width = imgData.width ? imgData.width + 'px' : 'auto';
-                    img.style.height = imgData.height ? imgData.height + 'px' : 'auto';
+                    img = createImageElement(imgData);
                     container.appendChild(img);
-                    
-                    // Добавляем обработчики для нового изображения
-                    img.addEventListener('mousedown', startDrag);
-                    img.addEventListener('touchstart', startDrag, { passive: false });
                 }
                 
-                // Обновляем позицию, если это не текущее перетаскиваемое изображение
-                if (!isDragging || draggedImage?.id !== id) {
-                    img.style.left = imgData.x + 'px';
-                    img.style.top = imgData.y + 'px';
-                }
+                updateImagePosition(img, imgData);
+                updateImageVisibility(img, imgData);
             }
             
             images = {...imagesData};
+        }
+        
+        function createImageElement(imgData) {
+            const img = document.createElement('img');
+            img.id = imgData.id;
+            img.className = 'draggable-image';
+            img.src = imgData.src;
+            img.style.width = imgData.width + 'px';
+            img.style.height = imgData.height + 'px';
+            img.style.left = imgData.x + 'px';
+            img.style.top = imgData.y + 'px';
+            
+            // Добавляем кнопки управления
+            const controls = document.createElement('div');
+            controls.className = 'image-controls';
+            
+            const hideBtn = document.createElement('div');
+            hideBtn.className = 'control-btn';
+            hideBtn.innerHTML = '👁';
+            hideBtn.title = 'Скрыть/показать';
+            hideBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleImageVisibility(imgData.id);
+            };
+            
+            controls.appendChild(hideBtn);
+            img.appendChild(controls);
+            
+            // Обработчики перетаскивания
+            img.addEventListener('mousedown', startDrag);
+            img.addEventListener('touchstart', startDrag, { passive: false });
+            
+            return img;
+        }
+        
+        function updateImagePosition(img, imgData) {
+            if (!isDragging || draggedImage?.id !== imgData.id) {
+                img.style.left = imgData.x + 'px';
+                img.style.top = imgData.y + 'px';
+            }
+        }
+        
+        function updateImageVisibility(img, imgData) {
+            img.classList.toggle('hidden', imgData.hidden);
+        }
+        
+        function toggleImageVisibility(imgId) {
+            const currentState = images[imgId]?.hidden || false;
+            imagesRef.child(imgId).update({ hidden: !currentState });
         }
         
         function clearCanvas() {
@@ -202,28 +245,18 @@
             }
         }
         
-        function setupDragAndDrop() {
-            const container = document.getElementById('canvas-container');
-            
-            container.addEventListener('mousemove', drag);
-            container.addEventListener('touchmove', drag, { passive: false });
-            
-            container.addEventListener('mouseup', endDrag);
-            container.addEventListener('touchend', endDrag);
-            container.addEventListener('mouseleave', endDrag);
-        }
-        
         function startDrag(e) {
             e.preventDefault();
             isDragging = true;
-            draggedImage = e.target.closest('.draggable-image');
+            draggedImage = e.currentTarget;
             
+            const rect = draggedImage.getBoundingClientRect();
             if (e.type === 'touchstart') {
-                offsetX = e.touches[0].clientX - draggedImage.getBoundingClientRect().left;
-                offsetY = e.touches[0].clientY - draggedImage.getBoundingClientRect().top;
+                offsetX = e.touches[0].clientX - rect.left;
+                offsetY = e.touches[0].clientY - rect.top;
             } else {
-                offsetX = e.clientX - draggedImage.getBoundingClientRect().left;
-                offsetY = e.clientY - draggedImage.getBoundingClientRect().top;
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
             }
         }
         
@@ -248,7 +281,6 @@
             draggedImage.style.top = y + 'px';
             
             // Обновляем позицию в Firebase
-            ignoreNextUpdate = true;
             imagesRef.child(draggedImage.id).update({
                 x: x,
                 y: y
@@ -259,6 +291,12 @@
             isDragging = false;
             draggedImage = null;
         }
+        
+        // Глобальные обработчики
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
         
         window.addEventListener('DOMContentLoaded', initApp);
     </script>

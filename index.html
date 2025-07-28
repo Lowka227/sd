@@ -184,6 +184,10 @@
                     const imgElement = document.getElementById(selectedImageId);
                     if (imgElement) {
                         imgElement.classList.toggle('hidden', newHiddenState);
+                        // Обновляем локальное состояние
+                        if (images[selectedImageId]) {
+                            images[selectedImageId].hidden = newHiddenState;
+                        }
                     }
                     
                     // Обновление в Firebase
@@ -194,6 +198,9 @@
                         // Откат изменений при ошибке
                         if (imgElement) {
                             imgElement.classList.toggle('hidden', currentHiddenState);
+                            if (images[selectedImageId]) {
+                                images[selectedImageId].hidden = currentHiddenState;
+                            }
                         }
                     });
                 }
@@ -261,7 +268,7 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        hidden: false,  // Явно устанавливаем начальное значение
+                        hidden: false,
                         opacity: 1
                     });
                 };
@@ -373,7 +380,11 @@
         }
         
         function updateImageVisibility(img, imgData) {
-            img.classList.toggle('hidden', imgData.hidden || false);
+            if (imgData.hidden) {
+                img.classList.add('hidden');
+            } else {
+                img.classList.remove('hidden');
+            }
         }
         
         function updateImageOpacity(img, imgData) {

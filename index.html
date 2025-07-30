@@ -41,7 +41,7 @@
             overflow: hidden;
             cursor: default;
         }
-        .draggable-media {
+        .draggable-image {
             position: absolute;
             cursor: move;
             user-select: none;
@@ -51,8 +51,7 @@
             box-sizing: border-box;
             filter: brightness(85%);
         }
-        .draggable-media img,
-        .draggable-media video {
+        .draggable-image img {
             width: 100%;
             height: 100%;
             object-fit: contain;
@@ -114,25 +113,12 @@
         .properties-panel input[type="range"] {
             width: 100%;
         }
-        .media-controls {
-            position: absolute;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 5px;
-            z-index: 1;
-        }
-        .media-controls button {
-            padding: 5px;
-            font-size: 12px;
-        }
     </style>
 </head>
 <body>
     <div id="app-container">
         <div id="controls">
-            <button onclick="document.getElementById('file-input').click()">Добавить медиа</button>
+            <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
             <button id="clear-btn">Очистить</button>
             
             <div id="image-controls">
@@ -149,7 +135,7 @@
     </div>
     
     <div class="properties-panel" id="properties-panel">
-        <h3>Свойства медиа</h3>
+        <h3>Свойства изображения</h3>
         <label>
             Прозрачность:
             <input type="range" id="opacity-slider" min="0" max="100" value="30">
@@ -158,14 +144,10 @@
             Яркость:
             <input type="range" id="brightness-slider" min="0" max="200" value="85">
         </label>
-        <div id="video-controls" style="display: none;">
-            <button id="play-pause-btn">Пауза</button>
-            <button id="mute-btn">Выкл. звук</button>
-        </div>
         <button id="close-properties">Закрыть</button>
     </div>
     
-    <input type="file" id="file-input" accept="image/*,video/*">
+    <input type="file" id="file-input" accept="image/*">
 
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
@@ -184,14 +166,14 @@
 
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-        const mediaRef = database.ref('media');
+        const imagesRef = database.ref('images');
         
-        let media = {};
+        let images = {};
         let activeInteraction = null;
         let activeElement = null;
         let startX = 0, startY = 0;
         let startWidth = 0, startHeight = 0;
-        let selectedMediaId = null;
+        let selectedImageId = null;
         let actionHistory = [];
         let historyPointer = -1;
 
@@ -202,52 +184,49 @@
                 document.getElementById('properties-panel').style.display = 'none';
             });
             
-            document.getElementById('play-pause-btn').addEventListener('click', togglePlayPause);
-            document.getElementById('mute-btn').addEventListener('click', toggleMute);
-            
             document.getElementById('canvas-container').addEventListener('mousedown', (e) => {
                 if (e.target === document.getElementById('canvas-container')) {
-                    deselectAllMedia();
+                    deselectAllImages();
                 }
             });
             
             document.getElementById('opacity-slider').addEventListener('input', (e) => {
-                if (selectedMediaId) {
+                if (selectedImageId) {
                     const opacity = e.target.value / 100;
-                    const mediaElement = document.getElementById(selectedMediaId);
-                    if (mediaElement) {
-                        mediaElement.style.opacity = opacity;
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (imgElement) {
+                        imgElement.style.opacity = opacity;
                     }
-                    mediaRef.child(selectedMediaId).update({ opacity: opacity });
+                    imagesRef.child(selectedImageId).update({ opacity: opacity });
                     saveStateToHistory();
                 }
             });
             
             document.getElementById('brightness-slider').addEventListener('input', (e) => {
-                if (selectedMediaId) {
+                if (selectedImageId) {
                     const brightness = e.target.value;
-                    const mediaElement = document.getElementById(selectedMediaId);
-                    if (mediaElement) {
-                        mediaElement.style.filter = `brightness(${brightness}%)`;
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (imgElement) {
+                        imgElement.style.filter = `brightness(${brightness}%)`;
                     }
-                    mediaRef.child(selectedMediaId).update({ brightness: brightness });
+                    imagesRef.child(selectedImageId).update({ brightness: brightness });
                     saveStateToHistory();
                 }
             });
             
             document.getElementById('hide-btn').addEventListener('click', () => {
-                if (selectedMediaId) {
-                    const mediaElement = document.getElementById(selectedMediaId);
-                    if (!mediaElement) return;
+                if (selectedImageId) {
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (!imgElement) return;
                     
-                    const currentOpacity = parseFloat(mediaElement.style.opacity);
+                    const currentOpacity = parseFloat(imgElement.style.opacity);
                     const newOpacity = currentOpacity > 0.3 ? 0.3 : 0.95;
                     const newBrightness = currentOpacity > 0.3 ? 30 : 85;
                     
-                    mediaElement.style.opacity = newOpacity;
-                    mediaElement.style.filter = `brightness(${newBrightness}%)`;
+                    imgElement.style.opacity = newOpacity;
+                    imgElement.style.filter = `brightness(${newBrightness}%)`;
                     
-                    mediaRef.child(selectedMediaId).update({ 
+                    imagesRef.child(selectedImageId).update({ 
                         opacity: newOpacity,
                         brightness: newBrightness
                     });
@@ -256,67 +235,54 @@
             });
             
             document.getElementById('delete-btn').addEventListener('click', () => {
-                if (selectedMediaId && confirm("Удалить этот медиафайл?")) {
-                    mediaRef.child(selectedMediaId).remove();
-                    deselectAllMedia();
+                if (selectedImageId && confirm("Удалить это изображение?")) {
+                    imagesRef.child(selectedImageId).remove();
+                    deselectAllImages();
                     saveStateToHistory();
                 }
             });
             
             document.getElementById('settings-btn').addEventListener('click', () => {
-                if (selectedMediaId) {
+                if (selectedImageId) {
                     const panel = document.getElementById('properties-panel');
                     const opacitySlider = document.getElementById('opacity-slider');
                     const brightnessSlider = document.getElementById('brightness-slider');
-                    const videoControls = document.getElementById('video-controls');
                     
-                    const mediaElement = document.getElementById(selectedMediaId);
-                    const currentOpacity = parseFloat(mediaElement.style.opacity) || 0.3;
+                    const imgElement = document.getElementById(selectedImageId);
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.3;
                     opacitySlider.value = currentOpacity * 100;
                     
-                    const currentBrightness = mediaElement.style.filter.includes('brightness') ? 
-                        parseInt(mediaElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 85;
+                    const currentBrightness = imgElement.style.filter.includes('brightness') ? 
+                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 85;
                     brightnessSlider.value = currentBrightness;
-                    
-                    // Показываем элементы управления видео, если это видео
-                    const video = mediaElement.querySelector('video');
-                    if (video) {
-                        videoControls.style.display = 'block';
-                        document.getElementById('play-pause-btn').textContent = 
-                            video.paused ? 'Воспр.' : 'Пауза';
-                        document.getElementById('mute-btn').textContent = 
-                            video.muted ? 'Вкл. звук' : 'Выкл. звук';
-                    } else {
-                        videoControls.style.display = 'none';
-                    }
                     
                     panel.style.display = 'block';
                 }
             });
             
             document.getElementById('lock-btn').addEventListener('click', () => {
-                if (selectedMediaId) {
-                    const mediaElement = document.getElementById(selectedMediaId);
-                    if (!mediaElement) return;
+                if (selectedImageId) {
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (!imgElement) return;
                     
-                    const isLocked = mediaElement.classList.contains('locked');
+                    const isLocked = imgElement.classList.contains('locked');
                     
                     if (isLocked) {
-                        mediaElement.classList.remove('locked');
+                        imgElement.classList.remove('locked');
                         document.getElementById('lock-btn').textContent = 'Закрепить';
                     } else {
-                        mediaElement.classList.add('locked');
+                        imgElement.classList.add('locked');
                         document.getElementById('lock-btn').textContent = 'Открепить';
                     }
                     
-                    mediaRef.child(selectedMediaId).update({ 
+                    imagesRef.child(selectedImageId).update({ 
                         locked: !isLocked 
                     });
                     saveStateToHistory();
                 }
             });
             
-            mediaRef.on('value', (snapshot) => {
+            imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 updateCanvas(data);
             });
@@ -336,43 +302,11 @@
             setupViewport();
         }
         
-        function togglePlayPause() {
-            if (selectedMediaId) {
-                const mediaElement = document.getElementById(selectedMediaId);
-                if (mediaElement) {
-                    const video = mediaElement.querySelector('video');
-                    if (video) {
-                        if (video.paused) {
-                            video.play();
-                            document.getElementById('play-pause-btn').textContent = 'Пауза';
-                        } else {
-                            video.pause();
-                            document.getElementById('play-pause-btn').textContent = 'Воспр.';
-                        }
-                    }
-                }
-            }
-        }
-        
-        function toggleMute() {
-            if (selectedMediaId) {
-                const mediaElement = document.getElementById(selectedMediaId);
-                if (mediaElement) {
-                    const video = mediaElement.querySelector('video');
-                    if (video) {
-                        video.muted = !video.muted;
-                        document.getElementById('mute-btn').textContent = 
-                            video.muted ? 'Вкл. звук' : 'Выкл. звук';
-                    }
-                }
-            }
-        }
-        
-        function deselectAllMedia() {
-            document.querySelectorAll('.draggable-media').forEach(el => el.classList.remove('selected'));
+        function deselectAllImages() {
+            document.querySelectorAll('.draggable-image').forEach(el => el.classList.remove('selected'));
             document.getElementById('image-controls').style.display = 'none';
             document.getElementById('properties-panel').style.display = 'none';
-            selectedMediaId = null;
+            selectedImageId = null;
         }
         
         function saveStateToHistory() {
@@ -380,7 +314,7 @@
                 actionHistory.shift();
             }
             
-            mediaRef.once('value').then((snapshot) => {
+            imagesRef.once('value').then((snapshot) => {
                 const currentState = snapshot.val() || {};
                 actionHistory.push(JSON.stringify(currentState));
                 historyPointer = actionHistory.length - 1;
@@ -392,7 +326,7 @@
             
             historyPointer--;
             const previousState = JSON.parse(actionHistory[historyPointer]);
-            mediaRef.set(previousState);
+            imagesRef.set(previousState);
         }
         
         function setupViewport() {
@@ -406,223 +340,133 @@
         }
         
         function handleFileUpload(e) {
-            const files = e.target.files;
-            if (!files || files.length === 0) return;
+            const file = e.target.files[0];
+            if (!file) return;
             
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const id = 'media_' + Date.now() + Math.floor(Math.random() * 1000);
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const id = 'img_' + Date.now();
                     const x = 100;
                     const y = 100;
                     
-                    if (file.type.startsWith('video/')) {
-                        // Обработка видео
-                        const video = document.createElement('video');
-                        video.src = event.target.result;
-                        video.loop = true;
-                        video.muted = true;
-                        
-                        video.onloadedmetadata = () => {
-                            mediaRef.child(id).set({
-                                id: id,
-                                src: event.target.result,
-                                type: 'video',
-                                x: x,
-                                y: y,
-                                width: video.videoWidth,
-                                height: video.videoHeight,
-                                opacity: 0.3,
-                                brightness: 85,
-                                isNew: true,
-                                locked: false
-                            });
-                            saveStateToHistory();
-                        };
-                    } else {
-                        // Обработка изображений
-                        const img = new Image();
-                        img.onload = () => {
-                            mediaRef.child(id).set({
-                                id: id,
-                                src: event.target.result,
-                                type: 'image',
-                                x: x,
-                                y: y,
-                                width: img.width,
-                                height: img.height,
-                                opacity: 0.3,
-                                brightness: 85,
-                                isNew: true,
-                                locked: false
-                            });
-                            saveStateToHistory();
-                        };
-                        img.src = event.target.result;
-                    }
+                    imagesRef.child(id).set({
+                        id: id,
+                        src: event.target.result,
+                        x: x,
+                        y: y,
+                        width: img.width,
+                        height: img.height,
+                        opacity: 0.3,
+                        brightness: 85,
+                        isNew: true,
+                        locked: false
+                    });
+                    saveStateToHistory();
                 };
-                reader.readAsDataURL(file);
-            });
-            
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
             e.target.value = '';
         }
         
-        function updateCanvas(mediaData) {
+        function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
-            // Удаляем медиа, которых больше нет в данных
-            document.querySelectorAll('.draggable-media').forEach(media => {
-                if (!mediaData[media.id]) {
-                    media.remove();
-                    if (selectedMediaId === media.id) {
-                        deselectAllMedia();
+            document.querySelectorAll('.draggable-image').forEach(img => {
+                if (!imagesData[img.id]) {
+                    img.remove();
+                    if (selectedImageId === img.id) {
+                        deselectAllImages();
                     }
                 }
             });
             
-            // Добавляем или обновляем медиа
-            for (const id in mediaData) {
-                const mediaItem = mediaData[id];
-                let mediaElement = document.getElementById(id);
+            for (const id in imagesData) {
+                const imgData = imagesData[id];
+                let img = document.getElementById(id);
                 
-                if (!mediaElement) {
-                    mediaElement = createMediaElement(mediaItem);
-                    container.appendChild(mediaElement);
+                if (!img) {
+                    img = createImageElement(imgData);
+                    container.appendChild(img);
                 }
                 
-                updateMediaPositionAndSize(mediaElement, mediaItem);
-                updateMediaOpacity(mediaElement, mediaItem);
-                updateMediaBrightness(mediaElement, mediaItem);
-                updateMediaLockState(mediaElement, mediaItem);
+                updateImagePositionAndSize(img, imgData);
+                updateImageOpacity(img, imgData);
+                updateImageBrightness(img, imgData);
+                updateImageLockState(img, imgData);
                 
-                if (mediaItem.isNew) {
-                    deselectAllMedia();
-                    mediaElement.classList.add('selected');
-                    selectedMediaId = id;
+                if (imgData.isNew) {
+                    deselectAllImages();
+                    img.classList.add('selected');
+                    selectedImageId = id;
                     document.getElementById('image-controls').style.display = 'flex';
                     
                     const lockBtn = document.getElementById('lock-btn');
-                    lockBtn.textContent = mediaItem.locked ? 'Открепить' : 'Закрепить';
+                    lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
                     
-                    mediaRef.child(id).update({ isNew: null });
+                    imagesRef.child(id).update({ isNew: null });
                 }
             }
             
-            media = {...mediaData};
+            images = {...imagesData};
         }
         
-        function createMediaElement(mediaItem) {
-            const mediaWrapper = document.createElement('div');
-            mediaWrapper.id = mediaItem.id;
-            mediaWrapper.className = 'draggable-media';
-            mediaWrapper.style.left = mediaItem.x + 'px';
-            mediaWrapper.style.top = mediaItem.y + 'px';
-            mediaWrapper.style.width = mediaItem.width + 'px';
-            mediaWrapper.style.height = mediaItem.height + 'px';
-            mediaWrapper.style.opacity = mediaItem.opacity !== undefined ? mediaItem.opacity : 0.3;
-            mediaWrapper.style.filter = `brightness(${mediaItem.brightness !== undefined ? mediaItem.brightness : 85}%)`;
+        function createImageElement(imgData) {
+            const imgWrapper = document.createElement('div');
+            imgWrapper.id = imgData.id;
+            imgWrapper.className = 'draggable-image';
+            imgWrapper.style.left = imgData.x + 'px';
+            imgWrapper.style.top = imgData.y + 'px';
+            imgWrapper.style.width = imgData.width + 'px';
+            imgWrapper.style.height = imgData.height + 'px';
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 85}%)`;
             
-            if (mediaItem.locked) {
-                mediaWrapper.classList.add('locked');
+            if (imgData.locked) {
+                imgWrapper.classList.add('locked');
             }
             
-            if (mediaItem.type === 'video') {
-                const video = document.createElement('video');
-                video.src = mediaItem.src;
-                video.loop = true;
-                video.muted = true;
-                video.autoplay = true;
-                video.controls = false;
-                video.style.width = '100%';
-                video.style.height = '100%';
-                video.style.objectFit = 'contain';
-                video.draggable = false;
-                mediaWrapper.appendChild(video);
-                
-                // Автовоспроизведение после загрузки метаданных
-                video.onloadedmetadata = () => {
-                    video.play().catch(e => console.log("Autoplay prevented:", e));
-                };
-            } else {
-                const img = document.createElement('img');
-                img.src = mediaItem.src;
-                img.style.width = '100%';
-                img.style.height = '100%';
-                img.style.objectFit = 'contain';
-                img.draggable = false;
-                mediaWrapper.appendChild(img);
-            }
+            const img = document.createElement('img');
+            img.src = imgData.src;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.draggable = false;
+            imgWrapper.appendChild(img);
             
             const resizeArea = document.createElement('div');
             resizeArea.className = 'resize-area';
-            if (!mediaItem.locked) {
+            if (!imgData.locked) {
                 resizeArea.addEventListener('mousedown', startResize);
                 resizeArea.addEventListener('touchstart', startResize, { passive: false });
             }
-            mediaWrapper.appendChild(resizeArea);
+            imgWrapper.appendChild(resizeArea);
             
-            mediaWrapper.addEventListener('mousedown', (e) => {
+            imgWrapper.addEventListener('mousedown', (e) => {
                 if (e.target.classList.contains('resize-area')) return;
                 startSelect(e);
             });
-            mediaWrapper.addEventListener('touchstart', (e) => {
+            imgWrapper.addEventListener('touchstart', (e) => {
                 if (e.target.classList.contains('resize-area')) return;
                 startSelect(e);
             }, { passive: false });
             
-            return mediaWrapper;
-        }
-        
-        function updateMediaPositionAndSize(mediaElement, mediaItem) {
-            if (activeElement !== mediaElement) {
-                mediaElement.style.left = mediaItem.x + 'px';
-                mediaElement.style.top = mediaItem.y + 'px';
-                mediaElement.style.width = mediaItem.width + 'px';
-                mediaElement.style.height = mediaItem.height + 'px';
-            }
-        }
-        
-        function updateMediaOpacity(mediaElement, mediaItem) {
-            mediaElement.style.opacity = mediaItem.opacity !== undefined ? mediaItem.opacity : 0.3;
-        }
-        
-        function updateMediaBrightness(mediaElement, mediaItem) {
-            if (mediaItem.brightness !== undefined) {
-                mediaElement.style.filter = `brightness(${mediaItem.brightness}%)`;
-            } else {
-                mediaElement.style.filter = 'brightness(85%)';
-            }
-        }
-        
-        function updateMediaLockState(mediaElement, mediaItem) {
-            if (mediaItem.locked) {
-                mediaElement.classList.add('locked');
-                mediaElement.style.cursor = 'default';
-            } else {
-                mediaElement.classList.remove('locked');
-                mediaElement.style.cursor = 'move';
-            }
-        }
-        
-        function clearCanvas() {
-            if (confirm("Очистить холст для всех пользователей?")) {
-                mediaRef.remove();
-                deselectAllMedia();
-                saveStateToHistory();
-            }
+            return imgWrapper;
         }
         
         function startSelect(e) {
             e.preventDefault();
             e.stopPropagation();
             
-            const mediaElement = e.currentTarget;
-            const isLocked = mediaElement.classList.contains('locked');
+            const imgElement = e.currentTarget;
+            const isLocked = imgElement.classList.contains('locked');
             
-            deselectAllMedia();
+            deselectAllImages();
             
-            mediaElement.classList.add('selected');
-            selectedMediaId = mediaElement.id;
+            imgElement.classList.add('selected');
+            selectedImageId = imgElement.id;
             document.getElementById('image-controls').style.display = 'flex';
             
             const lockBtn = document.getElementById('lock-btn');
@@ -630,10 +474,10 @@
             
             if (!isLocked && e.type !== 'touchstart') {
                 activeInteraction = 'select';
-                activeElement = mediaElement;
+                activeElement = imgElement;
                 
-                const currentX = parseInt(mediaElement.style.left) || 0;
-                const currentY = parseInt(mediaElement.style.top) || 0;
+                const currentX = parseInt(imgElement.style.left) || 0;
+                const currentY = parseInt(imgElement.style.top) || 0;
                 
                 if (e.type === 'touchstart') {
                     startX = e.touches[0].clientX - currentX;
@@ -642,6 +486,45 @@
                     startX = e.clientX - currentX;
                     startY = e.clientY - currentY;
                 }
+            }
+        }
+        
+        function updateImagePositionAndSize(img, imgData) {
+            if (activeElement !== img) {
+                img.style.left = imgData.x + 'px';
+                img.style.top = imgData.y + 'px';
+                img.style.width = imgData.width + 'px';
+                img.style.height = imgData.height + 'px';
+            }
+        }
+        
+        function updateImageOpacity(img, imgData) {
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+        }
+        
+        function updateImageBrightness(img, imgData) {
+            if (imgData.brightness !== undefined) {
+                img.style.filter = `brightness(${imgData.brightness}%)`;
+            } else {
+                img.style.filter = 'brightness(85%)';
+            }
+        }
+        
+        function updateImageLockState(img, imgData) {
+            if (imgData.locked) {
+                img.classList.add('locked');
+                img.style.cursor = 'default';
+            } else {
+                img.classList.remove('locked');
+                img.style.cursor = 'move';
+            }
+        }
+        
+        function clearCanvas() {
+            if (confirm("Очистить холст для всех пользователей?")) {
+                imagesRef.remove();
+                deselectAllImages();
+                saveStateToHistory();
             }
         }
         
@@ -696,7 +579,7 @@
                 activeElement.style.left = boundedX + 'px';
                 activeElement.style.top = boundedY + 'px';
                 
-                mediaRef.child(activeElement.id).update({
+                imagesRef.child(activeElement.id).update({
                     x: boundedX,
                     y: boundedY
                 });
@@ -725,7 +608,7 @@
                 activeElement.style.width = newWidth + 'px';
                 activeElement.style.height = newHeight + 'px';
                 
-                mediaRef.child(activeElement.id).update({
+                imagesRef.child(activeElement.id).update({
                     width: newWidth,
                     height: newHeight
                 });

@@ -46,7 +46,7 @@
             user-select: none;
             touch-action: none;
             transition: opacity 0.3s, filter 0.3s;
-            opacity: 0; /* По умолчанию скрыты */
+            opacity: 0.3; /* По умолчанию 30% */
             box-sizing: border-box;
         }
         .draggable-image img {
@@ -109,6 +109,10 @@
         .properties-panel input[type="range"] {
             width: 100%;
         }
+        .locked {
+            cursor: default !important;
+            box-shadow: 0 0 0 2px #ff0000 inset !important;
+        }
     </style>
 </head>
 <body>
@@ -121,6 +125,7 @@
                 <button id="hide-btn">Скрыть/Показать</button>
                 <button id="delete-btn">Удалить</button>
                 <button id="settings-btn">Настройки</button>
+                <button id="lock-btn">Закрепить</button>
             </div>
             
             <div id="status">Синхронизировано</div>
@@ -133,7 +138,7 @@
         <h3>Свойства изображения</h3>
         <label>
             Прозрачность:
-            <input type="range" id="opacity-slider" min="0" max="100" value="0">
+            <input type="range" id="opacity-slider" min="0" max="100" value="30">
         </label>
         <label>
             Яркость:
@@ -169,6 +174,8 @@
         let startX = 0, startY = 0;
         let startWidth = 0, startHeight = 0;
         let selectedImageId = null;
+        let actionHistory = [];
+        let historyPointer = -1;
 
         function initApp() {
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
@@ -185,6 +192,7 @@
                         imgElement.style.opacity = opacity;
                     }
                     imagesRef.child(selectedImageId).update({ opacity: opacity });
+                    saveStateToHistory();
                 }
             });
             
@@ -196,6 +204,7 @@
                         imgElement.style.filter = `brightness(${brightness}%)`;
                     }
                     imagesRef.child(selectedImageId).update({ brightness: brightness });
+                    saveStateToHistory();
                 }
             });
             
@@ -205,12 +214,14 @@
                     if (!imgElement) return;
                     
                     const currentOpacity = parseFloat(imgElement.style.opacity);
-                    const newOpacity = currentOpacity > 0 ? 0 : 0.9;
+                    // Переключаем между 30% и 95%
+                    const newOpacity = currentOpacity > 0.3 ? 0.3 : 0.95;
                     
                     imgElement.style.opacity = newOpacity;
                     imagesRef.child(selectedImageId).update({ 
                         opacity: newOpacity 
                     });
+                    saveStateToHistory();
                 }
             });
             
@@ -219,6 +230,7 @@
                     imagesRef.child(selectedImageId).remove();
                     document.getElementById('image-controls').style.display = 'none';
                     selectedImageId = null;
+                    saveStateToHistory();
                 }
             });
             
@@ -229,7 +241,7 @@
                     const brightnessSlider = document.getElementById('brightness-slider');
                     
                     const imgElement = document.getElementById(selectedImageId);
-                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0;
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.3;
                     opacitySlider.value = currentOpacity * 100;
                     
                     const currentBrightness = imgElement.style.filter.includes('brightness') ? 
@@ -237,6 +249,28 @@
                     brightnessSlider.value = currentBrightness;
                     
                     panel.style.display = 'block';
+                }
+            });
+            
+            document.getElementById('lock-btn').addEventListener('click', () => {
+                if (selectedImageId) {
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (!imgElement) return;
+                    
+                    const isLocked = imgElement.classList.contains('locked');
+                    
+                    if (isLocked) {
+                        imgElement.classList.remove('locked');
+                        document.getElementById('lock-btn').textContent = 'Закрепить';
+                    } else {
+                        imgElement.classList.add('locked');
+                        document.getElementById('lock-btn').textContent = 'Открепить';
+                    }
+                    
+                    imagesRef.child(selectedImageId).update({ 
+                        locked: !isLocked 
+                    });
+                    saveStateToHistory();
                 }
             });
             
@@ -250,7 +284,37 @@
             document.addEventListener('mouseup', endInteraction);
             document.addEventListener('touchend', endInteraction);
             
+            // Обработчик для Ctrl+Z
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    undoAction();
+                }
+            });
+            
             setupViewport();
+        }
+        
+        function saveStateToHistory() {
+            // Ограничиваем историю 20 последними действиями
+            if (actionHistory.length >= 20) {
+                actionHistory.shift();
+            }
+            
+            // Сохраняем текущее состояние
+            imagesRef.once('value').then((snapshot) => {
+                const currentState = snapshot.val() || {};
+                actionHistory.push(JSON.stringify(currentState));
+                historyPointer = actionHistory.length - 1;
+            });
+        }
+        
+        function undoAction() {
+            if (historyPointer <= 0) return;
+            
+            historyPointer--;
+            const previousState = JSON.parse(actionHistory[historyPointer]);
+            imagesRef.set(previousState);
         }
         
         function setupViewport() {
@@ -275,7 +339,7 @@
                     const x = 100;
                     const y = 100;
                     
-                    // Новые изображения добавляются скрытыми (opacity: 0)
+                    // Новые изображения добавляются с прозрачностью 30%
                     imagesRef.child(id).set({
                         id: id,
                         src: event.target.result,
@@ -283,10 +347,12 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        opacity: 0, // Сразу скрыто
+                        opacity: 0.3, // 30% прозрачности по умолчанию
                         brightness: 100,
-                        isNew: true // Флаг нового изображения
+                        isNew: true, // Флаг нового изображения
+                        locked: false // По умолчанию не закреплено
                     });
+                    saveStateToHistory();
                 };
                 img.src = event.target.result;
             };
@@ -319,6 +385,7 @@
                 updateImagePositionAndSize(img, imgData);
                 updateImageOpacity(img, imgData);
                 updateImageBrightness(img, imgData);
+                updateImageLockState(img, imgData);
                 
                 // Новые изображения добавляются выделенными
                 if (imgData.isNew) {
@@ -326,6 +393,10 @@
                     img.classList.add('selected');
                     selectedImageId = id;
                     document.getElementById('image-controls').style.display = 'flex';
+                    
+                    // Устанавливаем текст кнопки закрепления
+                    const lockBtn = document.getElementById('lock-btn');
+                    lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
                     
                     // Убираем флаг isNew после первого отображения
                     imagesRef.child(id).update({ isNew: null });
@@ -343,10 +414,14 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0;
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3; // 30% по умолчанию
             
             if (imgData.brightness !== undefined) {
                 imgWrapper.style.filter = `brightness(${imgData.brightness}%)`;
+            }
+            
+            if (imgData.locked) {
+                imgWrapper.classList.add('locked');
             }
             
             const img = document.createElement('img');
@@ -379,7 +454,7 @@
         }
         
         function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0;
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3; // 30% по умолчанию
         }
         
         function updateImageBrightness(img, imgData) {
@@ -390,16 +465,26 @@
             }
         }
         
+        function updateImageLockState(img, imgData) {
+            if (imgData.locked) {
+                img.classList.add('locked');
+            } else {
+                img.classList.remove('locked');
+            }
+        }
+        
         function clearCanvas() {
             if (confirm("Очистить холст для всех пользователей?")) {
                 imagesRef.remove();
                 document.getElementById('image-controls').style.display = 'none';
                 selectedImageId = null;
+                saveStateToHistory();
             }
         }
         
         function startDrag(e) {
             if (e.target.classList.contains('resize-area')) return;
+            if (e.currentTarget.classList.contains('locked')) return;
             
             e.preventDefault();
             e.stopPropagation();
@@ -425,9 +510,16 @@
             
             document.getElementById('image-controls').style.display = 'flex';
             selectedImageId = activeElement.id;
+            
+            // Устанавливаем текст кнопки закрепления
+            const lockBtn = document.getElementById('lock-btn');
+            const isLocked = activeElement.classList.contains('locked');
+            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
         }
         
         function startResize(e) {
+            if (e.currentTarget.parentElement.classList.contains('locked')) return;
+            
             e.preventDefault();
             e.stopPropagation();
             
@@ -450,6 +542,7 @@
         
         function handleMove(e) {
             if (!activeInteraction || !activeElement) return;
+            if (activeElement.classList.contains('locked')) return;
             
             e.preventDefault();
             let clientX, clientY;
@@ -512,6 +605,9 @@
         }
         
         function endInteraction() {
+            if (activeInteraction) {
+                saveStateToHistory();
+            }
             activeInteraction = null;
             activeElement = null;
         }

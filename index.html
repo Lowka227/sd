@@ -68,9 +68,11 @@
             cursor: move;
             user-select: none;
             touch-action: none;
-            min-width: 50px;
-            min-height: 20px;
             box-sizing: border-box;
+            opacity: 0.3;
+            display: inline-block;
+            white-space: nowrap;
+            transform-origin: top left;
         }
         .selected {
             position: relative;
@@ -199,6 +201,11 @@
         #text-color-input {
             margin-bottom: 10px;
         }
+        #font-family-select {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -216,6 +223,7 @@
             </div>
             
             <div id="text-controls">
+                <button id="hide-text-btn">Скрыть/Показать</button>
                 <button id="edit-text-btn">Редактировать</button>
                 <button id="delete-text-btn">Удалить</button>
                 <button id="lock-text-btn">Закрепить</button>
@@ -250,6 +258,19 @@
         <label>
             Цвет текста:
             <input type="color" id="text-color-input" value="#000000">
+        </label>
+        <label>
+            Шрифт:
+            <select id="font-family-select">
+                <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+                <option value="Verdana, sans-serif">Verdana</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="'Courier New', monospace">Courier New</option>
+                <option value="Impact, sans-serif">Impact</option>
+                <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+            </select>
         </label>
         <button id="apply-text-btn">Применить</button>
         <button id="cancel-text-btn">Отмена</button>
@@ -289,6 +310,7 @@
         let actionHistory = [];
         let historyPointer = -1;
         let resizeDirection = null;
+        let originalApplyHandler = null;
 
         function initApp() {
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
@@ -299,13 +321,17 @@
             
             document.getElementById('add-text-btn').addEventListener('click', showTextInputPanel);
             document.getElementById('apply-text-btn').addEventListener('click', addTextToCanvas);
+            originalApplyHandler = document.getElementById('apply-text-btn').onclick;
             document.getElementById('cancel-text-btn').addEventListener('click', () => {
                 document.getElementById('text-input-panel').style.display = 'none';
+                // Восстанавливаем оригинальный обработчик
+                document.getElementById('apply-text-btn').onclick = originalApplyHandler;
             });
             
             document.getElementById('edit-text-btn').addEventListener('click', editSelectedText);
             document.getElementById('delete-text-btn').addEventListener('click', deleteSelectedText);
             document.getElementById('lock-text-btn').addEventListener('click', toggleTextLock);
+            document.getElementById('hide-text-btn').addEventListener('click', toggleTextVisibility);
             
             document.getElementById('canvas-container').addEventListener('mousedown', (e) => {
                 if (e.target === document.getElementById('canvas-container')) {
@@ -430,6 +456,23 @@
             setupViewport();
         }
         
+        function toggleTextVisibility() {
+            if (selectedTextId) {
+                const textElement = document.getElementById(selectedTextId);
+                if (!textElement) return;
+                
+                const currentOpacity = parseFloat(textElement.style.opacity);
+                const newOpacity = currentOpacity > 0.3 ? 0.3 : 1.0;
+                
+                textElement.style.opacity = newOpacity;
+                
+                textsRef.child(selectedTextId).update({ 
+                    opacity: newOpacity
+                });
+                saveStateToHistory();
+            }
+        }
+        
         function deselectAllElements() {
             document.querySelectorAll('.draggable-image').forEach(el => el.classList.remove('selected'));
             document.querySelectorAll('.draggable-text').forEach(el => el.classList.remove('selected'));
@@ -512,6 +555,7 @@
             document.getElementById('text-input').value = '';
             document.getElementById('font-size-input').value = 16;
             document.getElementById('text-color-input').value = '#000000';
+            document.getElementById('font-family-select').value = "'Comic Sans MS', cursive";
             panel.style.display = 'block';
         }
         
@@ -521,6 +565,7 @@
             
             const fontSize = parseInt(document.getElementById('font-size-input').value);
             const color = document.getElementById('text-color-input').value;
+            const fontFamily = document.getElementById('font-family-select').value;
             
             const id = 'text_' + Date.now();
             const x = 100;
@@ -533,6 +578,8 @@
                 y: y,
                 fontSize: fontSize,
                 color: color,
+                fontFamily: fontFamily,
+                opacity: 0.3,
                 isNew: true,
                 locked: false
             });
@@ -551,25 +598,37 @@
             document.getElementById('text-input').value = textElement.textContent;
             document.getElementById('font-size-input').value = parseInt(textElement.style.fontSize);
             document.getElementById('text-color-input').value = textElement.style.color;
+            
+            // Устанавливаем выбранный шрифт
+            const fontFamily = textElement.style.fontFamily;
+            document.getElementById('font-family-select').value = fontFamily;
+            
             panel.style.display = 'block';
             
+            // Сохраняем оригинальный обработчик
+            const originalHandler = document.getElementById('apply-text-btn').onclick;
+            
+            // Устанавливаем временный обработчик для редактирования
             document.getElementById('apply-text-btn').onclick = function() {
                 const newText = document.getElementById('text-input').value.trim();
                 if (!newText) return;
                 
                 const fontSize = parseInt(document.getElementById('font-size-input').value);
                 const color = document.getElementById('text-color-input').value;
+                const fontFamily = document.getElementById('font-family-select').value;
                 
                 textsRef.child(selectedTextId).update({
                     text: newText,
                     fontSize: fontSize,
-                    color: color
+                    color: color,
+                    fontFamily: fontFamily
                 });
                 
                 panel.style.display = 'none';
                 saveStateToHistory();
                 
-                document.getElementById('apply-text-btn').onclick = addTextToCanvas;
+                // Восстанавливаем оригинальный обработчик
+                document.getElementById('apply-text-btn').onclick = originalHandler;
             };
         }
         
@@ -664,11 +723,20 @@
                 if (!textEl) {
                     textEl = createTextElement(textData);
                     container.appendChild(textEl);
+                } else {
+                    // Обновляем только если элемент уже существует
+                    updateTextPosition(textEl, textData);
+                    updateTextContent(textEl, textData);
+                    updateTextLockState(textEl, textData);
                 }
                 
-                updateTextPosition(textEl, textData);
-                updateTextContent(textEl, textData);
-                updateTextLockState(textEl, textData);
+                if (textData.opacity !== undefined) {
+                    textEl.style.opacity = textData.opacity;
+                }
+                
+                if (textData.fontFamily) {
+                    textEl.style.fontFamily = textData.fontFamily;
+                }
                 
                 if (textData.isNew) {
                     deselectAllElements();
@@ -709,7 +777,6 @@
             img.draggable = false;
             imgWrapper.appendChild(img);
             
-            // Добавляем ручки для изменения размера со всех сторон
             addResizeHandles(imgWrapper);
             
             imgWrapper.addEventListener('mousedown', (e) => {
@@ -734,11 +801,22 @@
             textEl.style.fontSize = textData.fontSize + 'px';
             textEl.style.color = textData.color;
             
+            if (textData.fontFamily) {
+                textEl.style.fontFamily = textData.fontFamily;
+            } else {
+                textEl.style.fontFamily = "'Comic Sans MS', cursive";
+            }
+            
+            if (textData.opacity !== undefined) {
+                textEl.style.opacity = textData.opacity;
+            } else {
+                textEl.style.opacity = 0.3;
+            }
+            
             if (textData.locked) {
                 textEl.classList.add('locked');
             }
             
-            // Добавляем ручки для изменения размера со всех сторон
             addResizeHandles(textEl);
             
             textEl.addEventListener('mousedown', (e) => {
@@ -754,10 +832,8 @@
         }
         
         function addResizeHandles(element) {
-            // Удаляем старые ручки, если они есть
             element.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
             
-            // Создаем ручки для всех сторон и углов
             const directions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
             
             directions.forEach(dir => {
@@ -865,6 +941,9 @@
             textEl.textContent = textData.text;
             textEl.style.fontSize = textData.fontSize + 'px';
             textEl.style.color = textData.color;
+            if (textData.fontFamily) {
+                textEl.style.fontFamily = textData.fontFamily;
+            }
         }
         
         function updateImageOpacity(img, imgData) {
@@ -987,7 +1066,6 @@
                 let newLeft = startLeft;
                 let newTop = startTop;
                 
-                // Обрабатываем изменение размера в зависимости от направления
                 switch (resizeDirection) {
                     case 'n':
                         newHeight = Math.max(50, startHeight - deltaY);
@@ -1025,7 +1103,6 @@
                         break;
                 }
                 
-                // Применяем изменения
                 activeElement.style.width = newWidth + 'px';
                 activeElement.style.height = newHeight + 'px';
                 activeElement.style.left = newLeft + 'px';
@@ -1039,7 +1116,6 @@
                         y: newTop
                     });
                 } else if (activeElement.classList.contains('draggable-text')) {
-                    // Для текста обновляем только размер шрифта
                     const fontSize = parseInt(activeElement.style.fontSize) || 16;
                     const scaleFactor = newWidth / startWidth;
                     const newFontSize = Math.max(10, Math.min(72, Math.round(fontSize * scaleFactor)));

@@ -33,6 +33,12 @@
             margin-left: 20px;
             display: none;
         }
+        #text-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+            display: none;
+        }
         #canvas-container {
             width: 1920px;
             height: 1020px;
@@ -57,6 +63,18 @@
             object-fit: contain;
             pointer-events: none;
         }
+        .draggable-text {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+            touch-action: none;
+            padding: 5px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 3px;
+            min-width: 50px;
+            min-height: 20px;
+            box-sizing: border-box;
+        }
         .selected {
             position: relative;
             box-shadow: 0 0 0 2px #4285f4 inset;
@@ -64,15 +82,57 @@
         .locked {
             box-shadow: 0 0 0 2px #ff0000 inset !important;
         }
-        .resize-area {
+        .resize-handle {
             position: absolute;
-            width: 30px;
-            height: 30px;
-            right: 0;
-            bottom: 0;
-            cursor: nwse-resize;
-            opacity: 0;
-            z-index: 2;
+            width: 10px;
+            height: 10px;
+            background-color: #4285f4;
+            border: 1px solid white;
+            z-index: 10;
+        }
+        .resize-n {
+            top: -5px;
+            left: 50%;
+            margin-left: -5px;
+            cursor: n-resize;
+        }
+        .resize-ne {
+            top: -5px;
+            right: -5px;
+            cursor: ne-resize;
+        }
+        .resize-e {
+            top: 50%;
+            right: -5px;
+            margin-top: -5px;
+            cursor: e-resize;
+        }
+        .resize-se {
+            bottom: -5px;
+            right: -5px;
+            cursor: se-resize;
+        }
+        .resize-s {
+            bottom: -5px;
+            left: 50%;
+            margin-left: -5px;
+            cursor: s-resize;
+        }
+        .resize-sw {
+            bottom: -5px;
+            left: -5px;
+            cursor: sw-resize;
+        }
+        .resize-w {
+            top: 50%;
+            left: -5px;
+            margin-top: -5px;
+            cursor: w-resize;
+        }
+        .resize-nw {
+            top: -5px;
+            left: -5px;
+            cursor: nw-resize;
         }
         button {
             padding: 8px 12px;
@@ -112,6 +172,30 @@
         }
         .properties-panel input[type="range"] {
             width: 100%;
+            margin-bottom: 10px;
+        }
+        #text-input-panel {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            display: none;
+        }
+        #text-input {
+            width: 200px;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        #font-size-input {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        #text-color-input {
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -119,6 +203,7 @@
     <div id="app-container">
         <div id="controls">
             <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
+            <button id="add-text-btn">Добавить текст</button>
             <button id="clear-btn">Очистить</button>
             
             <div id="image-controls">
@@ -126,6 +211,12 @@
                 <button id="delete-btn">Удалить</button>
                 <button id="settings-btn">Настройки</button>
                 <button id="lock-btn">Закрепить</button>
+            </div>
+            
+            <div id="text-controls">
+                <button id="edit-text-btn">Редактировать</button>
+                <button id="delete-text-btn">Удалить</button>
+                <button id="lock-text-btn">Закрепить</button>
             </div>
             
             <div id="status">Синхронизировано</div>
@@ -145,6 +236,21 @@
             <input type="range" id="brightness-slider" min="0" max="200" value="85">
         </label>
         <button id="close-properties">Закрыть</button>
+    </div>
+    
+    <div id="text-input-panel">
+        <h3>Добавить текст</h3>
+        <input type="text" id="text-input" placeholder="Введите текст">
+        <label>
+            Размер шрифта:
+            <input type="range" id="font-size-input" min="10" max="72" value="16">
+        </label>
+        <label>
+            Цвет текста:
+            <input type="color" id="text-color-input" value="#000000">
+        </label>
+        <button id="apply-text-btn">Применить</button>
+        <button id="cancel-text-btn">Отмена</button>
     </div>
     
     <input type="file" id="file-input" accept="image/*">
@@ -167,15 +273,20 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         const imagesRef = database.ref('images');
+        const textsRef = database.ref('texts');
         
         let images = {};
+        let texts = {};
         let activeInteraction = null;
         let activeElement = null;
         let startX = 0, startY = 0;
         let startWidth = 0, startHeight = 0;
+        let startLeft = 0, startTop = 0;
         let selectedImageId = null;
+        let selectedTextId = null;
         let actionHistory = [];
         let historyPointer = -1;
+        let resizeDirection = null;
 
         function initApp() {
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
@@ -184,9 +295,19 @@
                 document.getElementById('properties-panel').style.display = 'none';
             });
             
+            document.getElementById('add-text-btn').addEventListener('click', showTextInputPanel);
+            document.getElementById('apply-text-btn').addEventListener('click', addTextToCanvas);
+            document.getElementById('cancel-text-btn').addEventListener('click', () => {
+                document.getElementById('text-input-panel').style.display = 'none';
+            });
+            
+            document.getElementById('edit-text-btn').addEventListener('click', editSelectedText);
+            document.getElementById('delete-text-btn').addEventListener('click', deleteSelectedText);
+            document.getElementById('lock-text-btn').addEventListener('click', toggleTextLock);
+            
             document.getElementById('canvas-container').addEventListener('mousedown', (e) => {
                 if (e.target === document.getElementById('canvas-container')) {
-                    deselectAllImages();
+                    deselectAllElements();
                 }
             });
             
@@ -237,7 +358,7 @@
             document.getElementById('delete-btn').addEventListener('click', () => {
                 if (selectedImageId && confirm("Удалить это изображение?")) {
                     imagesRef.child(selectedImageId).remove();
-                    deselectAllImages();
+                    deselectAllElements();
                     saveStateToHistory();
                 }
             });
@@ -287,6 +408,11 @@
                 updateCanvas(data);
             });
             
+            textsRef.on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                updateTexts(data);
+            });
+            
             document.addEventListener('mousemove', handleMove);
             document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
@@ -302,11 +428,14 @@
             setupViewport();
         }
         
-        function deselectAllImages() {
+        function deselectAllElements() {
             document.querySelectorAll('.draggable-image').forEach(el => el.classList.remove('selected'));
+            document.querySelectorAll('.draggable-text').forEach(el => el.classList.remove('selected'));
             document.getElementById('image-controls').style.display = 'none';
+            document.getElementById('text-controls').style.display = 'none';
             document.getElementById('properties-panel').style.display = 'none';
             selectedImageId = null;
+            selectedTextId = null;
         }
         
         function saveStateToHistory() {
@@ -314,8 +443,11 @@
                 actionHistory.shift();
             }
             
-            imagesRef.once('value').then((snapshot) => {
-                const currentState = snapshot.val() || {};
+            Promise.all([
+                imagesRef.once('value').then(snapshot => snapshot.val() || {}),
+                textsRef.once('value').then(snapshot => snapshot.val() || {})
+            ]).then(([imagesData, textsData]) => {
+                const currentState = { images: imagesData, texts: textsData };
                 actionHistory.push(JSON.stringify(currentState));
                 historyPointer = actionHistory.length - 1;
             });
@@ -326,7 +458,8 @@
             
             historyPointer--;
             const previousState = JSON.parse(actionHistory[historyPointer]);
-            imagesRef.set(previousState);
+            imagesRef.set(previousState.images || {});
+            textsRef.set(previousState.texts || {});
         }
         
         function setupViewport() {
@@ -346,285 +479,602 @@
             const reader = new FileReader();
             reader.onload = (event) => {
                 const img = new Image();
-                img.onload = () => {
-                    const id = 'img_' + Date.now();
-                    const x = 100;
-                    const y = 100;
-                    
-                    imagesRef.child(id).set({
-                        id: id,
-                        src: event.target.result,
-                        x: x,
-                        y: y,
-                        width: img.width,
-                        height: img.height,
-                        opacity: 0.3,
-                        brightness: 85,
-                        isNew: true,
-                        locked: false
-                    });
-                    saveStateToHistory();
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-            e.target.value = '';
-        }
-        
-        function updateCanvas(imagesData) {
-            const container = document.getElementById('canvas-container');
-            
-            document.querySelectorAll('.draggable-image').forEach(img => {
-                if (!imagesData[img.id]) {
-                    img.remove();
-                    if (selectedImageId === img.id) {
-                        deselectAllImages();
-                    }
-                }
-            });
-            
-            for (const id in imagesData) {
-                const imgData = imagesData[id];
-                let img = document.getElementById(id);
+            img.onload = () => {
+                const id = 'img_' + Date.now();
+                const x = 100;
+                const y = 100;
                 
-                if (!img) {
-                    img = createImageElement(imgData);
-                    container.appendChild(img);
-                }
-                
-                updateImagePositionAndSize(img, imgData);
-                updateImageOpacity(img, imgData);
-                updateImageBrightness(img, imgData);
-                updateImageLockState(img, imgData);
-                
-                if (imgData.isNew) {
-                    deselectAllImages();
-                    img.classList.add('selected');
-                    selectedImageId = id;
-                    document.getElementById('image-controls').style.display = 'flex';
-                    
-                    const lockBtn = document.getElementById('lock-btn');
-                    lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
-                    
-                    imagesRef.child(id).update({ isNew: null });
-                }
-            }
-            
-            images = {...imagesData};
-        }
-        
-        function createImageElement(imgData) {
-            const imgWrapper = document.createElement('div');
-            imgWrapper.id = imgData.id;
-            imgWrapper.className = 'draggable-image';
-            imgWrapper.style.left = imgData.x + 'px';
-            imgWrapper.style.top = imgData.y + 'px';
-            imgWrapper.style.width = imgData.width + 'px';
-            imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
-            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 85}%)`;
-            
-            if (imgData.locked) {
-                imgWrapper.classList.add('locked');
-            }
-            
-            const img = document.createElement('img');
-            img.src = imgData.src;
-            img.style.width = '100%';
-            img.style.height = '100%';
-            img.style.objectFit = 'contain';
-            img.draggable = false;
-            imgWrapper.appendChild(img);
-            
-            const resizeArea = document.createElement('div');
-            resizeArea.className = 'resize-area';
-            if (!imgData.locked) {
-                resizeArea.addEventListener('mousedown', startResize);
-                resizeArea.addEventListener('touchstart', startResize, { passive: false });
-            }
-            imgWrapper.appendChild(resizeArea);
-            
-            imgWrapper.addEventListener('mousedown', (e) => {
-                if (e.target.classList.contains('resize-area')) return;
-                startSelect(e);
-            });
-            imgWrapper.addEventListener('touchstart', (e) => {
-                if (e.target.classList.contains('resize-area')) return;
-                startSelect(e);
-            }, { passive: false });
-            
-            return imgWrapper;
-        }
-        
-        function startSelect(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const imgElement = e.currentTarget;
-            const isLocked = imgElement.classList.contains('locked');
-            
-            deselectAllImages();
-            
-            imgElement.classList.add('selected');
-            selectedImageId = imgElement.id;
-            document.getElementById('image-controls').style.display = 'flex';
-            
-            const lockBtn = document.getElementById('lock-btn');
-            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
-            
-            if (!isLocked && e.type !== 'touchstart') {
-                activeInteraction = 'select';
-                activeElement = imgElement;
-                
-                const currentX = parseInt(imgElement.style.left) || 0;
-                const currentY = parseInt(imgElement.style.top) || 0;
-                
-                if (e.type === 'touchstart') {
-                    startX = e.touches[0].clientX - currentX;
-                    startY = e.touches[0].clientY - currentY;
-                } else {
-                    startX = e.clientX - currentX;
-                    startY = e.clientY - currentY;
-                }
-            }
-        }
-        
-        function updateImagePositionAndSize(img, imgData) {
-            if (activeElement !== img) {
-                img.style.left = imgData.x + 'px';
-                img.style.top = imgData.y + 'px';
-                img.style.width = imgData.width + 'px';
-                img.style.height = imgData.height + 'px';
-            }
-        }
-        
-        function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
-        }
-        
-        function updateImageBrightness(img, imgData) {
-            if (imgData.brightness !== undefined) {
-                img.style.filter = `brightness(${imgData.brightness}%)`;
-            } else {
-                img.style.filter = 'brightness(85%)';
-            }
-        }
-        
-        function updateImageLockState(img, imgData) {
-            if (imgData.locked) {
-                img.classList.add('locked');
-                img.style.cursor = 'default';
-            } else {
-                img.classList.remove('locked');
-                img.style.cursor = 'move';
-            }
-        }
-        
-        function clearCanvas() {
-            if (confirm("Очистить холст для всех пользователей?")) {
-                imagesRef.remove();
-                deselectAllImages();
+                imagesRef.child(id).set({
+                    id: id,
+                    src: event.target.result,
+                    x: x,
+                    y: y,
+                    width: img.width,
+                    height: img.height,
+                    opacity: 0.3,
+                    brightness: 85,
+                    isNew: true,
+                    locked: false
+                });
                 saveStateToHistory();
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    }
+    
+    function showTextInputPanel() {
+        deselectAllElements();
+        const panel = document.getElementById('text-input-panel');
+        document.getElementById('text-input').value = '';
+        document.getElementById('font-size-input').value = 16;
+        document.getElementById('text-color-input').value = '#000000';
+        panel.style.display = 'block';
+    }
+    
+    function addTextToCanvas() {
+        const text = document.getElementById('text-input').value.trim();
+        if (!text) return;
+        
+        const fontSize = parseInt(document.getElementById('font-size-input').value);
+        const color = document.getElementById('text-color-input').value;
+        
+        const id = 'text_' + Date.now();
+        const x = 100;
+        const y = 100;
+        
+        textsRef.child(id).set({
+            id: id,
+            text: text,
+            x: x,
+            y: y,
+            fontSize: fontSize,
+            color: color,
+            isNew: true,
+            locked: false
+        });
+        
+        document.getElementById('text-input-panel').style.display = 'none';
+        saveStateToHistory();
+    }
+    
+    function editSelectedText() {
+        if (!selectedTextId) return;
+        
+        const textElement = document.getElementById(selectedTextId);
+        if (!textElement) return;
+        
+        const panel = document.getElementById('text-input-panel');
+        document.getElementById('text-input').value = textElement.textContent;
+        document.getElementById('font-size-input').value = parseInt(textElement.style.fontSize);
+        document.getElementById('text-color-input').value = textElement.style.color;
+        panel.style.display = 'block';
+        
+        document.getElementById('apply-text-btn').onclick = function() {
+            const newText = document.getElementById('text-input').value.trim();
+            if (!newText) return;
+            
+            const fontSize = parseInt(document.getElementById('font-size-input').value);
+            const color = document.getElementById('text-color-input').value;
+            
+            textsRef.child(selectedTextId).update({
+                text: newText,
+                fontSize: fontSize,
+                color: color
+            });
+            
+            panel.style.display = 'none';
+            saveStateToHistory();
+            
+            document.getElementById('apply-text-btn').onclick = addTextToCanvas;
+        };
+    }
+    
+    function deleteSelectedText() {
+        if (selectedTextId && confirm("Удалить этот текст?")) {
+            textsRef.child(selectedTextId).remove();
+            deselectAllElements();
+            saveStateToHistory();
+        }
+    }
+    
+    function toggleTextLock() {
+        if (selectedTextId) {
+            const textElement = document.getElementById(selectedTextId);
+            if (!textElement) return;
+            
+            const isLocked = textElement.classList.contains('locked');
+            
+            if (isLocked) {
+                textElement.classList.remove('locked');
+                document.getElementById('lock-text-btn').textContent = 'Закрепить';
+            } else {
+                textElement.classList.add('locked');
+                document.getElementById('lock-text-btn').textContent = 'Открепить';
+            }
+            
+            textsRef.child(selectedTextId).update({ 
+                locked: !isLocked 
+            });
+            saveStateToHistory();
+        }
+    }
+    
+    function updateCanvas(imagesData) {
+        const container = document.getElementById('canvas-container');
+        
+        document.querySelectorAll('.draggable-image').forEach(img => {
+            if (!imagesData[img.id]) {
+                img.remove();
+                if (selectedImageId === img.id) {
+                    deselectAllElements();
+                }
+            }
+        });
+        
+        for (const id in imagesData) {
+            const imgData = imagesData[id];
+            let img = document.getElementById(id);
+            
+            if (!img) {
+                img = createImageElement(imgData);
+                container.appendChild(img);
+            }
+            
+            updateImagePositionAndSize(img, imgData);
+            updateImageOpacity(img, imgData);
+            updateImageBrightness(img, imgData);
+            updateImageLockState(img, imgData);
+            
+            if (imgData.isNew) {
+                deselectAllElements();
+                img.classList.add('selected');
+                selectedImageId = id;
+                document.getElementById('image-controls').style.display = 'flex';
+                
+                const lockBtn = document.getElementById('lock-btn');
+                lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
+                
+                imagesRef.child(id).update({ isNew: null });
             }
         }
         
-        function startResize(e) {
-            if (e.currentTarget.parentElement.classList.contains('locked')) return;
+        images = {...imagesData};
+    }
+    
+    function updateTexts(textsData) {
+        const container = document.getElementById('canvas-container');
+        
+        document.querySelectorAll('.draggable-text').forEach(textEl => {
+            if (!textsData[textEl.id]) {
+                textEl.remove();
+                if (selectedTextId === textEl.id) {
+                    deselectAllElements();
+                }
+            }
+        });
+        
+        for (const id in textsData) {
+            const textData = textsData[id];
+            let textEl = document.getElementById(id);
             
-            e.preventDefault();
-            e.stopPropagation();
+            if (!textEl) {
+                textEl = createTextElement(textData);
+                container.appendChild(textEl);
+            }
             
-            activeInteraction = 'resize';
-            activeElement = e.currentTarget.parentElement;
+            updateTextPosition(textEl, textData);
+            updateTextContent(textEl, textData);
+            updateTextLockState(textEl, textData);
             
-            const rect = activeElement.getBoundingClientRect();
+            if (textData.isNew) {
+                deselectAllElements();
+                textEl.classList.add('selected');
+                selectedTextId = id;
+                document.getElementById('text-controls').style.display = 'flex';
+                
+                const lockBtn = document.getElementById('lock-text-btn');
+                lockBtn.textContent = textData.locked ? 'Открепить' : 'Закрепить';
+                
+                textsRef.child(id).update({ isNew: null });
+            }
+        }
+        
+        texts = {...textsData};
+    }
+    
+    function createImageElement(imgData) {
+        const imgWrapper = document.createElement('div');
+        imgWrapper.id = imgData.id;
+        imgWrapper.className = 'draggable-image';
+        imgWrapper.style.left = imgData.x + 'px';
+        imgWrapper.style.top = imgData.y + 'px';
+        imgWrapper.style.width = imgData.width + 'px';
+        imgWrapper.style.height = imgData.height + 'px';
+        imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+        imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 85}%)`;
+        
+        if (imgData.locked) {
+            imgWrapper.classList.add('locked');
+        }
+        
+        const img = document.createElement('img');
+        img.src = imgData.src;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.draggable = false;
+        imgWrapper.appendChild(img);
+        
+        // Добавляем ручки для изменения размера со всех сторон
+        if (!imgData.locked) {
+            addResizeHandles(imgWrapper);
+        }
+        
+        imgWrapper.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-handle')) return;
+            startSelect(e);
+        });
+        imgWrapper.addEventListener('touchstart', (e) => {
+            if (e.target.classList.contains('resize-handle')) return;
+            startSelect(e);
+        }, { passive: false });
+        
+        return imgWrapper;
+    }
+    
+    function createTextElement(textData) {
+        const textEl = document.createElement('div');
+        textEl.id = textData.id;
+        textEl.className = 'draggable-text';
+        textEl.style.left = textData.x + 'px';
+        textEl.style.top = textData.y + 'px';
+        textEl.textContent = textData.text;
+        textEl.style.fontSize = textData.fontSize + 'px';
+        textEl.style.color = textData.color;
+        
+        if (textData.locked) {
+            textEl.classList.add('locked');
+        }
+        
+        // Добавляем ручки для изменения размера со всех сторон
+        if (!textData.locked) {
+            addResizeHandles(textEl);
+        }
+        
+        textEl.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-handle')) return;
+            startTextSelect(e);
+        });
+        textEl.addEventListener('touchstart', (e) => {
+            if (e.target.classList.contains('resize-handle')) return;
+            startTextSelect(e);
+        }, { passive: false });
+        
+        return textEl;
+    }
+    
+    function addResizeHandles(element) {
+        // Удаляем старые ручки, если они есть
+        element.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
+        
+        // Создаем ручки для всех сторон и углов
+        const directions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+        
+        directions.forEach(dir => {
+            const handle = document.createElement('div');
+            handle.className = `resize-handle resize-${dir}`;
+            element.appendChild(handle);
+            
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startResize(e, dir);
+            });
+            
+            handle.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startResize(e, dir);
+            }, { passive: false });
+        });
+    }
+    
+    function startSelect(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const imgElement = e.currentTarget;
+        const isLocked = imgElement.classList.contains('locked');
+        
+        deselectAllElements();
+        
+        imgElement.classList.add('selected');
+        selectedImageId = imgElement.id;
+        document.getElementById('image-controls').style.display = 'flex';
+        
+        const lockBtn = document.getElementById('lock-btn');
+        lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+        
+        if (!isLocked && e.type !== 'touchstart') {
+            activeInteraction = 'select';
+            activeElement = imgElement;
+            
+            const currentX = parseInt(imgElement.style.left) || 0;
+            const currentY = parseInt(imgElement.style.top) || 0;
+            
             if (e.type === 'touchstart') {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
+                startX = e.touches[0].clientX - currentX;
+                startY = e.touches[0].clientY - currentY;
             } else {
-                startX = e.clientX;
-                startY = e.clientY;
+                startX = e.clientX - currentX;
+                startY = e.clientY - currentY;
             }
+        }
+    }
+    
+    function startTextSelect(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const textElement = e.currentTarget;
+        const isLocked = textElement.classList.contains('locked');
+        
+        deselectAllElements();
+        
+        textElement.classList.add('selected');
+        selectedTextId = textElement.id;
+        document.getElementById('text-controls').style.display = 'flex';
+        
+        const lockBtn = document.getElementById('lock-text-btn');
+        lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+        
+        if (!isLocked && e.type !== 'touchstart') {
+            activeInteraction = 'select';
+            activeElement = textElement;
             
-            startWidth = parseFloat(activeElement.style.width);
-            startHeight = parseFloat(activeElement.style.height);
+            const currentX = parseInt(textElement.style.left) || 0;
+            const currentY = parseInt(textElement.style.top) || 0;
+            
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX - currentX;
+                startY = e.touches[0].clientY - currentY;
+            } else {
+                startX = e.clientX - currentX;
+                startY = e.clientY - currentY;
+            }
+        }
+    }
+    
+    function updateImagePositionAndSize(img, imgData) {
+        if (activeElement !== img) {
+            img.style.left = imgData.x + 'px';
+            img.style.top = imgData.y + 'px';
+            img.style.width = imgData.width + 'px';
+            img.style.height = imgData.height + 'px';
+        }
+    }
+    
+    function updateTextPosition(textEl, textData) {
+        if (activeElement !== textEl) {
+            textEl.style.left = textData.x + 'px';
+            textEl.style.top = textData.y + 'px';
+        }
+    }
+    
+    function updateTextContent(textEl, textData) {
+        textEl.textContent = textData.text;
+        textEl.style.fontSize = textData.fontSize + 'px';
+        textEl.style.color = textData.color;
+    }
+    
+    function updateImageOpacity(img, imgData) {
+        img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+    }
+    
+    function updateImageBrightness(img, imgData) {
+        if (imgData.brightness !== undefined) {
+            img.style.filter = `brightness(${imgData.brightness}%)`;
+        } else {
+            img.style.filter = 'brightness(85%)';
+        }
+    }
+    
+    function updateImageLockState(img, imgData) {
+        if (imgData.locked) {
+            img.classList.add('locked');
+            img.style.cursor = 'default';
+            img.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
+        } else {
+            img.classList.remove('locked');
+            img.style.cursor = 'move';
+            if (!img.querySelector('.resize-handle')) {
+                addResizeHandles(img);
+            }
+        }
+    }
+    
+    function updateTextLockState(textEl, textData) {
+        if (textData.locked) {
+            textEl.classList.add('locked');
+            textEl.style.cursor = 'default';
+            textEl.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
+        } else {
+            textEl.classList.remove('locked');
+            textEl.style.cursor = 'move';
+            if (!textEl.querySelector('.resize-handle')) {
+                addResizeHandles(textEl);
+            }
+        }
+    }
+    
+    function clearCanvas() {
+        if (confirm("Очистить холст для всех пользователей?")) {
+            imagesRef.remove();
+            textsRef.remove();
+            deselectAllElements();
+            saveStateToHistory();
+        }
+    }
+    
+    function startResize(e, direction) {
+        if (e.currentTarget.parentElement.classList.contains('locked')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        activeInteraction = 'resize';
+        activeElement = e.currentTarget.parentElement;
+        resizeDirection = direction;
+        
+        const rect = activeElement.getBoundingClientRect();
+        if (e.type === 'touchstart') {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        } else {
+            startX = e.clientX;
+            startY = e.clientY;
         }
         
-        function handleMove(e) {
-            if (!activeInteraction || !activeElement) return;
-            if (activeElement.classList.contains('locked')) return;
+        startWidth = parseFloat(activeElement.style.width) || activeElement.offsetWidth;
+        startHeight = parseFloat(activeElement.style.height) || activeElement.offsetHeight;
+        startLeft = parseFloat(activeElement.style.left) || 0;
+        startTop = parseFloat(activeElement.style.top) || 0;
+    }
+    
+    function handleMove(e) {
+        if (!activeInteraction || !activeElement) return;
+        if (activeElement.classList.contains('locked')) return;
+        
+        e.preventDefault();
+        let clientX, clientY;
+        
+        if (e.type === 'touchmove') {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        
+        if (activeInteraction === 'select' || activeInteraction === 'drag') {
+            const x = clientX - startX;
+            const y = clientY - startY;
             
-            e.preventDefault();
-            let clientX, clientY;
+            const container = document.getElementById('canvas-container');
+            const maxX = container.offsetWidth - activeElement.offsetWidth;
+            const maxY = container.offsetHeight - activeElement.offsetHeight;
             
-            if (e.type === 'touchmove') {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            }
+            const boundedX = Math.max(0, Math.min(x, maxX));
+            const boundedY = Math.max(0, Math.min(y, maxY));
             
-            if (activeInteraction === 'select' || activeInteraction === 'drag') {
-                const x = clientX - startX;
-                const y = clientY - startY;
-                
-                const container = document.getElementById('canvas-container');
-                const maxX = container.offsetWidth - activeElement.offsetWidth;
-                const maxY = container.offsetHeight - activeElement.offsetHeight;
-                
-                const boundedX = Math.max(0, Math.min(x, maxX));
-                const boundedY = Math.max(0, Math.min(y, maxY));
-                
-                activeElement.style.left = boundedX + 'px';
-                activeElement.style.top = boundedY + 'px';
-                
+            activeElement.style.left = boundedX + 'px';
+            activeElement.style.top = boundedY + 'px';
+            
+            if (activeElement.classList.contains('draggable-image')) {
                 imagesRef.child(activeElement.id).update({
                     x: boundedX,
                     y: boundedY
                 });
-                
-                if (activeInteraction === 'select') {
-                    activeInteraction = 'drag';
-                }
-            } 
-            else if (activeInteraction === 'resize') {
-                const deltaX = clientX - startX;
-                const deltaY = clientY - startY;
-                
-                let newWidth = startWidth + deltaX;
-                let newHeight = startHeight + deltaY;
-                
-                const aspectRatio = startWidth / startHeight;
-                if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                    newHeight = newWidth / aspectRatio;
-                } else {
-                    newWidth = newHeight * aspectRatio;
-                }
-                
-                newWidth = Math.max(50, newWidth);
-                newHeight = Math.max(50, newHeight);
-                
-                activeElement.style.width = newWidth + 'px';
-                activeElement.style.height = newHeight + 'px';
-                
+            } else if (activeElement.classList.contains('draggable-text')) {
+                textsRef.child(activeElement.id).update({
+                    x: boundedX,
+                    y: boundedY
+                });
+            }
+            
+            if (activeInteraction === 'select') {
+                activeInteraction = 'drag';
+            }
+        } 
+        else if (activeInteraction === 'resize') {
+            const deltaX = clientX - startX;
+            const deltaY = clientY - startY;
+            
+            let newWidth = startWidth;
+            let newHeight = startHeight;
+            let newLeft = startLeft;
+            let newTop = startTop;
+            
+            // Обрабатываем изменение размера в зависимости от направления
+            switch (resizeDirection) {
+                case 'n':
+                    newHeight = Math.max(50, startHeight - deltaY);
+                    newTop = startTop + (startHeight - newHeight);
+                    break;
+                case 'ne':
+                    newHeight = Math.max(50, startHeight - deltaY);
+                    newTop = startTop + (startHeight - newHeight);
+                    newWidth = Math.max(50, startWidth + deltaX);
+                    break;
+                case 'e':
+                    newWidth = Math.max(50, startWidth + deltaX);
+                    break;
+                case 'se':
+                    newWidth = Math.max(50, startWidth + deltaX);
+                    newHeight = Math.max(50, startHeight + deltaY);
+                    break;
+                case 's':
+                    newHeight = Math.max(50, startHeight + deltaY);
+                    break;
+                case 'sw':
+                    newWidth = Math.max(50, startWidth - deltaX);
+                    newLeft = startLeft + (startWidth - newWidth);
+                    newHeight = Math.max(50, startHeight + deltaY);
+                    break;
+                case 'w':
+                    newWidth = Math.max(50, startWidth - deltaX);
+                    newLeft = startLeft + (startWidth - newWidth);
+                    break;
+                case 'nw':
+                    newWidth = Math.max(50, startWidth - deltaX);
+                    newLeft = startLeft + (startWidth - newWidth);
+                    newHeight = Math.max(50, startHeight - deltaY);
+                    newTop = startTop + (startHeight - newHeight);
+                    break;
+            }
+            
+            // Применяем изменения
+            activeElement.style.width = newWidth + 'px';
+            activeElement.style.height = newHeight + 'px';
+            activeElement.style.left = newLeft + 'px';
+            activeElement.style.top = newTop + 'px';
+            
+            if (activeElement.classList.contains('draggable-image')) {
                 imagesRef.child(activeElement.id).update({
                     width: newWidth,
-                    height: newHeight
+                    height: newHeight,
+                    x: newLeft,
+                    y: newTop
+                });
+            } else if (activeElement.classList.contains('draggable-text')) {
+                // Для текста обновляем только размер шрифта
+                const fontSize = parseInt(activeElement.style.fontSize) || 16;
+                const scaleFactor = newWidth / startWidth;
+                const newFontSize = Math.max(10, Math.min(72, Math.round(fontSize * scaleFactor)));
+                
+                activeElement.style.fontSize = newFontSize + 'px';
+                textsRef.child(activeElement.id).update({
+                    fontSize: newFontSize,
+                    x: newLeft,
+                    y: newTop
                 });
             }
         }
-        
-        function endInteraction() {
-            if (activeInteraction) {
-                saveStateToHistory();
-            }
-            activeInteraction = null;
-            activeElement = null;
+    }
+    
+    function endInteraction() {
+        if (activeInteraction) {
+            saveStateToHistory();
         }
-        
-        window.addEventListener('DOMContentLoaded', initApp);
-        window.addEventListener('resize', setupViewport);
-    </script>
+        activeInteraction = null;
+        activeElement = null;
+        resizeDirection = null;
+    }
+    
+    window.addEventListener('DOMContentLoaded', initApp);
+    window.addEventListener('resize', setupViewport);
+</script>
 </body>
 </html>

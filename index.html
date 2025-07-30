@@ -279,9 +279,9 @@
                     brightnessSlider.value = currentBrightness;
                     
                     // Показываем элементы управления видео, если это видео
-                    if (mediaElement.querySelector('video')) {
+                    const video = mediaElement.querySelector('video');
+                    if (video) {
                         videoControls.style.display = 'block';
-                        const video = mediaElement.querySelector('video');
                         document.getElementById('play-pause-btn').textContent = 
                             video.paused ? 'Воспр.' : 'Пауза';
                         document.getElementById('mute-btn').textContent = 
@@ -406,67 +406,71 @@
         }
         
         function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
             
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const id = 'media_' + Date.now();
-                const x = 100;
-                const y = 100;
-                
-                if (file.type.startsWith('video/')) {
-                    // Обработка видео
-                    const video = document.createElement('video');
-                    video.src = event.target.result;
-                    video.loop = true;
-                    video.muted = true;
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const id = 'media_' + Date.now() + Math.floor(Math.random() * 1000);
+                    const x = 100;
+                    const y = 100;
                     
-                    video.onloadedmetadata = () => {
-                        mediaRef.child(id).set({
-                            id: id,
-                            src: event.target.result,
-                            type: 'video',
-                            x: x,
-                            y: y,
-                            width: video.videoWidth,
-                            height: video.videoHeight,
-                            opacity: 0.3,
-                            brightness: 85,
-                            isNew: true,
-                            locked: false
-                        });
-                        saveStateToHistory();
-                    };
-                } else {
-                    // Обработка изображений
-                    const img = new Image();
-                    img.onload = () => {
-                        mediaRef.child(id).set({
-                            id: id,
-                            src: event.target.result,
-                            type: 'image',
-                            x: x,
-                            y: y,
-                            width: img.width,
-                            height: img.height,
-                            opacity: 0.3,
-                            brightness: 85,
-                            isNew: true,
-                            locked: false
-                        });
-                        saveStateToHistory();
-                    };
-                    img.src = event.target.result;
-                }
-            };
-            reader.readAsDataURL(file);
+                    if (file.type.startsWith('video/')) {
+                        // Обработка видео
+                        const video = document.createElement('video');
+                        video.src = event.target.result;
+                        video.loop = true;
+                        video.muted = true;
+                        
+                        video.onloadedmetadata = () => {
+                            mediaRef.child(id).set({
+                                id: id,
+                                src: event.target.result,
+                                type: 'video',
+                                x: x,
+                                y: y,
+                                width: video.videoWidth,
+                                height: video.videoHeight,
+                                opacity: 0.3,
+                                brightness: 85,
+                                isNew: true,
+                                locked: false
+                            });
+                            saveStateToHistory();
+                        };
+                    } else {
+                        // Обработка изображений
+                        const img = new Image();
+                        img.onload = () => {
+                            mediaRef.child(id).set({
+                                id: id,
+                                src: event.target.result,
+                                type: 'image',
+                                x: x,
+                                y: y,
+                                width: img.width,
+                                height: img.height,
+                                opacity: 0.3,
+                                brightness: 85,
+                                isNew: true,
+                                locked: false
+                            });
+                            saveStateToHistory();
+                        };
+                        img.src = event.target.result;
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+            
             e.target.value = '';
         }
         
         function updateCanvas(mediaData) {
             const container = document.getElementById('canvas-container');
             
+            // Удаляем медиа, которых больше нет в данных
             document.querySelectorAll('.draggable-media').forEach(media => {
                 if (!mediaData[media.id]) {
                     media.remove();
@@ -476,6 +480,7 @@
                 }
             });
             
+            // Добавляем или обновляем медиа
             for (const id in mediaData) {
                 const mediaItem = mediaData[id];
                 let mediaElement = document.getElementById(id);

@@ -249,7 +249,7 @@
     </div>
     
     <div id="text-input-panel">
-        <h3>Добавить текст</h3>
+        <h3 id="text-panel-title">Добавить текст</h3>
         <input type="text" id="text-input" placeholder="Введите текст">
         <label>
             Размер шрифта:
@@ -310,7 +310,8 @@
         let actionHistory = [];
         let historyPointer = -1;
         let resizeDirection = null;
-        let originalApplyHandler = null;
+        let isEditingText = false;
+        let currentTextId = null;
 
         function initApp() {
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
@@ -320,13 +321,8 @@
             });
             
             document.getElementById('add-text-btn').addEventListener('click', showTextInputPanel);
-            document.getElementById('apply-text-btn').addEventListener('click', addTextToCanvas);
-            originalApplyHandler = document.getElementById('apply-text-btn').onclick;
-            document.getElementById('cancel-text-btn').addEventListener('click', () => {
-                document.getElementById('text-input-panel').style.display = 'none';
-                // Восстанавливаем оригинальный обработчик
-                document.getElementById('apply-text-btn').onclick = originalApplyHandler;
-            });
+            document.getElementById('apply-text-btn').addEventListener('click', applyTextChanges);
+            document.getElementById('cancel-text-btn').addEventListener('click', cancelTextEdit);
             
             document.getElementById('edit-text-btn').addEventListener('click', editSelectedText);
             document.getElementById('delete-text-btn').addEventListener('click', deleteSelectedText);
@@ -556,10 +552,13 @@
             document.getElementById('font-size-input').value = 16;
             document.getElementById('text-color-input').value = '#000000';
             document.getElementById('font-family-select').value = "'Comic Sans MS', cursive";
+            document.getElementById('text-panel-title').textContent = "Добавить текст";
             panel.style.display = 'block';
+            isEditingText = false;
+            currentTextId = null;
         }
         
-        function addTextToCanvas() {
+        function applyTextChanges() {
             const text = document.getElementById('text-input').value.trim();
             if (!text) return;
             
@@ -567,25 +566,44 @@
             const color = document.getElementById('text-color-input').value;
             const fontFamily = document.getElementById('font-family-select').value;
             
-            const id = 'text_' + Date.now();
-            const x = 100;
-            const y = 100;
-            
-            textsRef.child(id).set({
-                id: id,
-                text: text,
-                x: x,
-                y: y,
-                fontSize: fontSize,
-                color: color,
-                fontFamily: fontFamily,
-                opacity: 0.3,
-                isNew: true,
-                locked: false
-            });
+            if (isEditingText && currentTextId) {
+                // Редактирование существующего текста
+                textsRef.child(currentTextId).update({
+                    text: text,
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily
+                });
+            } else {
+                // Добавление нового текста
+                const id = 'text_' + Date.now();
+                const x = 100;
+                const y = 100;
+                
+                textsRef.child(id).set({
+                    id: id,
+                    text: text,
+                    x: x,
+                    y: y,
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily,
+                    opacity: 0.3,
+                    isNew: true,
+                    locked: false
+                });
+            }
             
             document.getElementById('text-input-panel').style.display = 'none';
             saveStateToHistory();
+            isEditingText = false;
+            currentTextId = null;
+        }
+        
+        function cancelTextEdit() {
+            document.getElementById('text-input-panel').style.display = 'none';
+            isEditingText = false;
+            currentTextId = null;
         }
         
         function editSelectedText() {
@@ -603,33 +621,10 @@
             const fontFamily = textElement.style.fontFamily;
             document.getElementById('font-family-select').value = fontFamily;
             
+            document.getElementById('text-panel-title').textContent = "Редактировать текст";
             panel.style.display = 'block';
-            
-            // Сохраняем оригинальный обработчик
-            const originalHandler = document.getElementById('apply-text-btn').onclick;
-            
-            // Устанавливаем временный обработчик для редактирования
-            document.getElementById('apply-text-btn').onclick = function() {
-                const newText = document.getElementById('text-input').value.trim();
-                if (!newText) return;
-                
-                const fontSize = parseInt(document.getElementById('font-size-input').value);
-                const color = document.getElementById('text-color-input').value;
-                const fontFamily = document.getElementById('font-family-select').value;
-                
-                textsRef.child(selectedTextId).update({
-                    text: newText,
-                    fontSize: fontSize,
-                    color: color,
-                    fontFamily: fontFamily
-                });
-                
-                panel.style.display = 'none';
-                saveStateToHistory();
-                
-                // Восстанавливаем оригинальный обработчик
-                document.getElementById('apply-text-btn').onclick = originalHandler;
-            };
+            isEditingText = true;
+            currentTextId = selectedTextId;
         }
         
         function deleteSelectedText() {

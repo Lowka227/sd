@@ -206,14 +206,6 @@
             padding: 5px;
             margin-bottom: 10px;
         }
-        .offline-indicator {
-            background: #ff4444;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            margin-left: 10px;
-            font-size: 12px;
-        }
     </style>
 </head>
 <body>
@@ -238,7 +230,6 @@
             </div>
             
             <div id="status">Синхронизировано</div>
-            <div id="offline-indicator" class="offline-indicator" style="display: none;">Оффлайн</div>
         </div>
         
         <div id="canvas-container"></div>
@@ -321,16 +312,8 @@
         let resizeDirection = null;
         let isEditingText = false;
         let currentTextId = null;
-        let isOnline = true;
-        let pendingChanges = {
-            images: {},
-            texts: {}
-        };
 
         function initApp() {
-            // Загрузка данных из локального хранилища
-            loadFromLocalStorage();
-            
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
             document.getElementById('close-properties').addEventListener('click', () => {
@@ -359,7 +342,7 @@
                     if (imgElement) {
                         imgElement.style.opacity = opacity;
                     }
-                    updateImageProperty(selectedImageId, 'opacity', opacity);
+                    imagesRef.child(selectedImageId).update({ opacity: opacity });
                     saveStateToHistory();
                 }
             });
@@ -371,7 +354,7 @@
                     if (imgElement) {
                         imgElement.style.filter = `brightness(${brightness}%)`;
                     }
-                    updateImageProperty(selectedImageId, 'brightness', brightness);
+                    imagesRef.child(selectedImageId).update({ brightness: brightness });
                     saveStateToHistory();
                 }
             });
@@ -388,15 +371,17 @@
                     imgElement.style.opacity = newOpacity;
                     imgElement.style.filter = `brightness(${newBrightness}%)`;
                     
-                    updateImageProperty(selectedImageId, 'opacity', newOpacity);
-                    updateImageProperty(selectedImageId, 'brightness', newBrightness);
+                    imagesRef.child(selectedImageId).update({ 
+                        opacity: newOpacity,
+                        brightness: newBrightness
+                    });
                     saveStateToHistory();
                 }
             });
             
             document.getElementById('delete-btn').addEventListener('click', () => {
                 if (selectedImageId && confirm("Удалить это изображение?")) {
-                    deleteImage(selectedImageId);
+                    imagesRef.child(selectedImageId).remove();
                     deselectAllElements();
                     saveStateToHistory();
                 }
@@ -435,35 +420,21 @@
                         document.getElementById('lock-btn').textContent = 'Открепить';
                     }
                     
-                    updateImageProperty(selectedImageId, 'locked', !isLocked);
+                    imagesRef.child(selectedImageId).update({ 
+                        locked: !isLocked 
+                    });
                     saveStateToHistory();
                 }
             });
             
-            // Слушатели Firebase
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
-                images = data;
                 updateCanvas(data);
-                saveToLocalStorage();
             });
             
             textsRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
-                texts = data;
                 updateTexts(data);
-                saveToLocalStorage();
-            });
-            
-            // Мониторинг соединения
-            database.ref('.info/connected').on('value', (snapshot) => {
-                isOnline = snapshot.val() === true;
-                updateConnectionStatus();
-                
-                if (isOnline) {
-                    // При восстановлении соединения синхронизируем pending changes
-                    syncPendingChanges();
-                }
             });
             
             document.addEventListener('mousemove', handleMove);
@@ -479,106 +450,6 @@
             });
             
             setupViewport();
-            
-            // Периодическая синхронизация
-            setInterval(syncPendingChanges, 3000);
-        }
-        
-        function updateConnectionStatus() {
-            const status = document.getElementById('status');
-            const offlineIndicator = document.getElementById('offline-indicator');
-            
-            if (isOnline) {
-                status.textContent = 'Синхронизировано';
-                status.style.color = '#666';
-                offlineIndicator.style.display = 'none';
-            } else {
-                status.textContent = 'Ожидание синхронизации';
-                status.style.color = '#ff6b00';
-                offlineIndicator.style.display = 'block';
-            }
-        }
-        
-        function updateImageProperty(id, property, value) {
-            if (isOnline) {
-                imagesRef.child(id).update({ [property]: value });
-            } else {
-                // Сохраняем изменения для последующей синхронизации
-                if (!pendingChanges.images[id]) {
-                    pendingChanges.images[id] = {};
-                }
-                pendingChanges.images[id][property] = value;
-                saveToLocalStorage();
-            }
-        }
-        
-        function updateTextProperty(id, property, value) {
-            if (isOnline) {
-                textsRef.child(id).update({ [property]: value });
-            } else {
-                // Сохраняем изменения для последующей синхронизации
-                if (!pendingChanges.texts[id]) {
-                    pendingChanges.texts[id] = {};
-                }
-                pendingChanges.texts[id][property] = value;
-                saveToLocalStorage();
-            }
-        }
-        
-        function syncPendingChanges() {
-            if (!isOnline) return;
-            
-            // Синхронизация изображений
-            for (const id in pendingChanges.images) {
-                if (pendingChanges.images[id]) {
-                    imagesRef.child(id).update(pendingChanges.images[id]);
-                    delete pendingChanges.images[id];
-                }
-            }
-            
-            // Синхронизация текстов
-            for (const id in pendingChanges.texts) {
-                if (pendingChanges.texts[id]) {
-                    textsRef.child(id).update(pendingChanges.texts[id]);
-                    delete pendingChanges.texts[id];
-                }
-            }
-            
-            saveToLocalStorage();
-        }
-        
-        function saveToLocalStorage() {
-            try {
-                localStorage.setItem('greenCanvas_images', JSON.stringify(images));
-                localStorage.setItem('greenCanvas_texts', JSON.stringify(texts));
-                localStorage.setItem('greenCanvas_pending', JSON.stringify(pendingChanges));
-            } catch (e) {
-                console.warn('Не удалось сохранить в localStorage:', e);
-            }
-        }
-        
-        function loadFromLocalStorage() {
-            try {
-                const savedImages = localStorage.getItem('greenCanvas_images');
-                const savedTexts = localStorage.getItem('greenCanvas_texts');
-                const savedPending = localStorage.getItem('greenCanvas_pending');
-                
-                if (savedImages) {
-                    const imagesData = JSON.parse(savedImages);
-                    updateCanvas(imagesData);
-                }
-                
-                if (savedTexts) {
-                    const textsData = JSON.parse(savedTexts);
-                    updateTexts(textsData);
-                }
-                
-                if (savedPending) {
-                    pendingChanges = JSON.parse(savedPending);
-                }
-            } catch (e) {
-                console.warn('Не удалось загрузить из localStorage:', e);
-            }
         }
         
         function toggleTextVisibility() {
@@ -591,7 +462,9 @@
                 
                 textElement.style.opacity = newOpacity;
                 
-                updateTextProperty(selectedTextId, 'opacity', newOpacity);
+                textsRef.child(selectedTextId).update({ 
+                    opacity: newOpacity
+                });
                 saveStateToHistory();
             }
         }
@@ -611,10 +484,14 @@
                 actionHistory.shift();
             }
             
-            const currentState = { images: {...images}, texts: {...texts} };
-            actionHistory.push(JSON.stringify(currentState));
-            historyPointer = actionHistory.length - 1;
-            saveToLocalStorage();
+            Promise.all([
+                imagesRef.once('value').then(snapshot => snapshot.val() || {}),
+                textsRef.once('value').then(snapshot => snapshot.val() || {})
+            ]).then(([imagesData, textsData]) => {
+                const currentState = { images: imagesData, texts: textsData };
+                actionHistory.push(JSON.stringify(currentState));
+                historyPointer = actionHistory.length - 1;
+            });
         }
         
         function undoAction() {
@@ -622,15 +499,8 @@
             
             historyPointer--;
             const previousState = JSON.parse(actionHistory[historyPointer]);
-            
-            if (isOnline) {
-                imagesRef.set(previousState.images || {});
-                textsRef.set(previousState.texts || {});
-            } else {
-                updateCanvas(previousState.images || {});
-                updateTexts(previousState.texts || {});
-                saveToLocalStorage();
-            }
+            imagesRef.set(previousState.images || {});
+            textsRef.set(previousState.texts || {});
         }
         
         function setupViewport() {
@@ -655,7 +525,7 @@
                     const x = 100;
                     const y = 100;
                     
-                    const imageData = {
+                    imagesRef.child(id).set({
                         id: id,
                         src: event.target.result,
                         x: x,
@@ -666,17 +536,7 @@
                         brightness: 85,
                         isNew: true,
                         locked: false
-                    };
-                    
-                    if (isOnline) {
-                        imagesRef.child(id).set(imageData);
-                    } else {
-                        // Локальное сохранение
-                        images[id] = imageData;
-                        updateCanvas(images);
-                        pendingChanges.images[id] = imageData;
-                        saveToLocalStorage();
-                    }
+                    });
                     saveStateToHistory();
                 };
                 img.src = event.target.result;
@@ -708,32 +568,19 @@
             
             if (isEditingText && currentTextId) {
                 // Редактирование существующего текста
-                const updates = {
+                textsRef.child(currentTextId).update({
                     text: text,
                     fontSize: fontSize,
                     color: color,
                     fontFamily: fontFamily
-                };
-                
-                if (isOnline) {
-                    textsRef.child(currentTextId).update(updates);
-                } else {
-                    if (!texts[currentTextId]) return;
-                    texts[currentTextId] = { ...texts[currentTextId], ...updates };
-                    updateTexts(texts);
-                    if (!pendingChanges.texts[currentTextId]) {
-                        pendingChanges.texts[currentTextId] = {};
-                    }
-                    Object.assign(pendingChanges.texts[currentTextId], updates);
-                    saveToLocalStorage();
-                }
+                });
             } else {
                 // Добавление нового текста
                 const id = 'text_' + Date.now();
                 const x = 100;
                 const y = 100;
                 
-                const textData = {
+                textsRef.child(id).set({
                     id: id,
                     text: text,
                     x: x,
@@ -744,16 +591,7 @@
                     opacity: 0.3,
                     isNew: true,
                     locked: false
-                };
-                
-                if (isOnline) {
-                    textsRef.child(id).set(textData);
-                } else {
-                    texts[id] = textData;
-                    updateTexts(texts);
-                    pendingChanges.texts[id] = textData;
-                    saveToLocalStorage();
-                }
+                });
             }
             
             document.getElementById('text-input-panel').style.display = 'none';
@@ -791,27 +629,9 @@
         
         function deleteSelectedText() {
             if (selectedTextId && confirm("Удалить этот текст?")) {
-                if (isOnline) {
-                    textsRef.child(selectedTextId).remove();
-                } else {
-                    delete texts[selectedTextId];
-                    updateTexts(texts);
-                    pendingChanges.texts[selectedTextId] = { _deleted: true };
-                    saveToLocalStorage();
-                }
+                textsRef.child(selectedTextId).remove();
                 deselectAllElements();
                 saveStateToHistory();
-            }
-        }
-        
-        function deleteImage(id) {
-            if (isOnline) {
-                imagesRef.child(id).remove();
-            } else {
-                delete images[id];
-                updateCanvas(images);
-                pendingChanges.images[id] = { _deleted: true };
-                saveToLocalStorage();
             }
         }
         
@@ -830,7 +650,9 @@
                     document.getElementById('lock-text-btn').textContent = 'Открепить';
                 }
                 
-                updateTextProperty(selectedTextId, 'locked', !isLocked);
+                textsRef.child(selectedTextId).update({ 
+                    locked: !isLocked 
+                });
                 saveStateToHistory();
             }
         }
@@ -838,7 +660,6 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
-            // Удаляем только если элемент действительно удален из данных
             document.querySelectorAll('.draggable-image').forEach(img => {
                 if (!imagesData[img.id]) {
                     img.remove();
@@ -871,12 +692,7 @@
                     const lockBtn = document.getElementById('lock-btn');
                     lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
                     
-                    if (isOnline) {
-                        imagesRef.child(id).update({ isNew: null });
-                    } else {
-                        images[id].isNew = null;
-                        saveToLocalStorage();
-                    }
+                    imagesRef.child(id).update({ isNew: null });
                 }
             }
             
@@ -886,7 +702,6 @@
         function updateTexts(textsData) {
             const container = document.getElementById('canvas-container');
             
-            // Удаляем только если элемент действительно удален из данных
             document.querySelectorAll('.draggable-text').forEach(textEl => {
                 if (!textsData[textEl.id]) {
                     textEl.remove();
@@ -927,12 +742,7 @@
                     const lockBtn = document.getElementById('lock-text-btn');
                     lockBtn.textContent = textData.locked ? 'Открепить' : 'Закрепить';
                     
-                    if (isOnline) {
-                        textsRef.child(id).update({ isNew: null });
-                    } else {
-                        texts[id].isNew = null;
-                        saveToLocalStorage();
-                    }
+                    textsRef.child(id).update({ isNew: null });
                 }
             }
             
@@ -1165,18 +975,8 @@
         
         function clearCanvas() {
             if (confirm("Очистить холст для всех пользователей?")) {
-                if (isOnline) {
-                    imagesRef.remove();
-                    textsRef.remove();
-                } else {
-                    images = {};
-                    texts = {};
-                    updateCanvas({});
-                    updateTexts({});
-                    pendingChanges.images = {};
-                    pendingChanges.texts = {};
-                    saveToLocalStorage();
-                }
+                imagesRef.remove();
+                textsRef.remove();
                 deselectAllElements();
                 saveStateToHistory();
             }
@@ -1237,11 +1037,15 @@
                 activeElement.style.top = boundedY + 'px';
                 
                 if (activeElement.classList.contains('draggable-image')) {
-                    updateImageProperty(activeElement.id, 'x', boundedX);
-                    updateImageProperty(activeElement.id, 'y', boundedY);
+                    imagesRef.child(activeElement.id).update({
+                        x: boundedX,
+                        y: boundedY
+                    });
                 } else if (activeElement.classList.contains('draggable-text')) {
-                    updateTextProperty(activeElement.id, 'x', boundedX);
-                    updateTextProperty(activeElement.id, 'y', boundedY);
+                    textsRef.child(activeElement.id).update({
+                        x: boundedX,
+                        y: boundedY
+                    });
                 }
                 
                 if (activeInteraction === 'select') {
@@ -1300,19 +1104,23 @@
                 activeElement.style.top = newTop + 'px';
                 
                 if (activeElement.classList.contains('draggable-image')) {
-                    updateImageProperty(activeElement.id, 'width', newWidth);
-                    updateImageProperty(activeElement.id, 'height', newHeight);
-                    updateImageProperty(activeElement.id, 'x', newLeft);
-                    updateImageProperty(activeElement.id, 'y', newTop);
+                    imagesRef.child(activeElement.id).update({
+                        width: newWidth,
+                        height: newHeight,
+                        x: newLeft,
+                        y: newTop
+                    });
                 } else if (activeElement.classList.contains('draggable-text')) {
                     const fontSize = parseInt(activeElement.style.fontSize) || 16;
                     const scaleFactor = newWidth / startWidth;
                     const newFontSize = Math.max(10, Math.min(72, Math.round(fontSize * scaleFactor)));
                     
                     activeElement.style.fontSize = newFontSize + 'px';
-                    updateTextProperty(activeElement.id, 'fontSize', newFontSize);
-                    updateTextProperty(activeElement.id, 'x', newLeft);
-                    updateTextProperty(activeElement.id, 'y', newTop);
+                    textsRef.child(activeElement.id).update({
+                        fontSize: newFontSize,
+                        x: newLeft,
+                        y: newTop
+                    });
                 }
             }
         }

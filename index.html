@@ -14,14 +14,9 @@
         }
         #app-container {
             display: flex;
-            flex-direction: row;
-            width: 100vw;
-            height: 100vh;
-        }
-        #main-content {
-            display: flex;
             flex-direction: column;
-            width: calc(100% - 300px);
+            width: 1920px;
+            height: 1080px;
         }
         #controls {
             background: #f0f0f0;
@@ -45,64 +40,12 @@
             display: none;
         }
         #canvas-container {
-            width: 100%;
-            height: calc(100vh - 60px);
+            width: 1920px;
+            height: 1020px;
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
             cursor: default;
-        }
-        #images-sidebar {
-            width: 300px;
-            background: #f5f5f5;
-            border-left: 1px solid #ddd;
-            padding: 15px;
-            overflow-y: auto;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-        #images-sidebar h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-        .image-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding: 8px;
-            background: white;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .image-item img {
-            width: 50px;
-            height: 50px;
-            object-fit: contain;
-            margin-right: 10px;
-            border: 1px solid #eee;
-        }
-        .image-info {
-            flex-grow: 1;
-            font-size: 12px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .image-actions {
-            display: flex;
-            gap: 5px;
-        }
-        .hide-btn {
-            padding: 5px 8px;
-            border: none;
-            border-radius: 3px;
-            background: #4285f4;
-            color: white;
-            font-size: 12px;
-            cursor: pointer;
         }
         .draggable-image {
             position: absolute;
@@ -215,7 +158,7 @@
         .properties-panel {
             position: absolute;
             top: 80px;
-            right: 320px;
+            right: 20px;
             background: white;
             padding: 10px;
             border-radius: 5px;
@@ -267,36 +210,29 @@
 </head>
 <body>
     <div id="app-container">
-        <div id="main-content">
-            <div id="controls">
-                <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
-                <button id="add-text-btn">Добавить текст</button>
-                <button id="clear-btn">Очистить</button>
-                
-                <div id="image-controls">
-                    <button id="hide-btn">Скрыть/Показать</button>
-                    <button id="delete-btn">Удалить</button>
-                    <button id="settings-btn">Настройки</button>
-                    <button id="lock-btn">Закрепить</button>
-                </div>
-                
-                <div id="text-controls">
-                    <button id="hide-text-btn">Скрыть/Показать</button>
-                    <button id="edit-text-btn">Редактировать</button>
-                    <button id="delete-text-btn">Удалить</button>
-                    <button id="lock-text-btn">Закрепить</button>
-                </div>
-                
-                <div id="status">Синхронизировано</div>
+        <div id="controls">
+            <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
+            <button id="add-text-btn">Добавить текст</button>
+            <button id="clear-btn">Очистить</button>
+            
+            <div id="image-controls">
+                <button id="hide-btn">Скрыть/Показать</button>
+                <button id="delete-btn">Удалить</button>
+                <button id="settings-btn">Настройки</button>
+                <button id="lock-btn">Закрепить</button>
             </div>
             
-            <div id="canvas-container"></div>
+            <div id="text-controls">
+                <button id="hide-text-btn">Скрыть/Показать</button>
+                <button id="edit-text-btn">Редактировать</button>
+                <button id="delete-text-btn">Удалить</button>
+                <button id="lock-text-btn">Закрепить</button>
+            </div>
+            
+            <div id="status">Синхронизировано</div>
         </div>
         
-        <div id="images-sidebar">
-            <h3>Источники</h3>
-            <div id="images-list"></div>
-        </div>
+        <div id="canvas-container"></div>
     </div>
     
     <div class="properties-panel" id="properties-panel">
@@ -494,7 +430,6 @@
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 updateCanvas(data);
-                updateImagesSidebar(data);
             });
             
             textsRef.on('value', (snapshot) => {
@@ -515,57 +450,6 @@
             });
             
             setupViewport();
-        }
-        
-        function updateImagesSidebar(imagesData) {
-            const imagesList = document.getElementById('images-list');
-            imagesList.innerHTML = '';
-            
-            for (const id in imagesData) {
-                const imgData = imagesData[id];
-                const imageItem = document.createElement('div');
-                imageItem.className = 'image-item';
-                imageItem.dataset.id = id;
-                
-                const img = document.createElement('img');
-                img.src = imgData.src;
-                img.alt = 'Изображение';
-                
-                const imageInfo = document.createElement('div');
-                imageInfo.className = 'image-info';
-                imageInfo.textContent = `Изображение ${id.substr(4)}`;
-                
-                const imageActions = document.createElement('div');
-                imageActions.className = 'image-actions';
-                
-                const hideBtn = document.createElement('button');
-                hideBtn.className = 'hide-btn';
-                hideBtn.textContent = 'Скрыть';
-                hideBtn.onclick = () => toggleImageVisibility(id);
-                
-                imageActions.appendChild(hideBtn);
-                
-                imageItem.appendChild(img);
-                imageItem.appendChild(imageInfo);
-                imageItem.appendChild(imageActions);
-                
-                imagesList.appendChild(imageItem);
-            }
-        }
-        
-        function toggleImageVisibility(imageId) {
-            const imgElement = document.getElementById(imageId);
-            if (!imgElement) return;
-            
-            const currentOpacity = parseFloat(imgElement.style.opacity);
-            const newOpacity = currentOpacity > 0 ? 0 : 0.3;
-            
-            imgElement.style.opacity = newOpacity;
-            
-            imagesRef.child(imageId).update({ 
-                opacity: newOpacity
-            });
-            saveStateToHistory();
         }
         
         function toggleTextVisibility() {
@@ -622,7 +506,7 @@
         function setupViewport() {
             const appContainer = document.getElementById('app-container');
             const scale = Math.min(
-                window.innerWidth / (1920 + 300),
+                window.innerWidth / 1920,
                 window.innerHeight / 1080
             );
             appContainer.style.transform = `scale(${scale})`;

@@ -14,14 +14,15 @@
         }
         #app-container {
             display: flex;
-            flex-direction: row;
+            flex-direction: column;
             width: 100vw;
             height: 100vh;
         }
         #main-content {
             display: flex;
             flex-direction: column;
-            width: calc(100% - 300px);
+            width: 100%;
+            height: calc(100vh - 200px); /* Уменьшаем высоту для нижней панели */
         }
         #controls {
             background: #f0f0f0;
@@ -45,21 +46,25 @@
             display: none;
         }
         #canvas-container {
-            width: 100%;
-            height: calc(100vh - 60px);
+            width: 1920px; /* Фиксированная ширина */
+            height: 1080px; /* Фиксированная высота */
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
             cursor: default;
+            margin: 0 auto; /* Центрирование */
         }
         #images-sidebar {
-            width: 300px;
+            width: 100%;
+            height: 200px; /* Фиксированная высота для нижней панели */
             background: #f5f5f5;
-            border-left: 1px solid #ddd;
+            border-top: 1px solid #ddd; /* Граница сверху вместо слева */
             padding: 15px;
-            overflow-y: auto;
-            height: 100vh;
+            overflow-x: auto; /* Горизонтальная прокрутка */
+            overflow-y: hidden;
             box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
         }
         #images-sidebar h3 {
             margin-top: 0;
@@ -67,33 +72,41 @@
             padding-bottom: 10px;
             border-bottom: 1px solid #ddd;
         }
+        #images-list {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+        }
         .image-item {
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 10px;
             padding: 8px;
             background: white;
             border-radius: 4px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            min-width: 100px;
         }
         .image-item img {
             width: 50px;
             height: 50px;
             object-fit: contain;
-            margin-right: 10px;
             border: 1px solid #eee;
         }
         .image-info {
-            flex-grow: 1;
             font-size: 12px;
+            margin-top: 5px;
+            text-align: center;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            width: 100%;
         }
         .image-actions {
             display: flex;
             gap: 5px;
+            margin-top: 5px;
         }
         .hide-btn {
             padding: 5px 8px;
@@ -110,9 +123,9 @@
             user-select: none;
             touch-action: none;
             transition: opacity 0.3s, filter 0.3s;
-            opacity: 0.3;
+            opacity: 1.0; /* Изменено с 0.3 на 1.0 */
             box-sizing: border-box;
-            filter: brightness(85%);
+            filter: brightness(100%); /* Изменено с 85% на 100% */
         }
         .draggable-image img {
             width: 100%;
@@ -126,7 +139,7 @@
             user-select: none;
             touch-action: none;
             box-sizing: border-box;
-            opacity: 0.3;
+            opacity: 1.0; /* Изменено с 0.3 на 1.0 */
             display: inline-block;
             white-space: nowrap;
             transform-origin: top left;
@@ -215,7 +228,7 @@
         .properties-panel {
             position: absolute;
             top: 80px;
-            right: 320px;
+            right: 20px;
             background: white;
             padding: 10px;
             border-radius: 5px;
@@ -263,6 +276,14 @@
             padding: 5px;
             margin-bottom: 10px;
         }
+        #canvas-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            background: #f0f0f0;
+        }
     </style>
 </head>
 <body>
@@ -290,7 +311,9 @@
                 <div id="status">Синхронизировано</div>
             </div>
             
-            <div id="canvas-container"></div>
+            <div id="canvas-wrapper">
+                <div id="canvas-container"></div>
+            </div>
         </div>
         
         <div id="images-sidebar">
@@ -303,11 +326,11 @@
         <h3>Свойства изображения</h3>
         <label>
             Прозрачность:
-            <input type="range" id="opacity-slider" min="0" max="100" value="30">
+            <input type="range" id="opacity-slider" min="0" max="100" value="100"> <!-- Изменено с 30 на 100 -->
         </label>
         <label>
             Яркость:
-            <input type="range" id="brightness-slider" min="0" max="200" value="85">
+            <input type="range" id="brightness-slider" min="0" max="200" value="100"> <!-- Изменено с 85 на 100 -->
         </label>
         <button id="close-properties">Закрыть</button>
     </div>
@@ -429,8 +452,8 @@
                     if (!imgElement) return;
                     
                     const currentOpacity = parseFloat(imgElement.style.opacity);
-                    const newOpacity = currentOpacity > 0.3 ? 0.3 : 0.95;
-                    const newBrightness = currentOpacity > 0.3 ? 30 : 85;
+                    const newOpacity = currentOpacity > 0.5 ? 0.3 : 1.0; // Изменена логика переключения
+                    const newBrightness = currentOpacity > 0.5 ? 30 : 100; // Изменена логика переключения
                     
                     imgElement.style.opacity = newOpacity;
                     imgElement.style.filter = `brightness(${newBrightness}%)`;
@@ -458,11 +481,11 @@
                     const brightnessSlider = document.getElementById('brightness-slider');
                     
                     const imgElement = document.getElementById(selectedImageId);
-                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.3;
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 1.0; // Изменено с 0.3 на 1.0
                     opacitySlider.value = currentOpacity * 100;
                     
                     const currentBrightness = imgElement.style.filter.includes('brightness') ? 
-                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 85;
+                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 100; // Изменено с 85 на 100
                     brightnessSlider.value = currentBrightness;
                     
                     panel.style.display = 'block';
@@ -558,7 +581,7 @@
             if (!imgElement) return;
             
             const currentOpacity = parseFloat(imgElement.style.opacity);
-            const newOpacity = currentOpacity > 0 ? 0 : 0.3;
+            const newOpacity = currentOpacity > 0 ? 0 : 1.0; // Изменено с 0.3 на 1.0
             
             imgElement.style.opacity = newOpacity;
             
@@ -574,7 +597,7 @@
                 if (!textElement) return;
                 
                 const currentOpacity = parseFloat(textElement.style.opacity);
-                const newOpacity = currentOpacity > 0.3 ? 0.3 : 1.0;
+                const newOpacity = currentOpacity > 0.5 ? 0.3 : 1.0; // Изменена логика переключения
                 
                 textElement.style.opacity = newOpacity;
                 
@@ -620,13 +643,16 @@
         }
         
         function setupViewport() {
-            const appContainer = document.getElementById('app-container');
+            const canvasWrapper = document.getElementById('canvas-wrapper');
+            const canvasContainer = document.getElementById('canvas-container');
+            
             const scale = Math.min(
-                window.innerWidth / (1920 + 300),
-                window.innerHeight / 1080
+                canvasWrapper.clientWidth / 1920,
+                canvasWrapper.clientHeight / 1080
             );
-            appContainer.style.transform = `scale(${scale})`;
-            appContainer.style.transformOrigin = 'top left';
+            
+            canvasContainer.style.transform = `scale(${scale})`;
+            canvasContainer.style.transformOrigin = 'top left';
         }
         
         function handleFileUpload(e) {
@@ -648,8 +674,8 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        opacity: 0.3,
-                        brightness: 85,
+                        opacity: 1.0, // Изменено с 0.3 на 1.0
+                        brightness: 100, // Изменено с 85 на 100
                         isNew: true,
                         locked: false
                     });
@@ -704,7 +730,7 @@
                     fontSize: fontSize,
                     color: color,
                     fontFamily: fontFamily,
-                    opacity: 0.3,
+                    opacity: 1.0, // Изменено с 0.3 на 1.0
                     isNew: true,
                     locked: false
                 });
@@ -873,8 +899,8 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
-            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 85}%)`;
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1.0; // Изменено с 0.3 на 1.0
+            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 100}%)`; // Изменено с 85 на 100
             
             if (imgData.locked) {
                 imgWrapper.classList.add('locked');
@@ -921,7 +947,7 @@
             if (textData.opacity !== undefined) {
                 textEl.style.opacity = textData.opacity;
             } else {
-                textEl.style.opacity = 0.3;
+                textEl.style.opacity = 1.0; // Изменено с 0.3 на 1.0
             }
             
             if (textData.locked) {
@@ -1058,14 +1084,14 @@
         }
         
         function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1.0; // Изменено с 0.3 на 1.0
         }
         
         function updateImageBrightness(img, imgData) {
             if (imgData.brightness !== undefined) {
                 img.style.filter = `brightness(${imgData.brightness}%)`;
             } else {
-                img.style.filter = 'brightness(85%)';
+                img.style.filter = 'brightness(100%)'; // Изменено с 85% на 100%
             }
         }
         

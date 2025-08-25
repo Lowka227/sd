@@ -27,6 +27,61 @@
             height: 60px;
             box-sizing: border-box;
         }
+        #thumbnails-container {
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            margin-left: 20px;
+            height: 60px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            padding: 0 10px;
+            flex-grow: 1;
+        }
+        #thumbnails {
+            display: flex;
+            gap: 10px;
+        }
+        .thumbnail {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .thumbnail.selected {
+            border-color: #4285f4;
+        }
+        .thumbnail-hidden {
+            opacity: 0.5;
+        }
+        .thumbnail-button {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 16px;
+            height: 16px;
+            border: none;
+            border-radius: 50%;
+            background: #f44336;
+            color: white;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .thumbnail-button.show {
+            background: #4caf50;
+        }
         #image-controls {
             display: flex;
             gap: 10px;
@@ -151,9 +206,10 @@
             display: none;
         }
         #status {
-            margin-left: auto;
+            margin-left: 10px;
             font-size: 14px;
             color: #666;
+            white-space: nowrap;
         }
         .properties-panel {
             position: absolute;
@@ -214,6 +270,10 @@
             <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
             <button id="add-text-btn">Добавить текст</button>
             <button id="clear-btn">Очистить</button>
+            
+            <div id="thumbnails-container">
+                <div id="thumbnails"></div>
+            </div>
             
             <div id="image-controls">
                 <button id="hide-btn">Скрыть/Показать</button>
@@ -450,6 +510,111 @@
             });
             
             setupViewport();
+        }
+        
+        function updateThumbnails(imagesData) {
+            const thumbnailsContainer = document.getElementById('thumbnails');
+            thumbnailsContainer.innerHTML = '';
+            
+            for (const id in imagesData) {
+                const imgData = imagesData[id];
+                const thumbnail = createThumbnailElement(imgData);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
+        }
+        
+        function createThumbnailElement(imgData) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + imgData.id;
+            thumbnail.className = 'thumbnail';
+            if (imgData.opacity === 0) {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+            
+            if (selectedImageId === imgData.id) {
+                thumbnail.classList.add('selected');
+            }
+            
+            const img = document.createElement('img');
+            img.src = imgData.src;
+            thumbnail.appendChild(img);
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = imgData.opacity === 0 ? '👁' : '✕';
+            toggleBtn.title = imgData.opacity === 0 ? 'Показать' : 'Скрыть';
+            
+            if (imgData.opacity === 0) {
+                toggleBtn.classList.add('show');
+            }
+            
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleImageVisibility(imgData.id, imgData.opacity === 0);
+            });
+            
+            thumbnail.appendChild(toggleBtn);
+            
+            thumbnail.addEventListener('click', () => {
+                selectImageFromThumbnail(imgData.id);
+            });
+            
+            return thumbnail;
+        }
+        
+        function toggleImageVisibility(imageId, show) {
+            const newOpacity = show ? 0.3 : 0;
+            const newBrightness = show ? 85 : 100;
+            
+            const imgElement = document.getElementById(imageId);
+            if (imgElement) {
+                imgElement.style.opacity = newOpacity;
+                imgElement.style.filter = `brightness(${newBrightness}%)`;
+            }
+            
+            imagesRef.child(imageId).update({ 
+                opacity: newOpacity,
+                brightness: newBrightness
+            });
+            
+            // Обновляем кнопку на миниатюре
+            const thumbnail = document.getElementById('thumb_' + imageId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+            
+            saveStateToHistory();
+        }
+        
+        function selectImageFromThumbnail(imageId) {
+            const imgElement = document.getElementById(imageId);
+            if (imgElement) {
+                deselectAllElements();
+                imgElement.classList.add('selected');
+                selectedImageId = imageId;
+                document.getElementById('image-controls').style.display = 'flex';
+                
+                const isLocked = imgElement.classList.contains('locked');
+                const lockBtn = document.getElementById('lock-btn');
+                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+                
+                // Прокручиваем к выбранной миниатюре
+                const thumbnail = document.getElementById('thumb_' + imageId);
+                if (thumbnail) {
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }
         }
         
         function toggleTextVisibility() {
@@ -695,6 +860,9 @@
                     imagesRef.child(id).update({ isNew: null });
                 }
             }
+            
+            // Обновляем миниатюры
+            updateThumbnails(imagesData);
             
             images = {...imagesData};
         }

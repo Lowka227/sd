@@ -16,7 +16,7 @@
             display: flex;
             flex-direction: column;
             width: 1920px;
-            height: 1080px;
+            height: 946px; /* 60px (controls) + 886px (canvas) */
         }
         #controls {
             background: #f0f0f0;
@@ -96,7 +96,7 @@
         }
         #canvas-container {
             width: 1920px;
-            height: 1020px;
+            height: 886px; /* Изменено с 1020px на 886px */
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
@@ -672,7 +672,7 @@
             const appContainer = document.getElementById('app-container');
             const scale = Math.min(
                 window.innerWidth / 1920,
-                window.innerHeight / 1080
+                window.innerHeight / 946 // Изменено с 1080 на 946
             );
             appContainer.style.transform = `scale(${scale})`;
             appContainer.style.transformOrigin = 'top left';

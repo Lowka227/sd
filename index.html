@@ -16,7 +16,7 @@
             display: flex;
             flex-direction: column;
             width: 1920px;
-            height: 946px; /* 60px (controls) + 886px (canvas) */
+            height: 946px;
         }
         #controls {
             background: #f0f0f0;
@@ -96,7 +96,7 @@
         }
         #canvas-container {
             width: 1920px;
-            height: 886px; /* Изменено с 1020px на 886px */
+            height: 886px;
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
@@ -424,17 +424,23 @@
                     const imgElement = document.getElementById(selectedImageId);
                     if (!imgElement) return;
                     
-                    const currentOpacity = parseFloat(imgElement.style.opacity);
-                    const newOpacity = currentOpacity > 0.3 ? 0.3 : 0.95;
-                    const newBrightness = currentOpacity > 0.3 ? 30 : 85;
+                    // Полностью удаляем элемент с холста вместо изменения прозрачности
+                    const isHidden = imgElement.style.display === 'none';
                     
-                    imgElement.style.opacity = newOpacity;
-                    imgElement.style.filter = `brightness(${newBrightness}%)`;
+                    if (isHidden) {
+                        // Показываем элемент
+                        imgElement.style.display = 'block';
+                        imagesRef.child(selectedImageId).update({ 
+                            display: 'block'
+                        });
+                    } else {
+                        // Скрываем элемент
+                        imgElement.style.display = 'none';
+                        imagesRef.child(selectedImageId).update({ 
+                            display: 'none'
+                        });
+                    }
                     
-                    imagesRef.child(selectedImageId).update({ 
-                        opacity: newOpacity,
-                        brightness: newBrightness
-                    });
                     saveStateToHistory();
                 }
             });
@@ -527,7 +533,7 @@
             const thumbnail = document.createElement('div');
             thumbnail.id = 'thumb_' + imgData.id;
             thumbnail.className = 'thumbnail';
-            if (imgData.opacity === 0) {
+            if (imgData.display === 'none') {
                 thumbnail.classList.add('thumbnail-hidden');
             }
             
@@ -541,16 +547,16 @@
             
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'thumbnail-button';
-            toggleBtn.textContent = imgData.opacity === 0 ? '👁' : '✕';
-            toggleBtn.title = imgData.opacity === 0 ? 'Показать' : 'Скрыть';
+            toggleBtn.textContent = imgData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = imgData.display === 'none' ? 'Показать' : 'Скрыть';
             
-            if (imgData.opacity === 0) {
+            if (imgData.display === 'none') {
                 toggleBtn.classList.add('show');
             }
             
             toggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                toggleImageVisibility(imgData.id, imgData.opacity === 0);
+                toggleImageVisibility(imgData.id, imgData.display === 'none');
             });
             
             thumbnail.appendChild(toggleBtn);
@@ -563,18 +569,15 @@
         }
         
         function toggleImageVisibility(imageId, show) {
-            const newOpacity = show ? 0.3 : 0;
-            const newBrightness = show ? 85 : 100;
+            const newDisplay = show ? 'block' : 'none';
             
             const imgElement = document.getElementById(imageId);
             if (imgElement) {
-                imgElement.style.opacity = newOpacity;
-                imgElement.style.filter = `brightness(${newBrightness}%)`;
+                imgElement.style.display = newDisplay;
             }
             
             imagesRef.child(imageId).update({ 
-                opacity: newOpacity,
-                brightness: newBrightness
+                display: newDisplay
             });
             
             // Обновляем кнопку на миниатюре
@@ -599,7 +602,7 @@
         
         function selectImageFromThumbnail(imageId) {
             const imgElement = document.getElementById(imageId);
-            if (imgElement) {
+            if (imgElement && imgElement.style.display !== 'none') {
                 deselectAllElements();
                 imgElement.classList.add('selected');
                 selectedImageId = imageId;
@@ -622,13 +625,13 @@
                 const textElement = document.getElementById(selectedTextId);
                 if (!textElement) return;
                 
-                const currentOpacity = parseFloat(textElement.style.opacity);
-                const newOpacity = currentOpacity > 0.3 ? 0.3 : 1.0;
+                const isHidden = textElement.style.display === 'none';
+                const newDisplay = isHidden ? 'block' : 'none';
                 
-                textElement.style.opacity = newOpacity;
+                textElement.style.display = newDisplay;
                 
                 textsRef.child(selectedTextId).update({ 
-                    opacity: newOpacity
+                    display: newDisplay
                 });
                 saveStateToHistory();
             }
@@ -672,7 +675,7 @@
             const appContainer = document.getElementById('app-container');
             const scale = Math.min(
                 window.innerWidth / 1920,
-                window.innerHeight / 946 // Изменено с 1080 на 946
+                window.innerHeight / 946
             );
             appContainer.style.transform = `scale(${scale})`;
             appContainer.style.transformOrigin = 'top left';
@@ -700,7 +703,8 @@
                         opacity: 0.3,
                         brightness: 85,
                         isNew: true,
-                        locked: false
+                        locked: false,
+                        display: 'block'
                     });
                     saveStateToHistory();
                 };
@@ -755,7 +759,8 @@
                     fontFamily: fontFamily,
                     opacity: 0.3,
                     isNew: true,
-                    locked: false
+                    locked: false,
+                    display: 'block'
                 });
             }
             
@@ -847,6 +852,7 @@
                 updateImageOpacity(img, imgData);
                 updateImageBrightness(img, imgData);
                 updateImageLockState(img, imgData);
+                updateImageDisplayState(img, imgData);
                 
                 if (imgData.isNew) {
                     deselectAllElements();
@@ -891,6 +897,7 @@
                     updateTextPosition(textEl, textData);
                     updateTextContent(textEl, textData);
                     updateTextLockState(textEl, textData);
+                    updateTextDisplayState(textEl, textData);
                 }
                 
                 if (textData.opacity !== undefined) {
@@ -930,6 +937,12 @@
             
             if (imgData.locked) {
                 imgWrapper.classList.add('locked');
+            }
+            
+            if (imgData.display === 'none') {
+                imgWrapper.style.display = 'none';
+            } else {
+                imgWrapper.style.display = 'block';
             }
             
             const img = document.createElement('img');
@@ -978,6 +991,12 @@
             
             if (textData.locked) {
                 textEl.classList.add('locked');
+            }
+            
+            if (textData.display === 'none') {
+                textEl.style.display = 'none';
+            } else {
+                textEl.style.display = 'block';
             }
             
             addResizeHandles(textEl);
@@ -1128,6 +1147,22 @@
             } else {
                 img.classList.remove('locked');
                 img.style.cursor = 'move';
+            }
+        }
+        
+        function updateImageDisplayState(img, imgData) {
+            if (imgData.display === 'none') {
+                img.style.display = 'none';
+            } else {
+                img.style.display = 'block';
+            }
+        }
+        
+        function updateTextDisplayState(textEl, textData) {
+            if (textData.display === 'none') {
+                textEl.style.display = 'none';
+            } else {
+                textEl.style.display = 'block';
             }
         }
         

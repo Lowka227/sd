@@ -55,8 +55,25 @@
             height: 100%;
             object-fit: cover;
         }
+        .text-thumbnail {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0f0f0;
+            border-radius: 3px;
+            font-size: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 5px;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+        }
         .thumbnail.selected {
             border-color: #4285f4;
+        }
+        .thumbnail.selected .text-thumbnail {
+            background: #e0e0e0;
         }
         .thumbnail-hidden {
             opacity: 0.5;
@@ -128,6 +145,9 @@
             display: inline-block;
             white-space: nowrap;
             transform-origin: top left;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 2px 5px;
+            border-radius: 3px;
         }
         .selected {
             position: relative;
@@ -424,17 +444,14 @@
                     const imgElement = document.getElementById(selectedImageId);
                     if (!imgElement) return;
                     
-                    // Полностью удаляем элемент с холста вместо изменения прозрачности
                     const isHidden = imgElement.style.display === 'none';
                     
                     if (isHidden) {
-                        // Показываем элемент
                         imgElement.style.display = 'block';
                         imagesRef.child(selectedImageId).update({ 
                             display: 'block'
                         });
                     } else {
-                        // Скрываем элемент
                         imgElement.style.display = 'none';
                         imagesRef.child(selectedImageId).update({ 
                             display: 'none'
@@ -495,12 +512,16 @@
             
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
+                images = data;
                 updateCanvas(data);
+                updateThumbnails(images, texts);
             });
             
             textsRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
+                texts = data;
                 updateTexts(data);
+                updateThumbnails(images, texts);
             });
             
             document.addEventListener('mousemove', handleMove);
@@ -518,18 +539,24 @@
             setupViewport();
         }
         
-        function updateThumbnails(imagesData) {
+        function updateThumbnails(imagesData, textsData) {
             const thumbnailsContainer = document.getElementById('thumbnails');
             thumbnailsContainer.innerHTML = '';
             
             for (const id in imagesData) {
                 const imgData = imagesData[id];
-                const thumbnail = createThumbnailElement(imgData);
+                const thumbnail = createImageThumbnailElement(imgData);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
+            
+            for (const id in textsData) {
+                const textData = textsData[id];
+                const thumbnail = createTextThumbnailElement(textData);
                 thumbnailsContainer.appendChild(thumbnail);
             }
         }
         
-        function createThumbnailElement(imgData) {
+        function createImageThumbnailElement(imgData) {
             const thumbnail = document.createElement('div');
             thumbnail.id = 'thumb_' + imgData.id;
             thumbnail.className = 'thumbnail';
@@ -568,6 +595,51 @@
             return thumbnail;
         }
         
+        function createTextThumbnailElement(textData) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + textData.id;
+            thumbnail.className = 'thumbnail';
+            if (textData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+            
+            if (selectedTextId === textData.id) {
+                thumbnail.classList.add('selected');
+            }
+            
+            const textPreview = document.createElement('div');
+            textPreview.className = 'text-thumbnail';
+            textPreview.textContent = textData.text.length > 10 
+                ? textData.text.substring(0, 10) + '...' 
+                : textData.text;
+            textPreview.style.fontSize = '10px';
+            textPreview.style.color = textData.color;
+            textPreview.style.fontFamily = textData.fontFamily || 'Arial, sans-serif';
+            thumbnail.appendChild(textPreview);
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = textData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = textData.display === 'none' ? 'Показать' : 'Скрыть';
+            
+            if (textData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+            
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleTextVisibility(textData.id, textData.display === 'none');
+            });
+            
+            thumbnail.appendChild(toggleBtn);
+            
+            thumbnail.addEventListener('click', () => {
+                selectTextFromThumbnail(textData.id);
+            });
+            
+            return thumbnail;
+        }
+        
         function toggleImageVisibility(imageId, show) {
             const newDisplay = show ? 'block' : 'none';
             
@@ -580,8 +652,38 @@
                 display: newDisplay
             });
             
-            // Обновляем кнопку на миниатюре
             const thumbnail = document.getElementById('thumb_' + imageId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+            
+            saveStateToHistory();
+        }
+        
+        function toggleTextVisibility(textId, show) {
+            const newDisplay = show ? 'block' : 'none';
+            
+            const textElement = document.getElementById(textId);
+            if (textElement) {
+                textElement.style.display = newDisplay;
+            }
+            
+            textsRef.child(textId).update({ 
+                display: newDisplay
+            });
+            
+            const thumbnail = document.getElementById('thumb_' + textId);
             if (thumbnail) {
                 const btn = thumbnail.querySelector('.thumbnail-button');
                 if (btn) {
@@ -612,7 +714,6 @@
                 const lockBtn = document.getElementById('lock-btn');
                 lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
                 
-                // Прокручиваем к выбранной миниатюре
                 const thumbnail = document.getElementById('thumb_' + imageId);
                 if (thumbnail) {
                     thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -620,20 +721,22 @@
             }
         }
         
-        function toggleTextVisibility() {
-            if (selectedTextId) {
-                const textElement = document.getElementById(selectedTextId);
-                if (!textElement) return;
+        function selectTextFromThumbnail(textId) {
+            const textElement = document.getElementById(textId);
+            if (textElement && textElement.style.display !== 'none') {
+                deselectAllElements();
+                textElement.classList.add('selected');
+                selectedTextId = textId;
+                document.getElementById('text-controls').style.display = 'flex';
                 
-                const isHidden = textElement.style.display === 'none';
-                const newDisplay = isHidden ? 'block' : 'none';
+                const isLocked = textElement.classList.contains('locked');
+                const lockBtn = document.getElementById('lock-text-btn');
+                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
                 
-                textElement.style.display = newDisplay;
-                
-                textsRef.child(selectedTextId).update({ 
-                    display: newDisplay
-                });
-                saveStateToHistory();
+                const thumbnail = document.getElementById('thumb_' + textId);
+                if (thumbnail) {
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
             }
         }
         
@@ -736,7 +839,6 @@
             const fontFamily = document.getElementById('font-family-select').value;
             
             if (isEditingText && currentTextId) {
-                // Редактирование существующего текста
                 textsRef.child(currentTextId).update({
                     text: text,
                     fontSize: fontSize,
@@ -744,7 +846,6 @@
                     fontFamily: fontFamily
                 });
             } else {
-                // Добавление нового текста
                 const id = 'text_' + Date.now();
                 const x = 100;
                 const y = 100;
@@ -787,7 +888,6 @@
             document.getElementById('font-size-input').value = parseInt(textElement.style.fontSize);
             document.getElementById('text-color-input').value = textElement.style.color;
             
-            // Устанавливаем выбранный шрифт
             const fontFamily = textElement.style.fontFamily;
             document.getElementById('font-family-select').value = fontFamily;
             
@@ -867,9 +967,6 @@
                 }
             }
             
-            // Обновляем миниатюры
-            updateThumbnails(imagesData);
-            
             images = {...imagesData};
         }
         
@@ -893,7 +990,6 @@
                     textEl = createTextElement(textData);
                     container.appendChild(textEl);
                 } else {
-                    // Обновляем только если элемент уже существует
                     updateTextPosition(textEl, textData);
                     updateTextContent(textEl, textData);
                     updateTextLockState(textEl, textData);
@@ -999,6 +1095,10 @@
                 textEl.style.display = 'block';
             }
             
+            // Устанавливаем начальные размеры для текстового элемента
+            textEl.style.width = 'auto';
+            textEl.style.height = 'auto';
+            
             addResizeHandles(textEl);
             
             textEl.addEventListener('mousedown', (e) => {
@@ -1053,7 +1153,7 @@
             const lockBtn = document.getElementById('lock-btn');
             lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
             
-            if (!isLocked && e.type !== 'touchstart') {
+            if (!isLocked) {
                 activeInteraction = 'select';
                 activeElement = imgElement;
                 
@@ -1086,7 +1186,7 @@
             const lockBtn = document.getElementById('lock-text-btn');
             lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
             
-            if (!isLocked && e.type !== 'touchstart') {
+            if (!isLocked) {
                 activeInteraction = 'select';
                 activeElement = textElement;
                 

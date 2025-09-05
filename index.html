@@ -15,8 +15,8 @@
         #app-container {
             display: flex;
             flex-direction: column;
-            width: 1920px;
-            height: 946px;
+            width: 2560px; /* Изменено с 1920px */
+            height: 1212px; /* 60px (controls) + 1152px (canvas) = 1212px */
         }
         #controls {
             background: #f0f0f0;
@@ -112,8 +112,8 @@
             display: none;
         }
         #canvas-container {
-            width: 1920px;
-            height: 886px;
+            width: 2560px; /* Изменено с 1920px */
+            height: 1152px; /* Изменено с 886px */
             background-color: #00ff00;
             position: relative;
             overflow: hidden;
@@ -777,8 +777,8 @@
         function setupViewport() {
             const appContainer = document.getElementById('app-container');
             const scale = Math.min(
-                window.innerWidth / 1920,
-                window.innerHeight / 946
+                window.innerWidth / 2560,  // Изменено с 1920
+                window.innerHeight / 1212  // Изменено с 946
             );
             appContainer.style.transform = `scale(${scale})`;
             appContainer.style.transformOrigin = 'top left';
@@ -1080,7 +1080,6 @@
             }
             
             if (textData.opacity !== undefined) {
-                textEl.style.opacity = textData.opacity;
             } else {
                 textEl.style.opacity = 0.3;
             }

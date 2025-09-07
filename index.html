@@ -446,11 +446,11 @@
         const database = firebase.database();
         const imagesRef = database.ref('images');
         const textsRef = database.ref('texts');
-        const soundRef = database.ref('sound');
+        const soundsRef = database.ref('sounds');
         
         let images = {};
         let texts = {};
-        let soundData = null;
+        let sounds = {};
         let activeInteraction = null;
         let activeElement = null;
         let startX = 0, startY = 0;
@@ -458,6 +458,7 @@
         let startLeft = 0, startTop = 0;
         let selectedImageId = null;
         let selectedTextId = null;
+        let selectedSoundId = null;
         let actionHistory = [];
         let historyPointer = -1;
         let resizeDirection = null;
@@ -596,21 +597,29 @@
                 const data = snapshot.val() || {};
                 images = data;
                 updateCanvas(data);
-                updateThumbnails(images, texts, soundData);
+                updateThumbnails();
             });
             
             textsRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 texts = data;
                 updateTexts(data);
-                updateThumbnails(images, texts, soundData);
+                updateThumbnails();
             });
             
-            soundRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                soundData = data;
-                updateSoundControls(data);
-                updateThumbnails(images, texts, soundData);
+            soundsRef.on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                sounds = data;
+                updateThumbnails();
+                
+                if (selectedSoundId && !sounds[selectedSoundId]) {
+                    selectedSoundId = null;
+                    document.getElementById('sound-controls').style.display = 'none';
+                }
+                
+                if (selectedSoundId && sounds[selectedSoundId]) {
+                    updateSoundControls(sounds[selectedSoundId]);
+                }
             });
             
             document.addEventListener('mousemove', handleMove);
@@ -632,24 +641,25 @@
             setupViewport();
         }
         
-        function updateThumbnails(imagesData, textsData, soundData) {
+        function updateThumbnails() {
             const thumbnailsContainer = document.getElementById('thumbnails');
             thumbnailsContainer.innerHTML = '';
             
-            for (const id in imagesData) {
-                const imgData = imagesData[id];
+            for (const id in images) {
+                const imgData = images[id];
                 const thumbnail = createImageThumbnailElement(imgData);
                 thumbnailsContainer.appendChild(thumbnail);
             }
             
-            for (const id in textsData) {
-                const textData = textsData[id];
+            for (const id in texts) {
+                const textData = texts[id];
                 const thumbnail = createTextThumbnailElement(textData);
                 thumbnailsContainer.appendChild(thumbnail);
             }
             
-            if (soundData && soundData.src) {
-                const thumbnail = createSoundThumbnailElement(soundData);
+            for (const id in sounds) {
+                const soundData = sounds[id];
+                const thumbnail = createSoundThumbnailElement(soundData, id);
                 thumbnailsContainer.appendChild(thumbnail);
             }
         }
@@ -738,13 +748,17 @@
             return thumbnail;
         }
         
-        function createSoundThumbnailElement(soundData) {
+        function createSoundThumbnailElement(soundData, soundId) {
             const thumbnail = document.createElement('div');
-            thumbnail.id = 'thumb_sound';
+            thumbnail.id = 'thumb_' + soundId;
             thumbnail.className = 'thumbnail';
             
             if (soundData.display === 'none') {
                 thumbnail.classList.add('thumbnail-hidden');
+            }
+            
+            if (selectedSoundId === soundId) {
+                thumbnail.classList.add('selected');
             }
             
             const soundPreview = document.createElement('div');
@@ -769,13 +783,13 @@
             
             toggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                toggleSoundVisibility(soundData.display === 'none');
+                toggleSoundVisibility(soundId, soundData.display === 'none');
             });
             
             thumbnail.appendChild(toggleBtn);
             
             thumbnail.addEventListener('click', () => {
-                selectSoundFromThumbnail();
+                selectSoundFromThumbnail(soundId);
             });
             
             return thumbnail;
@@ -843,16 +857,16 @@
             saveStateToHistory();
         }
         
-        function toggleSoundVisibility(show) {
-            if (!soundData) return;
+        function toggleSoundVisibility(soundId, show) {
+            if (!sounds[soundId]) return;
             
             const newDisplay = show ? 'block' : 'none';
             
-            soundRef.update({ 
+            soundsRef.child(soundId).update({ 
                 display: newDisplay
             });
             
-            const thumbnail = document.getElementById('thumb_sound');
+            const thumbnail = document.getElementById('thumb_' + soundId);
             if (thumbnail) {
                 const btn = thumbnail.querySelector('.thumbnail-button');
                 if (btn) {
@@ -909,12 +923,15 @@
             }
         }
         
-        function selectSoundFromThumbnail() {
-            if (soundData && (!soundData.display || soundData.display !== 'none')) {
+        function selectSoundFromThumbnail(soundId) {
+            if (sounds[soundId] && (!sounds[soundId].display || sounds[soundId].display !== 'none')) {
                 deselectAllElements();
+                selectedSoundId = soundId;
                 document.getElementById('sound-controls').style.display = 'flex';
                 
-                const thumbnail = document.getElementById('thumb_sound');
+                updateSoundControls(sounds[soundId]);
+                
+                const thumbnail = document.getElementById('thumb_' + soundId);
                 if (thumbnail) {
                     thumbnail.classList.add('selected');
                     thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -936,6 +953,7 @@
             
             selectedImageId = null;
             selectedTextId = null;
+            selectedSoundId = null;
         }
         
         function saveStateToHistory() {
@@ -946,9 +964,9 @@
             Promise.all([
                 imagesRef.once('value').then(snapshot => snapshot.val() || {}),
                 textsRef.once('value').then(snapshot => snapshot.val() || {}),
-                soundRef.once('value').then(snapshot => snapshot.val())
-            ]).then(([imagesData, textsData, soundData]) => {
-                const currentState = { images: imagesData, texts: textsData, sound: soundData };
+                soundsRef.once('value').then(snapshot => snapshot.val() || {})
+            ]).then(([imagesData, textsData, soundsData]) => {
+                const currentState = { images: imagesData, texts: textsData, sounds: soundsData };
                 actionHistory.push(JSON.stringify(currentState));
                 historyPointer = actionHistory.length - 1;
             });
@@ -961,12 +979,7 @@
             const previousState = JSON.parse(actionHistory[historyPointer]);
             imagesRef.set(previousState.images || {});
             textsRef.set(previousState.texts || {});
-            
-            if (previousState.sound) {
-                soundRef.set(previousState.sound);
-            } else {
-                soundRef.remove();
-            }
+            soundsRef.set(previousState.sounds || {});
         }
         
         function setupViewport() {
@@ -1018,7 +1031,10 @@
             
             const reader = new FileReader();
             reader.onload = (event) => {
-                soundRef.set({
+                const id = 'sound_' + Date.now();
+                
+                soundsRef.child(id).set({
+                    id: id,
                     src: event.target.result,
                     name: file.name,
                     playing: false,
@@ -1033,40 +1049,37 @@
             e.target.value = '';
         }
         
-        function updateSoundControls(data) {
+        function updateSoundControls(soundData) {
             const soundControls = document.getElementById('sound-controls');
             const audioElement = document.getElementById('audio-element');
             
-            if (data && data.src) {
+            if (soundData && soundData.src) {
                 soundControls.style.display = 'flex';
                 
-                if (audioElement.src !== data.src) {
-                    audioElement.src = data.src;
+                if (audioElement.src !== soundData.src) {
+                    audioElement.src = soundData.src;
                     
                     audioElement.onloadedmetadata = () => {
-                        soundRef.update({ duration: audioElement.duration });
+                        soundsRef.child(selectedSoundId).update({ duration: audioElement.duration });
                     };
                 }
                 
-                // Обновляем громкость
-                if (data.volume !== undefined) {
-                    audioElement.volume = data.volume / 100;
-                    document.getElementById('volume-slider').value = data.volume;
+                if (soundData.volume !== undefined) {
+                    audioElement.volume = soundData.volume / 100;
+                    document.getElementById('volume-slider').value = soundData.volume;
                 } else {
                     audioElement.volume = 1;
                     document.getElementById('volume-slider').value = 100;
                 }
                 
-                // Обновляем состояние воспроизведения
-                if (data.playing && audioElement.paused) {
-                    audioElement.currentTime = data.currentTime || 0;
+                if (soundData.playing && audioElement.paused) {
+                    audioElement.currentTime = soundData.currentTime || 0;
                     audioElement.play().catch(e => console.log("Автовоспроизведение заблокировано"));
-                } else if (!data.playing && !audioElement.paused) {
+                } else if (!soundData.playing && !audioElement.paused) {
                     audioElement.pause();
                 }
                 
-                // Обновляем визуализацию
-                updateProgressVisualization(data.currentTime, data.duration);
+                updateProgressVisualization(soundData.currentTime, soundData.duration);
             } else {
                 soundControls.style.display = 'none';
                 audioElement.src = '';
@@ -1078,11 +1091,11 @@
         }
         
         function playSound() {
-            if (!soundData) return;
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
             
             const audioElement = document.getElementById('audio-element');
             audioElement.play().then(() => {
-                soundRef.update({ 
+                soundsRef.child(selectedSoundId).update({ 
                     playing: true,
                     currentTime: audioElement.currentTime
                 });
@@ -1090,7 +1103,7 @@
                 if (soundInterval) clearInterval(soundInterval);
                 soundInterval = setInterval(() => {
                     if (!audioElement.paused) {
-                        soundRef.update({ 
+                        soundsRef.child(selectedSoundId).update({ 
                             currentTime: audioElement.currentTime
                         });
                     }
@@ -1101,11 +1114,11 @@
         }
         
         function pauseSound() {
-            if (!soundData) return;
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
             
             const audioElement = document.getElementById('audio-element');
             audioElement.pause();
-            soundRef.update({ 
+            soundsRef.child(selectedSoundId).update({ 
                 playing: false,
                 currentTime: audioElement.currentTime
             });
@@ -1117,13 +1130,13 @@
         }
         
         function updateVolume(e) {
-            if (!soundData) return;
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
             
             const volume = e.target.value;
             const audioElement = document.getElementById('audio-element');
             audioElement.volume = volume / 100;
             
-            soundRef.update({ 
+            soundsRef.child(selectedSoundId).update({ 
                 volume: volume
             });
             
@@ -1131,8 +1144,8 @@
         }
         
         function deleteSound() {
-            if (confirm("Удалить звук?")) {
-                soundRef.remove();
+            if (selectedSoundId && confirm("Удалить этот звук?")) {
+                soundsRef.child(selectedSoundId).remove();
                 const audioElement = document.getElementById('audio-element');
                 audioElement.src = '';
                 audioElement.pause();
@@ -1142,12 +1155,13 @@
                     soundInterval = null;
                 }
                 
+                deselectAllElements();
                 saveStateToHistory();
             }
         }
         
         function updateSoundProgress() {
-            if (!soundData || !soundData.playing) return;
+            if (!selectedSoundId || !sounds[selectedSoundId] || !sounds[selectedSoundId].playing) return;
             
             const audioElement = document.getElementById('audio-element');
             updateProgressVisualization(audioElement.currentTime, audioElement.duration);
@@ -1169,10 +1183,12 @@
                 soundInterval = null;
             }
             
-            soundRef.update({
-                playing: false,
-                currentTime: 0
-            });
+            if (selectedSoundId) {
+                soundsRef.child(selectedSoundId).update({
+                    playing: false,
+                    currentTime: 0
+                });
+            }
         }
         
         function showTextInputPanel() {
@@ -1324,8 +1340,6 @@
                     imagesRef.child(id).update({ isNew: null });
                 }
             }
-            
-            images = {...imagesData};
         }
         
         function updateTexts(textsData) {
@@ -1374,8 +1388,6 @@
                     textsRef.child(id).update({ isNew: null });
                 }
             }
-            
-            texts = {...textsData};
         }
         
         function createImageElement(imgData) {
@@ -1387,7 +1399,7 @@
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
             imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
-            imgWrapper.style.filter = `brightness(${imgData.birthness !== undefined ? imgData.brightness : 85}%)`;
+            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 85}%)`;
             
             if (imgData.locked) {
                 imgWrapper.classList.add('locked');
@@ -1438,6 +1450,7 @@
             }
             
             if (textData.opacity !== undefined) {
+                textEl.style.opacity = textData.opacity;
             } else {
                 textEl.style.opacity = 0.3;
             }
@@ -1636,7 +1649,7 @@
             if (confirm("Очистить холст для всех пользователей?")) {
                 imagesRef.remove();
                 textsRef.remove();
-                soundRef.remove();
+                soundsRef.remove();
                 deselectAllElements();
                 saveStateToHistory();
             }

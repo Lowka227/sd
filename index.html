@@ -326,6 +326,14 @@
         #audio-element {
             display: none;
         }
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .volume-slider {
+            width: 80px;
+        }
     </style>
 </head>
 <body>
@@ -359,6 +367,10 @@
                 <button id="pause-btn">⏸</button>
                 <div class="sound-visualization">
                     <div class="sound-progress" id="sound-progress"></div>
+                </div>
+                <div class="volume-control">
+                    <span>🔊</span>
+                    <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
                 </div>
                 <button id="delete-sound-btn">Удалить звук</button>
             </div>
@@ -477,6 +489,7 @@
             document.getElementById('play-btn').addEventListener('click', playSound);
             document.getElementById('pause-btn').addEventListener('click', pauseSound);
             document.getElementById('delete-sound-btn').addEventListener('click', deleteSound);
+            document.getElementById('volume-slider').addEventListener('input', updateVolume);
             
             document.getElementById('canvas-container').addEventListener('mousedown', (e) => {
                 if (e.target === document.getElementById('canvas-container')) {
@@ -1011,6 +1024,7 @@
                     playing: false,
                     currentTime: 0,
                     duration: 0,
+                    volume: 100,
                     display: 'block'
                 });
                 saveStateToHistory();
@@ -1034,6 +1048,16 @@
                     };
                 }
                 
+                // Обновляем громкость
+                if (data.volume !== undefined) {
+                    audioElement.volume = data.volume / 100;
+                    document.getElementById('volume-slider').value = data.volume;
+                } else {
+                    audioElement.volume = 1;
+                    document.getElementById('volume-slider').value = 100;
+                }
+                
+                // Обновляем состояние воспроизведения
                 if (data.playing && audioElement.paused) {
                     audioElement.currentTime = data.currentTime || 0;
                     audioElement.play().catch(e => console.log("Автовоспроизведение заблокировано"));
@@ -1041,6 +1065,7 @@
                     audioElement.pause();
                 }
                 
+                // Обновляем визуализацию
                 updateProgressVisualization(data.currentTime, data.duration);
             } else {
                 soundControls.style.display = 'none';
@@ -1089,6 +1114,20 @@
                 clearInterval(soundInterval);
                 soundInterval = null;
             }
+        }
+        
+        function updateVolume(e) {
+            if (!soundData) return;
+            
+            const volume = e.target.value;
+            const audioElement = document.getElementById('audio-element');
+            audioElement.volume = volume / 100;
+            
+            soundRef.update({ 
+                volume: volume
+            });
+            
+            saveStateToHistory();
         }
         
         function deleteSound() {

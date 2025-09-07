@@ -446,11 +446,11 @@
         const database = firebase.database();
         const imagesRef = database.ref('images');
         const textsRef = database.ref('texts');
-        const soundsRef = database.ref('sounds'); // Изменено на sounds (множественное число)
+        const soundRef = database.ref('sound');
         
         let images = {};
         let texts = {};
-        let sounds = {}; // Изменено на множественное число
+        let soundData = null;
         let activeInteraction = null;
         let activeElement = null;
         let startX = 0, startY = 0;
@@ -458,7 +458,6 @@
         let startLeft = 0, startTop = 0;
         let selectedImageId = null;
         let selectedTextId = null;
-        let selectedSoundId = null; // Добавлено для отслеживания выбранного звука
         let actionHistory = [];
         let historyPointer = -1;
         let resizeDirection = null;
@@ -597,32 +596,21 @@
                 const data = snapshot.val() || {};
                 images = data;
                 updateCanvas(data);
-                updateThumbnails(images, texts, sounds);
+                updateThumbnails(images, texts, soundData);
             });
             
             textsRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 texts = data;
                 updateTexts(data);
-                updateThumbnails(images, texts, sounds);
+                updateThumbnails(images, texts, soundData);
             });
             
-            // Изменено на прослушивание коллекции sounds
-            soundsRef.on('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                sounds = data;
-                updateThumbnails(images, texts, sounds);
-                
-                // Если выбранный звук был удален, сбрасываем выбор
-                if (selectedSoundId && !sounds[selectedSoundId]) {
-                    selectedSoundId = null;
-                    document.getElementById('sound-controls').style.display = 'none';
-                }
-                
-                // Обновляем управление для выбранного звука
-                if (selectedSoundId && sounds[selectedSoundId]) {
-                    updateSoundControls(sounds[selectedSoundId]);
-                }
+            soundRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                soundData = data;
+                updateSoundControls(data);
+                updateThumbnails(images, texts, soundData);
             });
             
             document.addEventListener('mousemove', handleMove);
@@ -644,7 +632,7 @@
             setupViewport();
         }
         
-        function updateThumbnails(imagesData, textsData, soundsData) {
+        function updateThumbnails(imagesData, textsData, soundData) {
             const thumbnailsContainer = document.getElementById('thumbnails');
             thumbnailsContainer.innerHTML = '';
             
@@ -660,9 +648,8 @@
                 thumbnailsContainer.appendChild(thumbnail);
             }
             
-            for (const id in soundsData) {
-                const soundData = soundsData[id];
-                const thumbnail = createSoundThumbnailElement(soundData, id);
+            if (soundData && soundData.src) {
+                const thumbnail = createSoundThumbnailElement(soundData);
                 thumbnailsContainer.appendChild(thumbnail);
             }
         }
@@ -686,7 +673,7 @@
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'thumbnail-button';
             toggleBtn.textContent = imgData.display === 'none' ? '👁' : '✕';
-            toggleBtn.title = imgData.display === 'none' : 'Показать' : 'Скрыть';
+            toggleBtn.title = imgData.display === 'none' ? 'Показать' : 'Скрыть';
             
             if (imgData.display === 'none') {
                 toggleBtn.classList.add('show');
@@ -751,17 +738,13 @@
             return thumbnail;
         }
         
-        function createSoundThumbnailElement(soundData, soundId) {
+        function createSoundThumbnailElement(soundData) {
             const thumbnail = document.createElement('div');
-            thumbnail.id = 'thumb_' + soundId;
+            thumbnail.id = 'thumb_sound';
             thumbnail.className = 'thumbnail';
             
             if (soundData.display === 'none') {
                 thumbnail.classList.add('thumbnail-hidden');
-            }
-            
-            if (selectedSoundId === soundId) {
-                thumbnail.classList.add('selected');
             }
             
             const soundPreview = document.createElement('div');
@@ -786,13 +769,13 @@
             
             toggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                toggleSoundVisibility(soundId, soundData.display === 'none');
+                toggleSoundVisibility(soundData.display === 'none');
             });
             
             thumbnail.appendChild(toggleBtn);
             
             thumbnail.addEventListener('click', () => {
-                selectSoundFromThumbnail(soundId);
+                selectSoundFromThumbnail();
             });
             
             return thumbnail;
@@ -860,16 +843,16 @@
             saveStateToHistory();
         }
         
-        function toggleSoundVisibility(soundId, show) {
-            if (!sounds[soundId]) return;
+        function toggleSoundVisibility(show) {
+            if (!soundData) return;
             
             const newDisplay = show ? 'block' : 'none';
             
-            soundsRef.child(soundId).update({ 
+            soundRef.update({ 
                 display: newDisplay
             });
             
-            const thumbnail = document.getElementById('thumb_' + soundId);
+            const thumbnail = document.getElementById('thumb_sound');
             if (thumbnail) {
                 const btn = thumbnail.querySelector('.thumbnail-button');
                 if (btn) {
@@ -926,15 +909,12 @@
             }
         }
         
-        function selectSoundFromThumbnail(soundId) {
-            if (sounds[soundId] && (!sounds[soundId].display || sounds[soundId].display !== 'none')) {
+        function selectSoundFromThumbnail() {
+            if (soundData && (!soundData.display || soundData.display !== 'none')) {
                 deselectAllElements();
-                selectedSoundId = soundId;
                 document.getElementById('sound-controls').style.display = 'flex';
                 
-                updateSoundControls(sounds[soundId]);
-                
-                const thumbnail = document.getElementById('thumb_' + soundId);
+                const thumbnail = document.getElementById('thumb_sound');
                 if (thumbnail) {
                     thumbnail.classList.add('selected');
                     thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -956,7 +936,6 @@
             
             selectedImageId = null;
             selectedTextId = null;
-            selectedSoundId = null;
         }
         
         function saveStateToHistory() {
@@ -967,9 +946,9 @@
             Promise.all([
                 imagesRef.once('value').then(snapshot => snapshot.val() || {}),
                 textsRef.once('value').then(snapshot => snapshot.val() || {}),
-                soundsRef.once('value').then(snapshot => snapshot.val() || {})
-            ]).then(([imagesData, textsData, soundsData]) => {
-                const currentState = { images: imagesData, texts: textsData, sounds: soundsData };
+                soundRef.once('value').then(snapshot => snapshot.val())
+            ]).then(([imagesData, textsData, soundData]) => {
+                const currentState = { images: imagesData, texts: textsData, sound: soundData };
                 actionHistory.push(JSON.stringify(currentState));
                 historyPointer = actionHistory.length - 1;
             });
@@ -982,7 +961,12 @@
             const previousState = JSON.parse(actionHistory[historyPointer]);
             imagesRef.set(previousState.images || {});
             textsRef.set(previousState.texts || {});
-            soundsRef.set(previousState.sounds || {});
+            
+            if (previousState.sound) {
+                soundRef.set(previousState.sound);
+            } else {
+                soundRef.remove();
+            }
         }
         
         function setupViewport() {
@@ -1034,10 +1018,7 @@
             
             const reader = new FileReader();
             reader.onload = (event) => {
-                const id = 'sound_' + Date.now();
-                
-                soundsRef.child(id).set({
-                    id: id,
+                soundRef.set({
                     src: event.target.result,
                     name: file.name,
                     playing: false,
@@ -1052,40 +1033,40 @@
             e.target.value = '';
         }
         
-        function updateSoundControls(soundData) {
+        function updateSoundControls(data) {
             const soundControls = document.getElementById('sound-controls');
             const audioElement = document.getElementById('audio-element');
             
-            if (soundData && soundData.src) {
+            if (data && data.src) {
                 soundControls.style.display = 'flex';
                 
-                if (audioElement.src !== soundData.src) {
-                    audioElement.src = soundData.src;
+                if (audioElement.src !== data.src) {
+                    audioElement.src = data.src;
                     
                     audioElement.onloadedmetadata = () => {
-                        soundsRef.child(selectedSoundId).update({ duration: audioElement.duration });
+                        soundRef.update({ duration: audioElement.duration });
                     };
                 }
                 
                 // Обновляем громкость
-                if (soundData.volume !== undefined) {
-                    audioElement.volume = soundData.volume / 100;
-                    document.getElementById('volume-slider').value = soundData.volume;
+                if (data.volume !== undefined) {
+                    audioElement.volume = data.volume / 100;
+                    document.getElementById('volume-slider').value = data.volume;
                 } else {
                     audioElement.volume = 1;
                     document.getElementById('volume-slider').value = 100;
                 }
                 
                 // Обновляем состояние воспроизведения
-                if (soundData.playing && audioElement.paused) {
-                    audioElement.currentTime = soundData.currentTime || 0;
+                if (data.playing && audioElement.paused) {
+                    audioElement.currentTime = data.currentTime || 0;
                     audioElement.play().catch(e => console.log("Автовоспроизведение заблокировано"));
-                } else if (!soundData.playing && !audioElement.paused) {
+                } else if (!data.playing && !audioElement.paused) {
                     audioElement.pause();
                 }
                 
                 // Обновляем визуализацию
-                updateProgressVisualization(soundData.currentTime, soundData.duration);
+                updateProgressVisualization(data.currentTime, data.duration);
             } else {
                 soundControls.style.display = 'none';
                 audioElement.src = '';
@@ -1097,11 +1078,11 @@
         }
         
         function playSound() {
-            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+            if (!soundData) return;
             
             const audioElement = document.getElementById('audio-element');
             audioElement.play().then(() => {
-                soundsRef.child(selectedSoundId).update({ 
+                soundRef.update({ 
                     playing: true,
                     currentTime: audioElement.currentTime
                 });
@@ -1109,7 +1090,7 @@
                 if (soundInterval) clearInterval(soundInterval);
                 soundInterval = setInterval(() => {
                     if (!audioElement.paused) {
-                        soundsRef.child(selectedSoundId).update({ 
+                        soundRef.update({ 
                             currentTime: audioElement.currentTime
                         });
                     }
@@ -1120,11 +1101,11 @@
         }
         
         function pauseSound() {
-            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+            if (!soundData) return;
             
             const audioElement = document.getElementById('audio-element');
             audioElement.pause();
-            soundsRef.child(selectedSoundId).update({ 
+            soundRef.update({ 
                 playing: false,
                 currentTime: audioElement.currentTime
             });
@@ -1136,13 +1117,13 @@
         }
         
         function updateVolume(e) {
-            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+            if (!soundData) return;
             
             const volume = e.target.value;
             const audioElement = document.getElementById('audio-element');
             audioElement.volume = volume / 100;
             
-            soundsRef.child(selectedSoundId).update({ 
+            soundRef.update({ 
                 volume: volume
             });
             
@@ -1150,8 +1131,8 @@
         }
         
         function deleteSound() {
-            if (selectedSoundId && confirm("Удалить этот звук?")) {
-                soundsRef.child(selectedSoundId).remove();
+            if (confirm("Удалить звук?")) {
+                soundRef.remove();
                 const audioElement = document.getElementById('audio-element');
                 audioElement.src = '';
                 audioElement.pause();
@@ -1161,13 +1142,12 @@
                     soundInterval = null;
                 }
                 
-                deselectAllElements();
                 saveStateToHistory();
             }
         }
         
         function updateSoundProgress() {
-            if (!selectedSoundId || !sounds[selectedSoundId] || !sounds[selectedSoundId].playing) return;
+            if (!soundData || !soundData.playing) return;
             
             const audioElement = document.getElementById('audio-element');
             updateProgressVisualization(audioElement.currentTime, audioElement.duration);
@@ -1189,12 +1169,10 @@
                 soundInterval = null;
             }
             
-            if (selectedSoundId) {
-                soundsRef.child(selectedSoundId).update({
-                    playing: false,
-                    currentTime: 0
-                });
-            }
+            soundRef.update({
+                playing: false,
+                currentTime: 0
+            });
         }
         
         function showTextInputPanel() {
@@ -1658,7 +1636,7 @@
             if (confirm("Очистить холст для всех пользователей?")) {
                 imagesRef.remove();
                 textsRef.remove();
-                soundsRef.remove();
+                soundRef.remove();
                 deselectAllElements();
                 saveStateToHistory();
             }

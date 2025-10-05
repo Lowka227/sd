@@ -401,6 +401,22 @@
         #tts-stop-btn {
             background: #f44336;
         }
+        /* Стили для хромакея */
+        #chroma-key-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+            background: transparent;
+        }
+        .chroma-key-region {
+            position: absolute;
+            background: transparent;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -410,6 +426,7 @@
             <button id="add-text-btn">Добавить текст</button>
             <button id="add-sound-btn">Добавить звук</button>
             <button id="speak-text-btn">Озвучить текст</button>
+            <button id="chroma-key-btn">Включить хромакей</button>
             <button id="clear-btn">Очистить</button>
             
             <div id="thumbnails-container">
@@ -446,7 +463,9 @@
             <div id="status">Синхронизировано</div>
         </div>
         
-        <div id="canvas-container"></div>
+        <div id="canvas-container">
+            <div id="chroma-key-overlay"></div>
+        </div>
     </div>
     
     <div class="properties-panel" id="properties-panel">
@@ -490,7 +509,7 @@
         <button id="cancel-text-btn">Отмена</button>
     </div>
     
-    <!-- Новая панель для озвучивания текста -->
+    <!-- Панель для озвучивания текста -->
     <div id="tts-panel">
         <h3>Озвучивание текста</h3>
         <textarea id="tts-text-input" placeholder="Введите текст для озвучивания..."></textarea>
@@ -577,6 +596,7 @@
         let isEditingText = false;
         let currentTextId = null;
         let soundInterval = null;
+        let isChromaKeyEnabled = false;
         
         // Переменные для синтеза речи
         let speechSynthesis = window.speechSynthesis;
@@ -590,6 +610,7 @@
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('sound-input').addEventListener('change', handleSoundUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
+            document.getElementById('chroma-key-btn').addEventListener('click', toggleChromaKey);
             document.getElementById('close-properties').addEventListener('click', () => {
                 document.getElementById('properties-panel').style.display = 'none';
             });
@@ -749,6 +770,11 @@
                 images = data;
                 updateCanvas(data);
                 updateThumbnails();
+                
+                // Обновляем хромакей при изменении изображений
+                if (isChromaKeyEnabled) {
+                    updateChromaKey();
+                }
             });
             
             textsRef.on('value', (snapshot) => {
@@ -794,6 +820,100 @@
             setupViewport();
             
             console.log("Приложение инициализировано");
+        }
+        
+        // Функции для хромакея
+        function toggleChromaKey() {
+            isChromaKeyEnabled = !isChromaKeyEnabled;
+            const btn = document.getElementById('chroma-key-btn');
+            
+            if (isChromaKeyEnabled) {
+                btn.textContent = 'Выключить хромакей';
+                btn.style.background = '#4caf50';
+                applyChromaKey();
+            } else {
+                btn.textContent = 'Включить хромакей';
+                btn.style.background = '#4285f4';
+                removeChromaKey();
+            }
+        }
+        
+        function applyChromaKey() {
+            // Создаем прозрачные области вокруг всех элементов
+            updateChromaKey();
+        }
+        
+        function removeChromaKey() {
+            const overlay = document.getElementById('chroma-key-overlay');
+            overlay.innerHTML = '';
+        }
+        
+        function updateChromaKey() {
+            if (!isChromaKeyEnabled) return;
+            
+            const overlay = document.getElementById('chroma-key-overlay');
+            overlay.innerHTML = '';
+            
+            // Получаем все элементы на холсте
+            const elements = document.querySelectorAll('.draggable-image, .draggable-text');
+            
+            // Создаем прозрачные области вокруг каждого элемента
+            elements.forEach(element => {
+                if (element.style.display !== 'none') {
+                    createChromaKeyRegion(element);
+                }
+            });
+        }
+        
+        function createChromaKeyRegion(element) {
+            const rect = element.getBoundingClientRect();
+            const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
+            
+            // Создаем 4 области вокруг элемента (сверху, справа, снизу, слева)
+            const regions = [
+                // Верхняя область
+                {
+                    top: 0,
+                    left: 0,
+                    width: containerRect.width,
+                    height: rect.top - containerRect.top
+                },
+                // Правая область
+                {
+                    top: rect.top - containerRect.top,
+                    left: rect.right - containerRect.left,
+                    width: containerRect.width - (rect.right - containerRect.left),
+                    height: rect.height
+                },
+                // Нижняя область
+                {
+                    top: rect.bottom - containerRect.top,
+                    left: 0,
+                    width: containerRect.width,
+                    height: containerRect.height - (rect.bottom - containerRect.top)
+                },
+                // Левая область
+                {
+                    top: rect.top - containerRect.top,
+                    left: 0,
+                    width: rect.left - containerRect.left,
+                    height: rect.height
+                }
+            ];
+            
+            regions.forEach(region => {
+                if (region.width > 0 && region.height > 0) {
+                    const regionElement = document.createElement('div');
+                    regionElement.className = 'chroma-key-region';
+                    regionElement.style.top = region.top + 'px';
+                    regionElement.style.left = region.left + 'px';
+                    regionElement.style.width = region.width + 'px';
+                    regionElement.style.height = region.height + 'px';
+                    regionElement.style.backgroundColor = 'rgba(0, 255, 0, 1)'; // Зеленый фон для хромакея
+                    
+                    document.getElementById('chroma-key-overlay').appendChild(regionElement);
+                }
+            });
         }
         
         // Показать панель озвучивания текста
@@ -1170,6 +1290,11 @@
             }
             
             saveStateToHistory();
+            
+            // Обновляем хромакей при изменении видимости
+            if (isChromaKeyEnabled) {
+                updateChromaKey();
+            }
         }
         
         function toggleTextVisibility(textId, show) {
@@ -1201,6 +1326,11 @@
             }
             
             saveStateToHistory();
+            
+            // Обновляем хромакей при изменении видимости
+            if (isChromaKeyEnabled) {
+                updateChromaKey();
+            }
         }
         
         function toggleSoundVisibility(soundId, show) {
@@ -1687,6 +1817,11 @@
                     imagesRef.child(id).update({ isNew: null });
                 }
             }
+            
+            // Обновляем хромакей при изменении изображений
+            if (isChromaKeyEnabled) {
+                updateChromaKey();
+            }
         }
         
         function updateTexts(textsData) {
@@ -1734,6 +1869,11 @@
                     
                     textsRef.child(id).update({ isNew: null });
                 }
+            }
+            
+            // Обновляем хромакей при изменении текстов
+            if (isChromaKeyEnabled) {
+                updateChromaKey();
             }
         }
         
@@ -2143,6 +2283,11 @@
                     });
                 }
             }
+            
+            // Обновляем хромакей при перемещении элементов
+            if (isChromaKeyEnabled) {
+                updateChromaKey();
+            }
         }
         
         function endInteraction() {
@@ -2152,6 +2297,11 @@
             activeInteraction = null;
             activeElement = null;
             resizeDirection = null;
+            
+            // Обновляем хромакей после завершения взаимодействия
+            if (isChromaKeyEnabled) {
+                updateChromaKey();
+            }
         }
         
         window.addEventListener('DOMContentLoaded', initApp);

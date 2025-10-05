@@ -334,6 +334,73 @@
         .volume-slider {
             width: 80px;
         }
+        /* Стили для панели озвучивания текста */
+        #tts-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            display: none;
+            width: 300px;
+        }
+        #tts-panel h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        #tts-text-input {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: Arial, sans-serif;
+            box-sizing: border-box;
+        }
+        .tts-controls-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .tts-voice-select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .tts-control-label {
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+            min-width: 60px;
+        }
+        .tts-slider {
+            flex: 1;
+        }
+        .tts-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .tts-buttons button {
+            flex: 1;
+        }
+        #tts-play-btn {
+            background: #4caf50;
+        }
+        #tts-pause-btn {
+            background: #ff9800;
+        }
+        #tts-stop-btn {
+            background: #f44336;
+        }
     </style>
 </head>
 <body>
@@ -342,6 +409,7 @@
             <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
             <button id="add-text-btn">Добавить текст</button>
             <button id="add-sound-btn">Добавить звук</button>
+            <button id="speak-text-btn">Озвучить текст</button>
             <button id="clear-btn">Очистить</button>
             
             <div id="thumbnails-container">
@@ -422,6 +490,44 @@
         <button id="cancel-text-btn">Отмена</button>
     </div>
     
+    <!-- Новая панель для озвучивания текста -->
+    <div id="tts-panel">
+        <h3>Озвучивание текста</h3>
+        <textarea id="tts-text-input" placeholder="Введите текст для озвучивания..."></textarea>
+        
+        <div class="tts-controls-row">
+            <select id="tts-voice-select" class="tts-voice-select">
+                <option value="">Выберите голос...</option>
+            </select>
+        </div>
+        
+        <div class="tts-controls-row">
+            <span class="tts-control-label">Скорость:</span>
+            <input type="range" class="tts-slider" id="tts-rate-slider" min="0.5" max="2" step="0.1" value="1">
+            <span class="tts-control-label" id="tts-rate-value">1.0</span>
+        </div>
+        
+        <div class="tts-controls-row">
+            <span class="tts-control-label">Высота:</span>
+            <input type="range" class="tts-slider" id="tts-pitch-slider" min="0.5" max="2" step="0.1" value="1">
+            <span class="tts-control-label" id="tts-pitch-value">1.0</span>
+        </div>
+        
+        <div class="tts-controls-row">
+            <span class="tts-control-label">Громкость:</span>
+            <input type="range" class="tts-slider" id="tts-volume-slider" min="0" max="1" step="0.1" value="1">
+            <span class="tts-control-label" id="tts-volume-value">1.0</span>
+        </div>
+        
+        <div class="tts-buttons">
+            <button id="tts-play-btn">▶ Воспроизвести</button>
+            <button id="tts-pause-btn">⏸ Пауза</button>
+            <button id="tts-stop-btn">■ Стоп</button>
+        </div>
+        
+        <button id="tts-close-btn" style="margin-top: 10px; width: 100%; background: #666;">Закрыть</button>
+    </div>
+    
     <input type="file" id="file-input" accept="image/*">
     <input type="file" id="sound-input" accept="audio/*">
     
@@ -442,7 +548,13 @@
             measurementId: "G-S5HL7Q45NE"
         };
 
-        firebase.initializeApp(firebaseConfig);
+        // Инициализация Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (error) {
+            console.log("Firebase уже инициализирован");
+        }
+        
         const database = firebase.database();
         const imagesRef = database.ref('images');
         const textsRef = database.ref('texts');
@@ -465,8 +577,16 @@
         let isEditingText = false;
         let currentTextId = null;
         let soundInterval = null;
+        
+        // Переменные для синтеза речи
+        let speechSynthesis = window.speechSynthesis;
+        let speechUtterance = null;
+        let voices = [];
+        let isTTSInitialized = false;
 
         function initApp() {
+            console.log("Инициализация приложения...");
+            
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('sound-input').addEventListener('change', handleSoundUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
@@ -483,6 +603,9 @@
             document.getElementById('lock-text-btn').addEventListener('click', toggleTextLock);
             document.getElementById('hide-text-btn').addEventListener('click', toggleTextVisibility);
             
+            // Кнопка для открытия панели озвучивания текста
+            document.getElementById('speak-text-btn').addEventListener('click', showTTSPanel);
+            
             document.getElementById('add-sound-btn').addEventListener('click', () => {
                 document.getElementById('sound-input').click();
             });
@@ -491,6 +614,32 @@
             document.getElementById('pause-btn').addEventListener('click', pauseSound);
             document.getElementById('delete-sound-btn').addEventListener('click', deleteSound);
             document.getElementById('volume-slider').addEventListener('input', updateVolume);
+            
+            // Инициализация TTS
+            initTTS();
+            
+            // Обработчики для панели TTS
+            document.getElementById('tts-play-btn').addEventListener('click', playTTS);
+            document.getElementById('tts-pause-btn').addEventListener('click', pauseTTS);
+            document.getElementById('tts-stop-btn').addEventListener('click', stopTTS);
+            document.getElementById('tts-close-btn').addEventListener('click', closeTTSPanel);
+            document.getElementById('tts-voice-select').addEventListener('change', updateTTSVoice);
+            
+            // Обновление значений слайдеров
+            document.getElementById('tts-rate-slider').addEventListener('input', function() {
+                document.getElementById('tts-rate-value').textContent = this.value;
+                updateTTSRate.call(this);
+            });
+            
+            document.getElementById('tts-pitch-slider').addEventListener('input', function() {
+                document.getElementById('tts-pitch-value').textContent = this.value;
+                updateTTSPitch.call(this);
+            });
+            
+            document.getElementById('tts-volume-slider').addEventListener('input', function() {
+                document.getElementById('tts-volume-value').textContent = this.value;
+                updateTTSVolume.call(this);
+            });
             
             document.getElementById('canvas-container').addEventListener('mousedown', (e) => {
                 if (e.target === document.getElementById('canvas-container')) {
@@ -593,8 +742,10 @@
                 }
             });
             
+            // Слушатели Firebase
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
+                console.log("Получены данные изображений:", data);
                 images = data;
                 updateCanvas(data);
                 updateThumbnails();
@@ -602,6 +753,7 @@
             
             textsRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
+                console.log("Получены данные текстов:", data);
                 texts = data;
                 updateTexts(data);
                 updateThumbnails();
@@ -609,6 +761,7 @@
             
             soundsRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
+                console.log("Получены данные звуков:", data);
                 sounds = data;
                 updateThumbnails();
                 
@@ -639,8 +792,201 @@
             audioElement.addEventListener('ended', soundEnded);
             
             setupViewport();
+            
+            console.log("Приложение инициализировано");
         }
         
+        // Показать панель озвучивания текста
+        function showTTSPanel() {
+            const panel = document.getElementById('tts-panel');
+            panel.style.display = 'block';
+            
+            // Очищаем текстовое поле
+            document.getElementById('tts-text-input').value = '';
+            
+            // Сбрасываем слайдеры к значениям по умолчанию
+            document.getElementById('tts-rate-slider').value = 1;
+            document.getElementById('tts-pitch-slider').value = 1;
+            document.getElementById('tts-volume-slider').value = 1;
+            
+            document.getElementById('tts-rate-value').textContent = '1.0';
+            document.getElementById('tts-pitch-value').textContent = '1.0';
+            document.getElementById('tts-volume-value').textContent = '1.0';
+            
+            // Останавливаем любое текущее воспроизведение
+            stopTTS();
+        }
+        
+        // Закрыть панель озвучивания текста
+        function closeTTSPanel() {
+            const panel = document.getElementById('tts-panel');
+            panel.style.display = 'none';
+            stopTTS();
+        }
+        
+        // Инициализация синтеза речи
+        function initTTS() {
+            if ('speechSynthesis' in window) {
+                // Загружаем доступные голоса
+                speechSynthesis.onvoiceschanged = function() {
+                    voices = speechSynthesis.getVoices();
+                    populateVoiceList();
+                    isTTSInitialized = true;
+                };
+                
+                // Инициализируем сразу, если голоса уже загружены
+                voices = speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    populateVoiceList();
+                    isTTSInitialized = true;
+                }
+            } else {
+                console.warn("Ваш браузер не поддерживает синтез речи");
+                alert("Ваш браузер не поддерживает синтез речи. Функция озвучивания текста недоступна.");
+            }
+        }
+        
+        // Заполнение списка доступных голосов
+        function populateVoiceList() {
+            const voiceSelect = document.getElementById('tts-voice-select');
+            voiceSelect.innerHTML = '<option value="">Выберите голос...</option>';
+            
+            // Фильтруем голоса для русского языка
+            const russianVoices = voices.filter(voice => 
+                voice.lang.startsWith('ru') || 
+                voice.lang.startsWith('ru-RU') || 
+                voice.name.toLowerCase().includes('russian')
+            );
+            
+            // Если есть русские голоса, используем их, иначе показываем все
+            const availableVoices = russianVoices.length > 0 ? russianVoices : voices;
+            
+            availableVoices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                voiceSelect.appendChild(option);
+            });
+            
+            // Устанавливаем русский голос по умолчанию, если есть
+            if (russianVoices.length > 0) {
+                voiceSelect.value = russianVoices[0].name;
+            }
+        }
+        
+        // Озвучивание текста из панели
+        function playTTS() {
+            const text = document.getElementById('tts-text-input').value.trim();
+            
+            if (!text) {
+                alert("Введите текст для озвучивания");
+                return;
+            }
+            
+            if (!isTTSInitialized) {
+                alert("Синтез речи не инициализирован. Попробуйте позже.");
+                return;
+            }
+            
+            // Останавливаем предыдущее воспроизведение
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            }
+            
+            // Создаем новое высказывание
+            speechUtterance = new SpeechSynthesisUtterance(text);
+            
+            // Устанавливаем голос
+            const voiceSelect = document.getElementById('tts-voice-select');
+            const selectedVoice = voices.find(voice => voice.name === voiceSelect.value);
+            if (selectedVoice) {
+                speechUtterance.voice = selectedVoice;
+            }
+            
+            // Устанавливаем параметры
+            speechUtterance.rate = parseFloat(document.getElementById('tts-rate-slider').value);
+            speechUtterance.pitch = parseFloat(document.getElementById('tts-pitch-slider').value);
+            speechUtterance.volume = parseFloat(document.getElementById('tts-volume-slider').value);
+            
+            // Обработчики событий
+            speechUtterance.onstart = function() {
+                console.log("Начало озвучивания текста");
+                document.getElementById('tts-play-btn').disabled = true;
+                document.getElementById('tts-pause-btn').disabled = false;
+                document.getElementById('tts-stop-btn').disabled = false;
+            };
+            
+            speechUtterance.onend = function() {
+                console.log("Озвучивание завершено");
+                document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
+                document.getElementById('tts-stop-btn').disabled = true;
+            };
+            
+            speechUtterance.onerror = function(event) {
+                console.error("Ошибка озвучивания:", event);
+                alert("Произошла ошибка при озвучивании текста");
+                document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
+                document.getElementById('tts-stop-btn').disabled = true;
+            };
+            
+            // Начинаем воспроизведение
+            speechSynthesis.speak(speechUtterance);
+            
+            // Обновляем состояние кнопок
+            document.getElementById('tts-play-btn').disabled = true;
+            document.getElementById('tts-pause-btn').disabled = false;
+            document.getElementById('tts-stop-btn').disabled = false;
+        }
+        
+        // Управление TTS
+        function pauseTTS() {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.pause();
+                document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
+            }
+        }
+        
+        function stopTTS() {
+            speechSynthesis.cancel();
+            document.getElementById('tts-play-btn').disabled = false;
+            document.getElementById('tts-pause-btn').disabled = true;
+            document.getElementById('tts-stop-btn').disabled = true;
+        }
+        
+        function updateTTSVoice() {
+            if (speechUtterance && speechSynthesis.speaking) {
+                const selectedVoice = voices.find(voice => voice.name === this.value);
+                if (selectedVoice) {
+                    speechUtterance.voice = selectedVoice;
+                    // Перезапускаем воспроизведение с новым голосом
+                    speechSynthesis.cancel();
+                    setTimeout(playTTS, 100);
+                }
+            }
+        }
+        
+        function updateTTSRate() {
+            if (speechUtterance) {
+                speechUtterance.rate = parseFloat(this.value);
+            }
+        }
+        
+        function updateTTSPitch() {
+            if (speechUtterance) {
+                speechUtterance.pitch = parseFloat(this.value);
+            }
+        }
+        
+        function updateTTSVolume() {
+            if (speechUtterance) {
+                speechUtterance.volume = parseFloat(this.value);
+            }
+        }
+
+        // Остальные функции приложения (без изменений)
         function updateThumbnails() {
             const thumbnailsContainer = document.getElementById('thumbnails');
             thumbnailsContainer.innerHTML = '';
@@ -1304,6 +1650,7 @@
         function updateCanvas(imagesData) {
             const container = document.getElementById('canvas-container');
             
+            // Удаляем только те элементы, которых нет в новых данных
             document.querySelectorAll('.draggable-image').forEach(img => {
                 if (!imagesData[img.id]) {
                     img.remove();

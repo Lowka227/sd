@@ -402,17 +402,16 @@
             background: #f44336;
         }
         /* Стили для хромакея */
-        #chroma-key-overlay {
+        #chroma-key-container {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             pointer-events: none;
-            z-index: 50;
-            background: transparent;
+            z-index: 1;
         }
-        .chroma-key-region {
+        .chroma-key-hole {
             position: absolute;
             background: transparent;
             pointer-events: none;
@@ -464,7 +463,7 @@
         </div>
         
         <div id="canvas-container">
-            <div id="chroma-key-overlay"></div>
+            <div id="chroma-key-container"></div>
         </div>
     </div>
     
@@ -783,6 +782,11 @@
                 texts = data;
                 updateTexts(data);
                 updateThumbnails();
+                
+                // Обновляем хромакей при изменении текстов
+                if (isChromaKeyEnabled) {
+                    updateChromaKey();
+                }
             });
             
             soundsRef.on('value', (snapshot) => {
@@ -839,81 +843,46 @@
         }
         
         function applyChromaKey() {
-            // Создаем прозрачные области вокруг всех элементов
+            // Создаем "дырки" в зеленом фоне для всех элементов
             updateChromaKey();
         }
         
         function removeChromaKey() {
-            const overlay = document.getElementById('chroma-key-overlay');
-            overlay.innerHTML = '';
+            const container = document.getElementById('chroma-key-container');
+            container.innerHTML = '';
         }
         
         function updateChromaKey() {
             if (!isChromaKeyEnabled) return;
             
-            const overlay = document.getElementById('chroma-key-overlay');
-            overlay.innerHTML = '';
+            const container = document.getElementById('chroma-key-container');
+            container.innerHTML = '';
             
-            // Получаем все элементы на холсте
+            // Получаем все видимые элементы на холсте
             const elements = document.querySelectorAll('.draggable-image, .draggable-text');
             
-            // Создаем прозрачные области вокруг каждого элемента
+            // Создаем "дырки" для каждого элемента
             elements.forEach(element => {
                 if (element.style.display !== 'none') {
-                    createChromaKeyRegion(element);
+                    createChromaKeyHole(element);
                 }
             });
         }
         
-        function createChromaKeyRegion(element) {
+        function createChromaKeyHole(element) {
             const rect = element.getBoundingClientRect();
             const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
             
-            // Создаем 4 области вокруг элемента (сверху, справа, снизу, слева)
-            const regions = [
-                // Верхняя область
-                {
-                    top: 0,
-                    left: 0,
-                    width: containerRect.width,
-                    height: rect.top - containerRect.top
-                },
-                // Правая область
-                {
-                    top: rect.top - containerRect.top,
-                    left: rect.right - containerRect.left,
-                    width: containerRect.width - (rect.right - containerRect.left),
-                    height: rect.height
-                },
-                // Нижняя область
-                {
-                    top: rect.bottom - containerRect.top,
-                    left: 0,
-                    width: containerRect.width,
-                    height: containerRect.height - (rect.bottom - containerRect.top)
-                },
-                // Левая область
-                {
-                    top: rect.top - containerRect.top,
-                    left: 0,
-                    width: rect.left - containerRect.left,
-                    height: rect.height
-                }
-            ];
+            // Создаем "дырку" точно по размеру элемента
+            const hole = document.createElement('div');
+            hole.className = 'chroma-key-hole';
+            hole.style.top = (rect.top - containerRect.top) + 'px';
+            hole.style.left = (rect.left - containerRect.left) + 'px';
+            hole.style.width = rect.width + 'px';
+            hole.style.height = rect.height + 'px';
+            hole.style.backgroundColor = 'transparent';
             
-            regions.forEach(region => {
-                if (region.width > 0 && region.height > 0) {
-                    const regionElement = document.createElement('div');
-                    regionElement.className = 'chroma-key-region';
-                    regionElement.style.top = region.top + 'px';
-                    regionElement.style.left = region.left + 'px';
-                    regionElement.style.width = region.width + 'px';
-                    regionElement.style.height = region.height + 'px';
-                    regionElement.style.backgroundColor = 'rgba(0, 255, 0, 1)'; // Зеленый фон для хромакея
-                    
-                    document.getElementById('chroma-key-overlay').appendChild(regionElement);
-                }
-            });
+            document.getElementById('chroma-key-container').appendChild(hole);
         }
         
         // Показать панель озвучивания текста

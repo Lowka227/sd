@@ -11,12 +11,14 @@
             font-family: Arial, sans-serif;
             overflow: hidden;
             touch-action: none;
+            background: #000;
         }
         #app-container {
             display: flex;
             flex-direction: column;
             width: 2560px;
             height: 1212px;
+            position: relative;
         }
         #controls {
             background: #f0f0f0;
@@ -26,6 +28,8 @@
             align-items: center;
             height: 60px;
             box-sizing: border-box;
+            z-index: 100;
+            position: relative;
         }
         #thumbnails-container {
             display: flex;
@@ -135,14 +139,35 @@
             display: none;
             align-items: center;
         }
-        #canvas-container {
+        
+        /* ОСНОВНЫЕ ИЗМЕНЕНИЯ: разделяем фон и элементы */
+        #canvas-wrapper {
             width: 2560px;
             height: 1152px;
-            background-color: #00ff00;
             position: relative;
             overflow: hidden;
-            cursor: default;
         }
+        
+        #green-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #00ff00;
+            z-index: 1;
+        }
+        
+        #elements-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+        
         .draggable-image {
             position: absolute;
             cursor: move;
@@ -152,6 +177,7 @@
             opacity: 0.3;
             box-sizing: border-box;
             filter: brightness(85%);
+            pointer-events: auto;
         }
         .draggable-image img {
             width: 100%;
@@ -172,6 +198,7 @@
             background-color: rgba(255, 255, 255, 0.7);
             padding: 2px 5px;
             border-radius: 3px;
+            pointer-events: auto;
         }
         .selected {
             position: relative;
@@ -401,21 +428,6 @@
         #tts-stop-btn {
             background: #f44336;
         }
-        /* Стили для хромакея */
-        #chroma-key-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
-        }
-        .chroma-key-hole {
-            position: absolute;
-            background: transparent;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -462,8 +474,10 @@
             <div id="status">Синхронизировано</div>
         </div>
         
-        <div id="canvas-container">
-            <div id="chroma-key-container"></div>
+        <!-- ОСНОВНЫЕ ИЗМЕНЕНИЯ: разделили фон и элементы -->
+        <div id="canvas-wrapper">
+            <div id="green-background"></div>
+            <div id="elements-layer"></div>
         </div>
     </div>
     
@@ -661,8 +675,8 @@
                 updateTTSVolume.call(this);
             });
             
-            document.getElementById('canvas-container').addEventListener('mousedown', (e) => {
-                if (e.target === document.getElementById('canvas-container')) {
+            document.getElementById('elements-layer').addEventListener('mousedown', (e) => {
+                if (e.target === document.getElementById('elements-layer')) {
                     deselectAllElements();
                 }
             });
@@ -769,11 +783,6 @@
                 images = data;
                 updateCanvas(data);
                 updateThumbnails();
-                
-                // Обновляем хромакей при изменении изображений
-                if (isChromaKeyEnabled) {
-                    updateChromaKey();
-                }
             });
             
             textsRef.on('value', (snapshot) => {
@@ -782,11 +791,6 @@
                 texts = data;
                 updateTexts(data);
                 updateThumbnails();
-                
-                // Обновляем хромакей при изменении текстов
-                if (isChromaKeyEnabled) {
-                    updateChromaKey();
-                }
             });
             
             soundsRef.on('value', (snapshot) => {
@@ -834,55 +838,14 @@
             if (isChromaKeyEnabled) {
                 btn.textContent = 'Выключить хромакей';
                 btn.style.background = '#4caf50';
-                applyChromaKey();
+                // Включаем зеленый фон
+                document.getElementById('green-background').style.display = 'block';
             } else {
                 btn.textContent = 'Включить хромакей';
                 btn.style.background = '#4285f4';
-                removeChromaKey();
+                // Выключаем зеленый фон
+                document.getElementById('green-background').style.display = 'none';
             }
-        }
-        
-        function applyChromaKey() {
-            // Создаем "дырки" в зеленом фоне для всех элементов
-            updateChromaKey();
-        }
-        
-        function removeChromaKey() {
-            const container = document.getElementById('chroma-key-container');
-            container.innerHTML = '';
-        }
-        
-        function updateChromaKey() {
-            if (!isChromaKeyEnabled) return;
-            
-            const container = document.getElementById('chroma-key-container');
-            container.innerHTML = '';
-            
-            // Получаем все видимые элементы на холсте
-            const elements = document.querySelectorAll('.draggable-image, .draggable-text');
-            
-            // Создаем "дырки" для каждого элемента
-            elements.forEach(element => {
-                if (element.style.display !== 'none') {
-                    createChromaKeyHole(element);
-                }
-            });
-        }
-        
-        function createChromaKeyHole(element) {
-            const rect = element.getBoundingClientRect();
-            const containerRect = document.getElementById('canvas-container').getBoundingClientRect();
-            
-            // Создаем "дырку" точно по размеру элемента
-            const hole = document.createElement('div');
-            hole.className = 'chroma-key-hole';
-            hole.style.top = (rect.top - containerRect.top) + 'px';
-            hole.style.left = (rect.left - containerRect.left) + 'px';
-            hole.style.width = rect.width + 'px';
-            hole.style.height = rect.height + 'px';
-            hole.style.backgroundColor = 'transparent';
-            
-            document.getElementById('chroma-key-container').appendChild(hole);
         }
         
         // Показать панель озвучивания текста
@@ -1075,7 +1038,7 @@
             }
         }
 
-        // Остальные функции приложения (без изменений)
+        // Остальные функции приложения
         function updateThumbnails() {
             const thumbnailsContainer = document.getElementById('thumbnails');
             thumbnailsContainer.innerHTML = '';
@@ -1259,11 +1222,6 @@
             }
             
             saveStateToHistory();
-            
-            // Обновляем хромакей при изменении видимости
-            if (isChromaKeyEnabled) {
-                updateChromaKey();
-            }
         }
         
         function toggleTextVisibility(textId, show) {
@@ -1295,11 +1253,6 @@
             }
             
             saveStateToHistory();
-            
-            // Обновляем хромакей при изменении видимости
-            if (isChromaKeyEnabled) {
-                updateChromaKey();
-            }
         }
         
         function toggleSoundVisibility(soundId, show) {
@@ -1746,8 +1699,9 @@
             }
         }
         
+        // ОСНОВНЫЕ ИЗМЕНЕНИЯ: теперь элементы добавляются в отдельный слой
         function updateCanvas(imagesData) {
-            const container = document.getElementById('canvas-container');
+            const container = document.getElementById('elements-layer');
             
             // Удаляем только те элементы, которых нет в новых данных
             document.querySelectorAll('.draggable-image').forEach(img => {
@@ -1786,15 +1740,10 @@
                     imagesRef.child(id).update({ isNew: null });
                 }
             }
-            
-            // Обновляем хромакей при изменении изображений
-            if (isChromaKeyEnabled) {
-                updateChromaKey();
-            }
         }
         
         function updateTexts(textsData) {
-            const container = document.getElementById('canvas-container');
+            const container = document.getElementById('elements-layer');
             
             document.querySelectorAll('.draggable-text').forEach(textEl => {
                 if (!textsData[textEl.id]) {
@@ -1838,11 +1787,6 @@
                     
                     textsRef.child(id).update({ isNew: null });
                 }
-            }
-            
-            // Обновляем хромакей при изменении текстов
-            if (isChromaKeyEnabled) {
-                updateChromaKey();
             }
         }
         
@@ -2155,7 +2099,7 @@
                 const x = clientX - startX;
                 const y = clientY - startY;
                 
-                const container = document.getElementById('canvas-container');
+                const container = document.getElementById('canvas-wrapper');
                 const maxX = container.offsetWidth - activeElement.offsetWidth;
                 const maxY = container.offsetHeight - activeElement.offsetHeight;
                 
@@ -2252,11 +2196,6 @@
                     });
                 }
             }
-            
-            // Обновляем хромакей при перемещении элементов
-            if (isChromaKeyEnabled) {
-                updateChromaKey();
-            }
         }
         
         function endInteraction() {
@@ -2266,11 +2205,6 @@
             activeInteraction = null;
             activeElement = null;
             resizeDirection = null;
-            
-            // Обновляем хромакей после завершения взаимодействия
-            if (isChromaKeyEnabled) {
-                updateChromaKey();
-            }
         }
         
         window.addEventListener('DOMContentLoaded', initApp);

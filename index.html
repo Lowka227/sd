@@ -140,7 +140,6 @@
             align-items: center;
         }
         
-        /* ОСНОВНЫЕ ИЗМЕНЕНИЯ: разделяем фон и элементы */
         #canvas-wrapper {
             width: 2560px;
             height: 1152px;
@@ -178,17 +177,17 @@
             box-sizing: border-box;
             filter: brightness(85%);
             pointer-events: auto;
-            /* ЗАЩИТА ОТ ХРОМАКЕЯ */
-            background-color: rgba(0, 0, 0, 0.01) !important;
-            mix-blend-mode: normal !important;
+            mix-blend-mode: normal;
+            isolation: isolate;
+            background-color: rgba(0, 0, 0, 0.01);
         }
         .draggable-image img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             pointer-events: none;
-            /* ЗАЩИТА ОТ ХРОМАКЕЯ */
-            mix-blend-mode: normal !important;
+            mix-blend-mode: normal;
+            isolation: isolate;
         }
         .draggable-text {
             position: absolute;
@@ -204,8 +203,8 @@
             padding: 2px 5px;
             border-radius: 3px;
             pointer-events: auto;
-            /* ЗАЩИТА ОТ ХРОМАКЕЯ */
-            mix-blend-mode: normal !important;
+            mix-blend-mode: normal;
+            isolation: isolate;
         }
         .selected {
             position: relative;
@@ -368,7 +367,6 @@
         .volume-slider {
             width: 80px;
         }
-        /* Стили для панели озвучивания текста */
         #tts-panel {
             position: absolute;
             top: 80px;
@@ -436,23 +434,8 @@
             background: #f44336;
         }
         
-        /* Стили для хромакея - ИЗМЕНЕНИЯ */
         .chroma-key-enabled #green-background {
-            /* Делаем фон ярко-зелёным для лучшего хромакея */
             background-color: #00ff00 !important;
-        }
-        
-        /* Усиленная защита элементов от хромакея */
-        .chroma-key-enabled .draggable-image,
-        .chroma-key-enabled .draggable-text {
-            mix-blend-mode: normal !important;
-            background-color: rgba(0, 0, 0, 0.01) !important;
-            isolation: isolate !important;
-        }
-        
-        .chroma-key-enabled .draggable-image img {
-            mix-blend-mode: normal !important;
-            isolation: isolate !important;
         }
     </style>
 </head>
@@ -547,7 +530,6 @@
         <button id="cancel-text-btn">Отмена</button>
     </div>
     
-    <!-- Панель для озвучивания текста -->
     <div id="tts-panel">
         <h3>Озвучивание текста</h3>
         <textarea id="tts-text-input" placeholder="Введите текст для озвучивания..."></textarea>
@@ -605,7 +587,6 @@
             measurementId: "G-S5HL7Q45NE"
         };
 
-        // Инициализация Firebase
         try {
             firebase.initializeApp(firebaseConfig);
         } catch (error) {
@@ -636,7 +617,6 @@
         let soundInterval = null;
         let isChromaKeyEnabled = false;
         
-        // Переменные для синтеза речи
         let speechSynthesis = window.speechSynthesis;
         let speechUtterance = null;
         let voices = [];
@@ -662,7 +642,6 @@
             document.getElementById('lock-text-btn').addEventListener('click', toggleTextLock);
             document.getElementById('hide-text-btn').addEventListener('click', toggleTextVisibility);
             
-            // Кнопка для открытия панели озвучивания текста
             document.getElementById('speak-text-btn').addEventListener('click', showTTSPanel);
             
             document.getElementById('add-sound-btn').addEventListener('click', () => {
@@ -674,17 +653,14 @@
             document.getElementById('delete-sound-btn').addEventListener('click', deleteSound);
             document.getElementById('volume-slider').addEventListener('input', updateVolume);
             
-            // Инициализация TTS
             initTTS();
             
-            // Обработчики для панели TTS
             document.getElementById('tts-play-btn').addEventListener('click', playTTS);
             document.getElementById('tts-pause-btn').addEventListener('click', pauseTTS);
             document.getElementById('tts-stop-btn').addEventListener('click', stopTTS);
             document.getElementById('tts-close-btn').addEventListener('click', closeTTSPanel);
             document.getElementById('tts-voice-select').addEventListener('change', updateTTSVoice);
             
-            // Обновление значений слайдеров
             document.getElementById('tts-rate-slider').addEventListener('input', function() {
                 document.getElementById('tts-rate-value').textContent = this.value;
                 updateTTSRate.call(this);
@@ -801,7 +777,6 @@
                 }
             });
             
-            // Слушатели Firebase
             imagesRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
                 console.log("Получены данные изображений:", data);
@@ -855,7 +830,6 @@
             console.log("Приложение инициализировано");
         }
         
-        // Функции для хромакея - УПРОЩЕННАЯ ВЕРСИЯ
         function toggleChromaKey() {
             isChromaKeyEnabled = !isChromaKeyEnabled;
             const btn = document.getElementById('chroma-key-btn');
@@ -864,39 +838,20 @@
             if (isChromaKeyEnabled) {
                 btn.textContent = 'Выключить хромакей';
                 btn.style.background = '#4caf50';
-                // Включаем режим хромакея
                 appContainer.classList.add('chroma-key-enabled');
-                
-                // Усиленная защита всех элементов
-                document.querySelectorAll('.draggable-image, .draggable-text').forEach(element => {
-                    element.style.mixBlendMode = 'normal';
-                    element.style.isolation = 'isolate';
-                    if (element.classList.contains('draggable-image')) {
-                        const img = element.querySelector('img');
-                        if (img) {
-                            img.style.mixBlendMode = 'normal';
-                            img.style.isolation = 'isolate';
-                        }
-                    }
-                });
-                
             } else {
                 btn.textContent = 'Включить хромакей';
                 btn.style.background = '#4285f4';
-                // Выключаем режим хромакея
                 appContainer.classList.remove('chroma-key-enabled');
             }
         }
         
-        // Показать панель озвучивания текста
         function showTTSPanel() {
             const panel = document.getElementById('tts-panel');
             panel.style.display = 'block';
             
-            // Очищаем текстовое поле
             document.getElementById('tts-text-input').value = '';
             
-            // Сбрасываем слайдеры к значениям по умолчанию
             document.getElementById('tts-rate-slider').value = 1;
             document.getElementById('tts-pitch-slider').value = 1;
             document.getElementById('tts-volume-slider').value = 1;
@@ -905,28 +860,23 @@
             document.getElementById('tts-pitch-value').textContent = '1.0';
             document.getElementById('tts-volume-value').textContent = '1.0';
             
-            // Останавливаем любое текущее воспроизведение
             stopTTS();
         }
         
-        // Закрыть панель озвучивания текста
         function closeTTSPanel() {
             const panel = document.getElementById('tts-panel');
             panel.style.display = 'none';
             stopTTS();
         }
         
-        // Инициализация синтеза речи
         function initTTS() {
             if ('speechSynthesis' in window) {
-                // Загружаем доступные голоса
                 speechSynthesis.onvoiceschanged = function() {
                     voices = speechSynthesis.getVoices();
                     populateVoiceList();
                     isTTSInitialized = true;
                 };
                 
-                // Инициализируем сразу, если голоса уже загружены
                 voices = speechSynthesis.getVoices();
                 if (voices.length > 0) {
                     populateVoiceList();
@@ -938,19 +888,16 @@
             }
         }
         
-        // Заполнение списка доступных голосов
         function populateVoiceList() {
             const voiceSelect = document.getElementById('tts-voice-select');
             voiceSelect.innerHTML = '<option value="">Выберите голос...</option>';
             
-            // Фильтруем голоса для русского языка
             const russianVoices = voices.filter(voice => 
                 voice.lang.startsWith('ru') || 
                 voice.lang.startsWith('ru-RU') || 
                 voice.name.toLowerCase().includes('russian')
             );
             
-            // Если есть русские голоса, используем их, иначе показываем все
             const availableVoices = russianVoices.length > 0 ? russianVoices : voices;
             
             availableVoices.forEach(voice => {
@@ -960,13 +907,11 @@
                 voiceSelect.appendChild(option);
             });
             
-            // Устанавливаем русский голос по умолчанию, если есть
             if (russianVoices.length > 0) {
                 voiceSelect.value = russianVoices[0].name;
             }
         }
         
-        // Озвучивание текста из панели
         function playTTS() {
             const text = document.getElementById('tts-text-input').value.trim();
             
@@ -980,27 +925,22 @@
                 return;
             }
             
-            // Останавливаем предыдущее воспроизведение
             if (speechSynthesis.speaking) {
                 speechSynthesis.cancel();
             }
             
-            // Создаем новое высказывание
             speechUtterance = new SpeechSynthesisUtterance(text);
             
-            // Устанавливаем голос
             const voiceSelect = document.getElementById('tts-voice-select');
             const selectedVoice = voices.find(voice => voice.name === voiceSelect.value);
             if (selectedVoice) {
                 speechUtterance.voice = selectedVoice;
             }
             
-            // Устанавливаем параметры
             speechUtterance.rate = parseFloat(document.getElementById('tts-rate-slider').value);
             speechUtterance.pitch = parseFloat(document.getElementById('tts-pitch-slider').value);
             speechUtterance.volume = parseFloat(document.getElementById('tts-volume-slider').value);
             
-            // Обработчики событий
             speechUtterance.onstart = function() {
                 console.log("Начало озвучивания текста");
                 document.getElementById('tts-play-btn').disabled = true;
@@ -1023,16 +963,13 @@
                 document.getElementById('tts-stop-btn').disabled = true;
             };
             
-            // Начинаем воспроизведение
             speechSynthesis.speak(speechUtterance);
             
-            // Обновляем состояние кнопок
             document.getElementById('tts-play-btn').disabled = true;
             document.getElementById('tts-pause-btn').disabled = false;
             document.getElementById('tts-stop-btn').disabled = false;
         }
         
-        // Управление TTS
         function pauseTTS() {
             if (speechSynthesis.speaking) {
                 speechSynthesis.pause();
@@ -1053,7 +990,6 @@
                 const selectedVoice = voices.find(voice => voice.name === this.value);
                 if (selectedVoice) {
                     speechUtterance.voice = selectedVoice;
-                    // Перезапускаем воспроизведение с новым голосом
                     speechSynthesis.cancel();
                     setTimeout(playTTS, 100);
                 }
@@ -1078,12 +1014,6 @@
             }
         }
 
-        // Остальные функции приложения остаются без изменений
-        // ... (остальной код остается таким же)
-
-        // Остальной код остается без изменений...
-        // [Весь остальной JavaScript код из предыдущей версии]
-        
         function updateThumbnails() {
             const thumbnailsContainer = document.getElementById('thumbnails');
             thumbnailsContainer.innerHTML = '';
@@ -1107,9 +1037,732 @@
             }
         }
         
-        // ... (все остальные функции остаются без изменений)
-
-        // Функция создания элемента изображения с защитой от хромакея
+        function createImageThumbnailElement(imgData) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + imgData.id;
+            thumbnail.className = 'thumbnail';
+            if (imgData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+            
+            if (selectedImageId === imgData.id) {
+                thumbnail.classList.add('selected');
+            }
+            
+            const img = document.createElement('img');
+            img.src = imgData.src;
+            thumbnail.appendChild(img);
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = imgData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = imgData.display === 'none' ? 'Показать' : 'Скрыть';
+            
+            if (imgData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+            
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleImageVisibility(imgData.id, imgData.display === 'none');
+            });
+            
+            thumbnail.appendChild(toggleBtn);
+            
+            thumbnail.addEventListener('click', () => {
+                selectImageFromThumbnail(imgData.id);
+            });
+            
+            return thumbnail;
+        }
+        
+        function createTextThumbnailElement(textData) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + textData.id;
+            thumbnail.className = 'thumbnail';
+            if (textData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+            
+            if (selectedTextId === textData.id) {
+                thumbnail.classList.add('selected');
+            }
+            
+            const textPreview = document.createElement('div');
+            textPreview.className = 'text-thumbnail';
+            textPreview.textContent = textData.text.length > 10 
+                ? textData.text.substring(0, 10) + '...' 
+                : textData.text;
+            textPreview.style.fontSize = '10px';
+            textPreview.style.color = textData.color;
+            textPreview.style.fontFamily = textData.fontFamily || 'Arial, sans-serif';
+            thumbnail.appendChild(textPreview);
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = textData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = textData.display === 'none' ? 'Показать' : 'Скрыть';
+            
+            if (textData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+            
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleTextVisibility(textData.id, textData.display === 'none');
+            });
+            
+            thumbnail.appendChild(toggleBtn);
+            
+            thumbnail.addEventListener('click', () => {
+                selectTextFromThumbnail(textData.id);
+            });
+            
+            return thumbnail;
+        }
+        
+        function createSoundThumbnailElement(soundData, soundId) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + soundId;
+            thumbnail.className = 'thumbnail';
+            
+            if (soundData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+            
+            if (selectedSoundId === soundId) {
+                thumbnail.classList.add('selected');
+            }
+            
+            const soundPreview = document.createElement('div');
+            soundPreview.className = 'sound-thumbnail';
+            
+            const fileName = soundData.name || 'sound';
+            soundPreview.textContent = fileName.length > 10 
+                ? fileName.substring(0, 10) + '...' 
+                : fileName;
+            soundPreview.title = fileName;
+            
+            thumbnail.appendChild(soundPreview);
+            
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = soundData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = soundData.display === 'none' ? 'Показать' : 'Скрыть';
+            
+            if (soundData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+            
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleSoundVisibility(soundId, soundData.display === 'none');
+            });
+            
+            thumbnail.appendChild(toggleBtn);
+            
+            thumbnail.addEventListener('click', () => {
+                selectSoundFromThumbnail(soundId);
+            });
+            
+            return thumbnail;
+        }
+        
+        function toggleImageVisibility(imageId, show) {
+            const newDisplay = show ? 'block' : 'none';
+            
+            const imgElement = document.getElementById(imageId);
+            if (imgElement) {
+                imgElement.style.display = newDisplay;
+            }
+            
+            imagesRef.child(imageId).update({ 
+                display: newDisplay
+            });
+            
+            const thumbnail = document.getElementById('thumb_' + imageId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+            
+            saveStateToHistory();
+        }
+        
+        function toggleTextVisibility(textId, show) {
+            const newDisplay = show ? 'block' : 'none';
+            
+            const textElement = document.getElementById(textId);
+            if (textElement) {
+                textElement.style.display = newDisplay;
+            }
+            
+            textsRef.child(textId).update({ 
+                display: newDisplay
+            });
+            
+            const thumbnail = document.getElementById('thumb_' + textId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+            
+            saveStateToHistory();
+        }
+        
+        function toggleSoundVisibility(soundId, show) {
+            if (!sounds[soundId]) return;
+            
+            const newDisplay = show ? 'block' : 'none';
+            
+            soundsRef.child(soundId).update({ 
+                display: newDisplay
+            });
+            
+            const thumbnail = document.getElementById('thumb_' + soundId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+            
+            saveStateToHistory();
+        }
+        
+        function selectImageFromThumbnail(imageId) {
+            const imgElement = document.getElementById(imageId);
+            if (imgElement && imgElement.style.display !== 'none') {
+                deselectAllElements();
+                imgElement.classList.add('selected');
+                selectedImageId = imageId;
+                document.getElementById('image-controls').style.display = 'flex';
+                
+                const isLocked = imgElement.classList.contains('locked');
+                const lockBtn = document.getElementById('lock-btn');
+                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+                
+                const thumbnail = document.getElementById('thumb_' + imageId);
+                if (thumbnail) {
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }
+        }
+        
+        function selectTextFromThumbnail(textId) {
+            const textElement = document.getElementById(textId);
+            if (textElement && textElement.style.display !== 'none') {
+                deselectAllElements();
+                textElement.classList.add('selected');
+                selectedTextId = textId;
+                document.getElementById('text-controls').style.display = 'flex';
+                
+                const isLocked = textElement.classList.contains('locked');
+                const lockBtn = document.getElementById('lock-text-btn');
+                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+                
+                const thumbnail = document.getElementById('thumb_' + textId);
+                if (thumbnail) {
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }
+        }
+        
+        function selectSoundFromThumbnail(soundId) {
+            if (sounds[soundId] && (!sounds[soundId].display || sounds[soundId].display !== 'none')) {
+                deselectAllElements();
+                selectedSoundId = soundId;
+                document.getElementById('sound-controls').style.display = 'flex';
+                
+                updateSoundControls(sounds[soundId]);
+                
+                const thumbnail = document.getElementById('thumb_' + soundId);
+                if (thumbnail) {
+                    thumbnail.classList.add('selected');
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }
+        }
+        
+        function deselectAllElements() {
+            document.querySelectorAll('.draggable-image').forEach(el => el.classList.remove('selected'));
+            document.querySelectorAll('.draggable-text').forEach(el => el.classList.remove('selected'));
+            document.getElementById('image-controls').style.display = 'none';
+            document.getElementById('text-controls').style.display = 'none';
+            document.getElementById('sound-controls').style.display = 'none';
+            document.getElementById('properties-panel').style.display = 'none';
+            
+            document.querySelectorAll('.thumbnail').forEach(thumb => {
+                thumb.classList.remove('selected');
+            });
+            
+            selectedImageId = null;
+            selectedTextId = null;
+            selectedSoundId = null;
+        }
+        
+        function saveStateToHistory() {
+            if (actionHistory.length >= 20) {
+                actionHistory.shift();
+            }
+            
+            Promise.all([
+                imagesRef.once('value').then(snapshot => snapshot.val() || {}),
+                textsRef.once('value').then(snapshot => snapshot.val() || {}),
+                soundsRef.once('value').then(snapshot => snapshot.val() || {})
+            ]).then(([imagesData, textsData, soundsData]) => {
+                const currentState = { images: imagesData, texts: textsData, sounds: soundsData };
+                actionHistory.push(JSON.stringify(currentState));
+                historyPointer = actionHistory.length - 1;
+            });
+        }
+        
+        function undoAction() {
+            if (historyPointer <= 0) return;
+            
+            historyPointer--;
+            const previousState = JSON.parse(actionHistory[historyPointer]);
+            imagesRef.set(previousState.images || {});
+            textsRef.set(previousState.texts || {});
+            soundsRef.set(previousState.sounds || {});
+        }
+        
+        function setupViewport() {
+            const appContainer = document.getElementById('app-container');
+            const scale = Math.min(
+                window.innerWidth / 2560,
+                window.innerHeight / 1212
+            );
+            appContainer.style.transform = `scale(${scale})`;
+            appContainer.style.transformOrigin = 'top left';
+        }
+        
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const id = 'img_' + Date.now();
+                    const x = 100;
+                    const y = 100;
+                    
+                    imagesRef.child(id).set({
+                        id: id,
+                        src: event.target.result,
+                        x: x,
+                        y: y,
+                        width: img.width,
+                        height: img.height,
+                        opacity: 0.3,
+                        brightness: 85,
+                        isNew: true,
+                        locked: false,
+                        display: 'block'
+                    });
+                    saveStateToHistory();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+        
+        function handleSoundUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const id = 'sound_' + Date.now();
+                
+                soundsRef.child(id).set({
+                    id: id,
+                    src: event.target.result,
+                    name: file.name,
+                    playing: false,
+                    currentTime: 0,
+                    duration: 0,
+                    volume: 100,
+                    display: 'block'
+                });
+                saveStateToHistory();
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+        
+        function updateSoundControls(soundData) {
+            const soundControls = document.getElementById('sound-controls');
+            const audioElement = document.getElementById('audio-element');
+            
+            if (soundData && soundData.src) {
+                soundControls.style.display = 'flex';
+                
+                if (audioElement.src !== soundData.src) {
+                    audioElement.src = soundData.src;
+                    
+                    audioElement.onloadedmetadata = () => {
+                        soundsRef.child(selectedSoundId).update({ duration: audioElement.duration });
+                    };
+                }
+                
+                if (soundData.volume !== undefined) {
+                    audioElement.volume = soundData.volume / 100;
+                    document.getElementById('volume-slider').value = soundData.volume;
+                } else {
+                    audioElement.volume = 1;
+                    document.getElementById('volume-slider').value = 100;
+                }
+                
+                if (soundData.playing && audioElement.paused) {
+                    audioElement.currentTime = soundData.currentTime || 0;
+                    audioElement.play().catch(e => console.log("Автовоспроизведение заблокировано"));
+                } else if (!soundData.playing && !audioElement.paused) {
+                    audioElement.pause();
+                }
+                
+                updateProgressVisualization(soundData.currentTime, soundData.duration);
+            } else {
+                soundControls.style.display = 'none';
+                audioElement.src = '';
+                if (soundInterval) {
+                    clearInterval(soundInterval);
+                    soundInterval = null;
+                }
+            }
+        }
+        
+        function playSound() {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+            
+            const audioElement = document.getElementById('audio-element');
+            audioElement.play().then(() => {
+                soundsRef.child(selectedSoundId).update({ 
+                    playing: true,
+                    currentTime: audioElement.currentTime
+                });
+                
+                if (soundInterval) clearInterval(soundInterval);
+                soundInterval = setInterval(() => {
+                    if (!audioElement.paused) {
+                        soundsRef.child(selectedSoundId).update({ 
+                            currentTime: audioElement.currentTime
+                        });
+                    }
+                }, 1000);
+            }).catch(e => {
+                console.error("Ошибка воспроизведения:", e);
+            });
+        }
+        
+        function pauseSound() {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+            
+            const audioElement = document.getElementById('audio-element');
+            audioElement.pause();
+            soundsRef.child(selectedSoundId).update({ 
+                playing: false,
+                currentTime: audioElement.currentTime
+            });
+            
+            if (soundInterval) {
+                clearInterval(soundInterval);
+                soundInterval = null;
+            }
+        }
+        
+        function updateVolume(e) {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+            
+            const volume = e.target.value;
+            const audioElement = document.getElementById('audio-element');
+            audioElement.volume = volume / 100;
+            
+            soundsRef.child(selectedSoundId).update({ 
+                volume: volume
+            });
+            
+            saveStateToHistory();
+        }
+        
+        function deleteSound() {
+            if (selectedSoundId && confirm("Удалить этот звук?")) {
+                soundsRef.child(selectedSoundId).remove();
+                const audioElement = document.getElementById('audio-element');
+                audioElement.src = '';
+                audioElement.pause();
+                
+                if (soundInterval) {
+                    clearInterval(soundInterval);
+                    soundInterval = null;
+                }
+                
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+        
+        function updateSoundProgress() {
+            if (!selectedSoundId || !sounds[selectedSoundId] || !sounds[selectedSoundId].playing) return;
+            
+            const audioElement = document.getElementById('audio-element');
+            updateProgressVisualization(audioElement.currentTime, audioElement.duration);
+        }
+        
+        function updateProgressVisualization(currentTime, duration) {
+            const progressElement = document.getElementById('sound-progress');
+            if (duration > 0) {
+                const percentage = (currentTime / duration) * 100;
+                progressElement.style.width = percentage + '%';
+            } else {
+                progressElement.style.width = '0%';
+            }
+        }
+        
+        function soundEnded() {
+            if (soundInterval) {
+                clearInterval(soundInterval);
+                soundInterval = null;
+            }
+            
+            if (selectedSoundId) {
+                soundsRef.child(selectedSoundId).update({
+                    playing: false,
+                    currentTime: 0
+                });
+            }
+        }
+        
+        function showTextInputPanel() {
+            deselectAllElements();
+            const panel = document.getElementById('text-input-panel');
+            document.getElementById('text-input').value = '';
+            document.getElementById('font-size-input').value = 16;
+            document.getElementById('text-color-input').value = '#000000';
+            document.getElementById('font-family-select').value = "'Comic Sans MS', cursive";
+            document.getElementById('text-panel-title').textContent = "Добавить текст";
+            panel.style.display = 'block';
+            isEditingText = false;
+            currentTextId = null;
+        }
+        
+        function applyTextChanges() {
+            const text = document.getElementById('text-input').value.trim();
+            if (!text) return;
+            
+            const fontSize = parseInt(document.getElementById('font-size-input').value);
+            const color = document.getElementById('text-color-input').value;
+            const fontFamily = document.getElementById('font-family-select').value;
+            
+            if (isEditingText && currentTextId) {
+                textsRef.child(currentTextId).update({
+                    text: text,
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily
+                });
+            } else {
+                const id = 'text_' + Date.now();
+                const x = 100;
+                const y = 100;
+                
+                textsRef.child(id).set({
+                    id: id,
+                    text: text,
+                    x: x,
+                    y: y,
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily,
+                    opacity: 0.3,
+                    isNew: true,
+                    locked: false,
+                    display: 'block'
+                });
+            }
+            
+            document.getElementById('text-input-panel').style.display = 'none';
+            saveStateToHistory();
+            isEditingText = false;
+            currentTextId = null;
+        }
+        
+        function cancelTextEdit() {
+            document.getElementById('text-input-panel').style.display = 'none';
+            isEditingText = false;
+            currentTextId = null;
+        }
+        
+        function editSelectedText() {
+            if (!selectedTextId) return;
+            
+            const textElement = document.getElementById(selectedTextId);
+            if (!textElement) return;
+            
+            const panel = document.getElementById('text-input-panel');
+            document.getElementById('text-input').value = textElement.textContent;
+            document.getElementById('font-size-input').value = parseInt(textElement.style.fontSize);
+            document.getElementById('text-color-input').value = textElement.style.color;
+            
+            const fontFamily = textElement.style.fontFamily;
+            document.getElementById('font-family-select').value = fontFamily;
+            
+            document.getElementById('text-panel-title').textContent = "Редактировать текст";
+            panel.style.display = 'block';
+            isEditingText = true;
+            currentTextId = selectedTextId;
+        }
+        
+        function deleteSelectedText() {
+            if (selectedTextId && confirm("Удалить этот текст?")) {
+                textsRef.child(selectedTextId).remove();
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+        
+        function toggleTextLock() {
+            if (selectedTextId) {
+                const textElement = document.getElementById(selectedTextId);
+                if (!textElement) return;
+                
+                const isLocked = textElement.classList.contains('locked');
+                
+                if (isLocked) {
+                    textElement.classList.remove('locked');
+                    document.getElementById('lock-text-btn').textContent = 'Закрепить';
+                } else {
+                    textElement.classList.add('locked');
+                    document.getElementById('lock-text-btn').textContent = 'Открепить';
+                }
+                
+                textsRef.child(selectedTextId).update({ 
+                    locked: !isLocked 
+                });
+                saveStateToHistory();
+            }
+        }
+        
+        function updateCanvas(imagesData) {
+            const container = document.getElementById('elements-layer');
+            
+            document.querySelectorAll('.draggable-image').forEach(img => {
+                if (!imagesData[img.id]) {
+                    img.remove();
+                    if (selectedImageId === img.id) {
+                        deselectAllElements();
+                    }
+                }
+            });
+            
+            for (const id in imagesData) {
+                const imgData = imagesData[id];
+                let img = document.getElementById(id);
+                
+                if (!img) {
+                    img = createImageElement(imgData);
+                    container.appendChild(img);
+                }
+                
+                updateImagePositionAndSize(img, imgData);
+                updateImageOpacity(img, imgData);
+                updateImageBrightness(img, imgData);
+                updateImageLockState(img, imgData);
+                updateImageDisplayState(img, imgData);
+                
+                if (imgData.isNew) {
+                    deselectAllElements();
+                    img.classList.add('selected');
+                    selectedImageId = id;
+                    document.getElementById('image-controls').style.display = 'flex';
+                    
+                    const lockBtn = document.getElementById('lock-btn');
+                    lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
+                    
+                    imagesRef.child(id).update({ isNew: null });
+                }
+            }
+        }
+        
+        function updateTexts(textsData) {
+            const container = document.getElementById('elements-layer');
+            
+            document.querySelectorAll('.draggable-text').forEach(textEl => {
+                if (!textsData[textEl.id]) {
+                    textEl.remove();
+                    if (selectedTextId === textEl.id) {
+                        deselectAllElements();
+                    }
+                }
+            });
+            
+            for (const id in textsData) {
+                const textData = textsData[id];
+                let textEl = document.getElementById(id);
+                
+                if (!textEl) {
+                    textEl = createTextElement(textData);
+                    container.appendChild(textEl);
+                } else {
+                    updateTextPosition(textEl, textData);
+                    updateTextContent(textEl, textData);
+                    updateTextLockState(textEl, textData);
+                    updateTextDisplayState(textEl, textData);
+                }
+                
+                if (textData.opacity !== undefined) {
+                    textEl.style.opacity = textData.opacity;
+                }
+                
+                if (textData.fontFamily) {
+                    textEl.style.fontFamily = textData.fontFamily;
+                }
+                
+                if (textData.isNew) {
+                    deselectAllElements();
+                    textEl.classList.add('selected');
+                    selectedTextId = id;
+                    document.getElementById('text-controls').style.display = 'flex';
+                    
+                    const lockBtn = document.getElementById('lock-text-btn');
+                    lockBtn.textContent = textData.locked ? 'Открепить' : 'Закрепить';
+                    
+                    textsRef.child(id).update({ isNew: null });
+                }
+            }
+        }
+        
         function createImageElement(imgData) {
             const imgWrapper = document.createElement('div');
             imgWrapper.id = imgData.id;
@@ -1120,11 +1773,6 @@
             imgWrapper.style.height = imgData.height + 'px';
             imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
             imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 85}%)`;
-            
-            // ЗАЩИТА ОТ ХРОМАКЕЯ
-            imgWrapper.style.mixBlendMode = 'normal';
-            imgWrapper.style.isolation = 'isolate';
-            imgWrapper.style.backgroundColor = 'rgba(0, 0, 0, 0.01)';
             
             if (imgData.locked) {
                 imgWrapper.classList.add('locked');
@@ -1142,11 +1790,6 @@
             img.style.height = '100%';
             img.style.objectFit = 'contain';
             img.draggable = false;
-            
-            // ЗАЩИТА ОТ ХРОМАКЕЯ ДЛЯ ИЗОБРАЖЕНИЯ
-            img.style.mixBlendMode = 'normal';
-            img.style.isolation = 'isolate';
-            
             imgWrapper.appendChild(img);
             
             addResizeHandles(imgWrapper);
@@ -1163,7 +1806,6 @@
             return imgWrapper;
         }
         
-        // Функция создания текстового элемента с защитой от хромакея
         function createTextElement(textData) {
             const textEl = document.createElement('div');
             textEl.id = textData.id;
@@ -1173,11 +1815,6 @@
             textEl.textContent = textData.text;
             textEl.style.fontSize = textData.fontSize + 'px';
             textEl.style.color = textData.color;
-            
-            // ЗАЩИТА ОТ ХРОМАКЕЯ
-            textEl.style.mixBlendMode = 'normal';
-            textEl.style.isolation = 'isolate';
-            textEl.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
             
             if (textData.fontFamily) {
                 textEl.style.fontFamily = textData.fontFamily;
@@ -1218,8 +1855,331 @@
             return textEl;
         }
         
-        // ... (все остальные функции остаются без изменений)
-
+        function addResizeHandles(element) {
+            element.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
+            
+            const directions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+            
+            directions.forEach(dir => {
+                const handle = document.createElement('div');
+                handle.className = `resize-handle resize-${dir}`;
+                element.appendChild(handle);
+                
+                handle.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startResize(e, dir);
+                });
+                
+                handle.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startResize(e, dir);
+                }, { passive: false });
+            });
+        }
+        
+        function startSelect(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const imgElement = e.currentTarget;
+            const isLocked = imgElement.classList.contains('locked');
+            
+            deselectAllElements();
+            
+            imgElement.classList.add('selected');
+            selectedImageId = imgElement.id;
+            document.getElementById('image-controls').style.display = 'flex';
+            
+            const lockBtn = document.getElementById('lock-btn');
+            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+            
+            if (!isLocked) {
+                activeInteraction = 'select';
+                activeElement = imgElement;
+                
+                const currentX = parseInt(imgElement.style.left) || 0;
+                const currentY = parseInt(imgElement.style.top) || 0;
+                
+                if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX - currentX;
+                    startY = e.touches[0].clientY - currentY;
+                } else {
+                    startX = e.clientX - currentX;
+                    startY = e.clientY - currentY;
+                }
+            }
+        }
+        
+        function startTextSelect(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const textElement = e.currentTarget;
+            const isLocked = textElement.classList.contains('locked');
+            
+            deselectAllElements();
+            
+            textElement.classList.add('selected');
+            selectedTextId = textElement.id;
+            document.getElementById('text-controls').style.display = 'flex';
+            
+            const lockBtn = document.getElementById('lock-text-btn');
+            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+            
+            if (!isLocked) {
+                activeInteraction = 'select';
+                activeElement = textElement;
+                
+                const currentX = parseInt(textElement.style.left) || 0;
+                const currentY = parseInt(textElement.style.top) || 0;
+                
+                if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX - currentX;
+                    startY = e.touches[0].clientY - currentY;
+                } else {
+                    startX = e.clientX - currentX;
+                    startY = e.clientY - currentY;
+                }
+            }
+        }
+        
+        function updateImagePositionAndSize(img, imgData) {
+            if (activeElement !== img) {
+                img.style.left = imgData.x + 'px';
+                img.style.top = imgData.y + 'px';
+                img.style.width = imgData.width + 'px';
+                img.style.height = imgData.height + 'px';
+            }
+        }
+        
+        function updateTextPosition(textEl, textData) {
+            if (activeElement !== textEl) {
+                textEl.style.left = textData.x + 'px';
+                textEl.style.top = textData.y + 'px';
+            }
+        }
+        
+        function updateTextContent(textEl, textData) {
+            textEl.textContent = textData.text;
+            textEl.style.fontSize = textData.fontSize + 'px';
+            textEl.style.color = textData.color;
+            if (textData.fontFamily) {
+                textEl.style.fontFamily = textData.fontFamily;
+            }
+        }
+        
+        function updateImageOpacity(img, imgData) {
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+        }
+        
+        function updateImageBrightness(img, imgData) {
+            if (imgData.brightness !== undefined) {
+                img.style.filter = `brightness(${imgData.brightness}%)`;
+            } else {
+                img.style.filter = 'brightness(85%)';
+            }
+        }
+        
+        function updateImageLockState(img, imgData) {
+            if (imgData.locked) {
+                img.classList.add('locked');
+                img.style.cursor = 'default';
+            } else {
+                img.classList.remove('locked');
+                img.style.cursor = 'move';
+            }
+        }
+        
+        function updateImageDisplayState(img, imgData) {
+            if (imgData.display === 'none') {
+                img.style.display = 'none';
+            } else {
+                img.style.display = 'block';
+            }
+        }
+        
+        function updateTextDisplayState(textEl, textData) {
+            if (textData.display === 'none') {
+                textEl.style.display = 'none';
+            } else {
+                textEl.style.display = 'block';
+            }
+        }
+        
+        function updateTextLockState(textEl, textData) {
+            if (textData.locked) {
+                textEl.classList.add('locked');
+                textEl.style.cursor = 'default';
+            } else {
+                textEl.classList.remove('locked');
+                textEl.style.cursor = 'move';
+            }
+        }
+        
+        function clearCanvas() {
+            if (confirm("Очистить холст для всех пользователей?")) {
+                imagesRef.remove();
+                textsRef.remove();
+                soundsRef.remove();
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+        
+        function startResize(e, direction) {
+            if (e.currentTarget.parentElement.classList.contains('locked')) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            activeInteraction = 'resize';
+            activeElement = e.currentTarget.parentElement;
+            resizeDirection = direction;
+            
+            const rect = activeElement.getBoundingClientRect();
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+            
+            startWidth = parseFloat(activeElement.style.width) || activeElement.offsetWidth;
+            startHeight = parseFloat(activeElement.style.height) || activeElement.offsetHeight;
+            startLeft = parseFloat(activeElement.style.left) || 0;
+            startTop = parseFloat(activeElement.style.top) || 0;
+        }
+        
+        function handleMove(e) {
+            if (!activeInteraction || !activeElement) return;
+            if (activeElement.classList.contains('locked')) return;
+            
+            e.preventDefault();
+            let clientX, clientY;
+            
+            if (e.type === 'touchmove') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            if (activeInteraction === 'select' || activeInteraction === 'drag') {
+                const x = clientX - startX;
+                const y = clientY - startY;
+                
+                const container = document.getElementById('canvas-wrapper');
+                const maxX = container.offsetWidth - activeElement.offsetWidth;
+                const maxY = container.offsetHeight - activeElement.offsetHeight;
+                
+                const boundedX = Math.max(0, Math.min(x, maxX));
+                const boundedY = Math.max(0, Math.min(y, maxY));
+                
+                activeElement.style.left = boundedX + 'px';
+                activeElement.style.top = boundedY + 'px';
+                
+                if (activeElement.classList.contains('draggable-image')) {
+                    imagesRef.child(activeElement.id).update({
+                        x: boundedX,
+                        y: boundedY
+                    });
+                } else if (activeElement.classList.contains('draggable-text')) {
+                    textsRef.child(activeElement.id).update({
+                        x: boundedX,
+                        y: boundedY
+                    });
+                }
+                
+                if (activeInteraction === 'select') {
+                    activeInteraction = 'drag';
+                }
+            } 
+            else if (activeInteraction === 'resize') {
+                const deltaX = clientX - startX;
+                const deltaY = clientY - startY;
+                
+                let newWidth = startWidth;
+                let newHeight = startHeight;
+                let newLeft = startLeft;
+                let newTop = startTop;
+                
+                switch (resizeDirection) {
+                    case 'n':
+                        newHeight = Math.max(50, startHeight - deltaY);
+                        newTop = startTop + (startHeight - newHeight);
+                        break;
+                    case 'ne':
+                        newHeight = Math.max(50, startHeight - deltaY);
+                        newTop = startTop + (startHeight - newHeight);
+                        newWidth = Math.max(50, startWidth + deltaX);
+                        break;
+                    case 'e':
+                        newWidth = Math.max(50, startWidth + deltaX);
+                        break;
+                    case 'se':
+                        newWidth = Math.max(50, startWidth + deltaX);
+                        newHeight = Math.max(50, startHeight + deltaY);
+                        break;
+                    case 's':
+                        newHeight = Math.max(50, startHeight + deltaY);
+                        break;
+                    case 'sw':
+                        newWidth = Math.max(50, startWidth - deltaX);
+                        newLeft = startLeft + (startWidth - newWidth);
+                        newHeight = Math.max(50, startHeight + deltaY);
+                        break;
+                    case 'w':
+                        newWidth = Math.max(50, startWidth - deltaX);
+                        newLeft = startLeft + (startWidth - newWidth);
+                        break;
+                    case 'nw':
+                        newWidth = Math.max(50, startWidth - deltaX);
+                        newLeft = startLeft + (startWidth - newWidth);
+                        newHeight = Math.max(50, startHeight - deltaY);
+                        newTop = startTop + (startHeight - newHeight);
+                        break;
+                }
+                
+                activeElement.style.width = newWidth + 'px';
+                activeElement.style.height = newHeight + 'px';
+                activeElement.style.left = newLeft + 'px';
+                activeElement.style.top = newTop + 'px';
+                
+                if (activeElement.classList.contains('draggable-image')) {
+                    imagesRef.child(activeElement.id).update({
+                        width: newWidth,
+                        height: newHeight,
+                        x: newLeft,
+                        y: newTop
+                    });
+                } else if (activeElement.classList.contains('draggable-text')) {
+                    const fontSize = parseInt(activeElement.style.fontSize) || 16;
+                    const scaleFactor = newWidth / startWidth;
+                    const newFontSize = Math.max(10, Math.min(72, Math.round(fontSize * scaleFactor)));
+                    
+                    activeElement.style.fontSize = newFontSize + 'px';
+                    textsRef.child(activeElement.id).update({
+                        fontSize: newFontSize,
+                        x: newLeft,
+                        y: newTop
+                    });
+                }
+            }
+        }
+        
+        function endInteraction() {
+            if (activeInteraction) {
+                saveStateToHistory();
+            }
+            activeInteraction = null;
+            activeElement = null;
+            resizeDirection = null;
+        }
+        
         window.addEventListener('DOMContentLoaded', initApp);
         window.addEventListener('resize', setupViewport);
     </script>

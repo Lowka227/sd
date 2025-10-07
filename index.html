@@ -433,10 +433,6 @@
         #tts-stop-btn {
             background: #f44336;
         }
-        
-        .chroma-key-enabled #green-background {
-            background-color: #00ff00 !important;
-        }
     </style>
 </head>
 <body>
@@ -446,7 +442,6 @@
             <button id="add-text-btn">Добавить текст</button>
             <button id="add-sound-btn">Добавить звук</button>
             <button id="speak-text-btn">Озвучить текст</button>
-            <button id="chroma-key-btn">Включить хромакей</button>
             <button id="clear-btn">Очистить</button>
             
             <div id="thumbnails-container">
@@ -615,7 +610,6 @@
         let isEditingText = false;
         let currentTextId = null;
         let soundInterval = null;
-        let isChromaKeyEnabled = false;
         
         let speechSynthesis = window.speechSynthesis;
         let speechUtterance = null;
@@ -628,7 +622,6 @@
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('sound-input').addEventListener('change', handleSoundUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
-            document.getElementById('chroma-key-btn').addEventListener('click', toggleChromaKey);
             document.getElementById('close-properties').addEventListener('click', () => {
                 document.getElementById('properties-panel').style.display = 'none';
             });
@@ -828,22 +821,6 @@
             setupViewport();
             
             console.log("Приложение инициализировано");
-        }
-        
-        function toggleChromaKey() {
-            isChromaKeyEnabled = !isChromaKeyEnabled;
-            const btn = document.getElementById('chroma-key-btn');
-            const appContainer = document.getElementById('app-container');
-            
-            if (isChromaKeyEnabled) {
-                btn.textContent = 'Выключить хромакей';
-                btn.style.background = '#4caf50';
-                appContainer.classList.add('chroma-key-enabled');
-            } else {
-                btn.textContent = 'Включить хромакей';
-                btn.style.background = '#4285f4';
-                appContainer.classList.remove('chroma-key-enabled');
-            }
         }
         
         function showTTSPanel() {

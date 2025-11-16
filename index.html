@@ -2,208 +2,514 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Прозрачный оверлей для OBS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Зелёный холст</title>
     <style>
-        * { -webkit-app-region: no-drag; user-select: none; }
         body {
-            margin: 0; padding: 0; font-family: Arial, sans-serif;
-            overflow: hidden; touch-action: none; background: transparent !important;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            background: #000;
         }
         #app-container {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            display: flex; flex-direction: column;
+            display: flex;
+            flex-direction: column;
+            width: 2560px;
+            height: 1212px;
+            position: relative;
         }
         #controls {
-            background: rgba(240,240,240,0.9); backdrop-filter: blur(5px);
-            padding: 10px; display: flex; gap: 10px; align-items: center;
-            height: 60px; box-sizing: border-box; z-index: 100; flex-shrink: 0;
+            background: #f0f0f0;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            height: 60px;
+            box-sizing: border-box;
+            z-index: 100;
+            position: relative;
         }
         #thumbnails-container {
-            display: flex; align-items: center; overflow-x: auto;
-            margin-left: 20px; height: 60px; background: rgba(224,224,224,0.8);
-            border-radius: 4px; padding: 0 10px; flex-grow: 1;
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            margin-left: 20px;
+            height: 60px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            padding: 0 10px;
+            flex-grow: 1;
         }
-        #thumbnails { display: flex; gap: 10px; }
+        #thumbnails {
+            display: flex;
+            gap: 10px;
+        }
         .thumbnail {
-            position: relative; width: 40px; height: 40px; flex-shrink: 0;
-            border: 2px solid transparent; cursor: pointer;
+            position: relative;
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            border: 2px solid transparent;
+            cursor: pointer;
         }
-        .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-        .text-thumbnail, .sound-thumbnail {
-            display: flex; align-items: center; justify-content: center;
-            background: #f0f0f0; border-radius: 3px; font-size: 10px;
-            overflow: hidden; text-overflow: ellipsis; padding: 0 5px;
-            text-align: center; width: 100%; height: 100%;
+        .thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
-        .sound-thumbnail { background: #e0e0ff; }
-        .thumbnail.selected { border-color: #4285f4; }
-        .thumbnail-hidden { opacity: 0.5; }
+        .text-thumbnail {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0f0f0;
+            border-radius: 3px;
+            font-size: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 5px;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+        }
+        .sound-thumbnail {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e0f0ff;
+            border-radius: 3px;
+            font-size: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 5px;
+            text-align: center;
+            width: 100%;
+            height: 100%;
+        }
+        .thumbnail.selected {
+            border-color: #4285f4;
+        }
+        .thumbnail.selected .text-thumbnail {
+            background: #e0e0e0;
+        }
+        .thumbnail.selected .sound-thumbnail {
+            background: #c0e0ff;
+        }
+        .thumbnail-hidden {
+            opacity: 0.5;
+        }
         .thumbnail-button {
-            position: absolute; top: -5px; right: -5px; width: 16px; height: 16px;
-            border: none; border-radius: 50%; background: #f44336; color: white;
-            font-size: 12px; line-height: 1; cursor: pointer; padding: 0;
-            display: flex; align-items: center; justify-content: center;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 16px;
+            height: 16px;
+            border: none;
+            border-radius: 50%;
+            background: #f44336;
+            color: white;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .thumbnail-button.show { background: #4caf50; }
-
-        #image-controls, #text-controls, #sound-controls {
-            display: flex; gap: 10px; margin-left: 20px; display: none; align-items: center;
+        .thumbnail-button.show {
+            background: #4caf50;
         }
-
-        #canvas-wrapper { flex: 1; position: relative; overflow: hidden; background: transparent; }
-
+        #image-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+            display: none;
+        }
+        #text-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+            display: none;
+        }
+        #sound-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+            display: none;
+            align-items: center;
+        }
+       
+        #canvas-wrapper {
+            width: 2560px;
+            height: 1152px;
+            position: relative;
+            overflow: hidden;
+        }
+       
+        #green-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #00ff00;
+            z-index: 1;
+        }
+       
         #elements-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 2; pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
         }
-
-        .draggable-image, .draggable-text {
-            position: absolute; cursor: move; user-select: none; touch-action: none;
-            transition: opacity 0.3s, filter 0.3s; opacity: 0.3; box-sizing: border-box;
-            filter: brightness(85%); pointer-events: auto; mix-blend-mode: normal;
-            isolation: isolate; background-color: rgba(0,0,0,0.01);
+       
+        .draggable-image {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+            touch-action: none;
+            transition: opacity 0.3s, filter 0.3s;
+            opacity: 0.3;
+            box-sizing: border-box;
+            filter: brightness(85%);
+            pointer-events: auto;
+            mix-blend-mode: normal;
+            isolation: isolate;
+            background-color: rgba(0, 0, 0, 0.01);
         }
         .draggable-image img {
-            width: 100%; height: 100%; object-fit: contain; pointer-events: none;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+            mix-blend-mode: normal;
+            isolation: isolate;
         }
         .draggable-text {
-            white-space: nowrap; background-color: rgba(255,255,255,0.7);
-            padding: 2px 5px; border-radius: 3px; transform-origin: top left;
+            position: absolute;
+            cursor: move;
+            user-select: none;
+            touch-action: none;
+            box-sizing: border-box;
+            opacity: 0.3;
+            display: inline-block;
+            white-space: nowrap;
+            transform-origin: top left;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 2px 5px;
+            border-radius: 3px;
+            pointer-events: auto;
+            mix-blend-mode: normal;
+            isolation: isolate;
         }
-
-        .selected { box-shadow: 0 0 0 2px #4285f4 inset; }
-        .locked { box-shadow: 0 0 0 2px #ff0000 inset !important; }
-
+        .selected {
+            position: relative;
+            box-shadow: 0 0 0 2px #4285f4 inset;
+        }
+        .locked {
+            box-shadow: 0 0 0 2px #ff0000 inset !important;
+        }
         .resize-handle {
-            position: absolute; width: 10px; height: 10px; background-color: #4285f4;
-            border: 1px solid white; z-index: 10; opacity: 0; transition: opacity 0.2s;
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #4285f4;
+            border: 1px solid white;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s;
         }
-        .selected:not(.locked) .resize-handle { opacity: 1; }
-        .resize-n { top: -5px; left: 50%; margin-left: -5px; cursor: n-resize; }
-        .resize-ne { top: -5px; right: -5px; cursor: ne-resize; }
-        .resize-e { top: 50%; right: -5px; margin-top: -5px; cursor: e-resize; }
-        .resize-se { bottom: -5px; right: -5px; cursor: se-resize; }
-        .resize-s { bottom: -5px; left: 50%; margin-left: -5px; cursor: s-resize; }
-        .resize-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
-        .resize-w { top: 50%; left: -5px; margin-top: -5px; cursor: w-resize; }
-        .resize-nw { top: -5px; left: -5px; cursor: nw-resize; }
-
+        .resize-n {
+            top: -5px;
+            left: 50%;
+            margin-left: -5px;
+            cursor: n-resize;
+        }
+        .resize-ne {
+            top: -5px;
+            right: -5px;
+            cursor: ne-resize;
+        }
+        .resize-e {
+            top: 50%;
+            right: -5px;
+            margin-top: -5px;
+            cursor: e-resize;
+        }
+        .resize-se {
+            bottom: -5px;
+            right: -5px;
+            cursor: se-resize;
+        }
+        .resize-s {
+            bottom: -5px;
+            left: 50%;
+            margin-left: -5px;
+            cursor: s-resize;
+        }
+        .resize-sw {
+            bottom: -5px;
+            left: -5px;
+            cursor: sw-resize;
+        }
+        .resize-w {
+            top: 50%;
+            left: -5px;
+            margin-top: -5px;
+            cursor: w-resize;
+        }
+        .resize-nw {
+            top: -5px;
+            left: -5px;
+            cursor: nw-resize;
+        }
+        .selected:not(.locked) .resize-handle {
+            opacity: 1;
+        }
         button {
-            padding: 8px 12px; border: none; border-radius: 4px;
-            background: #4285f4; color: white; font-size: 14px; cursor: pointer;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            background: #4285f4;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
         }
-        #file-input, #sound-input { display: none; }
-        #status { margin-left: 10px; font-size: 14px; color: #666; white-space: nowrap; }
-
-        .properties-panel, #text-input-panel, #tts-panel {
-            position: fixed; background: white; padding: 15px;
-            border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            z-index: 100; display: none;
+        #file-input {
+            display: none;
         }
-        .properties-panel { top: 80px; right: 20px; }
-        #text-input-panel { top: 80px; left: 20px; }
-        #tts-panel { top: 80px; right: 20px; width: 320px; }
-
+        #sound-input {
+            display: none;
+        }
+        #status {
+            margin-left: 10px;
+            font-size: 14px;
+            color: #666;
+            white-space: nowrap;
+        }
+        .properties-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            display: none;
+        }
+        .properties-panel h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .properties-panel label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .properties-panel input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        #text-input-panel {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            display: none;
+        }
+        #text-input {
+            width: 200px;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        #font-size-input {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        #text-color-input {
+            margin-bottom: 10px;
+        }
+        #font-family-select {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
         .sound-visualization {
-            width: 100px; height: 30px; background: #ddd; border-radius: 4px;
-            overflow: hidden; position: relative;
+            width: 100px;
+            height: 30px;
+            background: #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
         }
-        .sound-progress { height: 100%; background: #4285f4; width: 0%; transition: width 0.1s; }
-        #audio-element { display: none; }
-
-        .volume-control { display: flex; align-items: center; gap: 5px; }
-        .volume-slider { width: 80px; }
-
-        .tts-controls-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-        .tts-voice-select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-        .tts-control-label { font-size: 12px; color: #666; white-space: nowrap; min-width: 60px; }
-        .tts-slider { flex: 1; }
-        .tts-buttons { display: flex; gap: 10px; margin-top: 15px; }
-        .tts-buttons button { flex: 1; }
-        #tts-play-btn { background: #4caf50; }
-        #tts-pause-btn { background: #ff9800; }
-        #tts-stop-btn { background: #f44336; }
-
-        #tts-status { margin-top: 10px; font-size: 12px; color: #666; text-align: center; }
-
-        /* ФИКС: Элементы теперь ВИДНЫ локально */
-        .debug-mode .draggable-image,
-        .debug-mode .draggable-text {
-            opacity: 1 !important;
-            filter: brightness(100%) !important;
-            background-color: rgba(255,255,255,0.8) !important;
-            border: 1px dashed #ccc;
+        .sound-progress {
+            height: 100%;
+            background: #4285f4;
+            width: 0%;
+            transition: width 0.1s;
         }
-        .debug-mode .draggable-text {
-            background-color: rgba(255,255,255,0.9) !important;
+        #audio-element {
+            display: none;
         }
-        .debug-mode #elements-layer {
-            pointer-events: auto !important;
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .volume-slider {
+            width: 80px;
+        }
+        #tts-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            display: none;
+            width: 300px;
+        }
+        #tts-panel h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        #tts-text-input {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: Arial, sans-serif;
+            box-sizing: border-box;
+        }
+        .tts-controls-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .tts-voice-select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .tts-control-label {
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+            min-width: 60px;
+        }
+        .tts-slider {
+            flex: 1;
+        }
+        .tts-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .tts-buttons button {
+            flex: 1;
+        }
+        #tts-play-btn {
+            background: #4caf50;
+        }
+        #tts-pause-btn {
+            background: #ff9800;
+        }
+        #tts-stop-btn {
+            background: #f44336;
         }
     </style>
 </head>
-<body class="debug-mode"> <!-- ВКЛЮЧИЛИ РЕЖИМ ОТЛАДКИ -->
+<body>
     <div id="app-container">
         <div id="controls">
-            <button onclick="document.getElementById('file-input').click()">Изображение</button>
-            <button id="add-text-btn">Текст</button>
-            <button id="add-sound-btn">Звук</button>
-            <button id="speak-text-btn">Озвучить</button>
+            <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
+            <button id="add-text-btn">Добавить текст</button>
+            <button id="add-sound-btn">Добавить звук</button>
+            <button id="speak-text-btn">Озвучить текст</button>
             <button id="clear-btn">Очистить</button>
-
+           
             <div id="thumbnails-container">
                 <div id="thumbnails"></div>
             </div>
-
+           
             <div id="image-controls">
                 <button id="hide-btn">Скрыть/Показать</button>
                 <button id="delete-btn">Удалить</button>
                 <button id="settings-btn">Настройки</button>
                 <button id="lock-btn">Закрепить</button>
             </div>
-
+           
             <div id="text-controls">
                 <button id="hide-text-btn">Скрыть/Показать</button>
                 <button id="edit-text-btn">Редактировать</button>
                 <button id="delete-text-btn">Удалить</button>
                 <button id="lock-text-btn">Закрепить</button>
             </div>
-
+           
             <div id="sound-controls">
-                <button id="play-btn">Play</button>
-                <button id="pause-btn">Pause</button>
+                <button id="play-btn">▶</button>
+                <button id="pause-btn">⏸</button>
                 <div class="sound-visualization">
                     <div class="sound-progress" id="sound-progress"></div>
                 </div>
                 <div class="volume-control">
-                    <span>Volume</span>
+                    <span>🔊</span>
                     <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
                 </div>
-                <button id="delete-sound-btn">Удалить</button>
+                <button id="delete-sound-btn">Удалить звук</button>
             </div>
-
+           
             <div id="status">Синхронизировано</div>
         </div>
-
+       
         <div id="canvas-wrapper">
+            <div id="green-background"></div>
             <div id="elements-layer"></div>
         </div>
     </div>
-
+   
     <div class="properties-panel" id="properties-panel">
         <h3>Свойства изображения</h3>
-        <label>Прозрачность: <input type="range" id="opacity-slider" min="0" max="100" value="30"></label>
-        <label>Яркость: <input type="range" id="brightness-slider" min="0" max="200" value="85"></label>
+        <label>
+            Прозрачность:
+            <input type="range" id="opacity-slider" min="0" max="100" value="30">
+        </label>
+        <label>
+            Яркость:
+            <input type="range" id="brightness-slider" min="0" max="200" value="85">
+        </label>
         <button id="close-properties">Закрыть</button>
     </div>
-
+   
     <div id="text-input-panel">
         <h3 id="text-panel-title">Добавить текст</h3>
         <input type="text" id="text-input" placeholder="Введите текст">
-        <label>Размер: <input type="range" id="font-size-input" min="10" max="72" value="16"></label>
-        <label>Цвет: <input type="color" id="text-color-input" value="#000000"></label>
-        <label>Шрифт:
+        <label>
+            Размер шрифта:
+            <input type="range" id="font-size-input" min="10" max="72" value="16">
+        </label>
+        <label>
+            Цвет текста:
+            <input type="color" id="text-color-input" value="#000000">
+        </label>
+        <label>
+            Шрифт:
             <select id="font-family-select">
                 <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
                 <option value="Arial, sans-serif">Arial</option>
@@ -218,49 +524,52 @@
         <button id="apply-text-btn">Применить</button>
         <button id="cancel-text-btn">Отмена</button>
     </div>
-
+   
     <div id="tts-panel">
         <h3>Озвучивание текста</h3>
-        <textarea id="tts-text-input" placeholder="Введите текст..."></textarea>
+        <textarea id="tts-text-input" placeholder="Введите текст для озвучивания..."></textarea>
+       
         <div class="tts-controls-row">
-            <select id="tts-voice-select" class="tts-voice-select"><option value="">Загрузка голосов...</option></select>
+            <select id="tts-voice-select" class="tts-voice-select">
+                <option value="">Выберите голос...</option>
+            </select>
         </div>
+       
         <div class="tts-controls-row">
             <span class="tts-control-label">Скорость:</span>
             <input type="range" class="tts-slider" id="tts-rate-slider" min="0.5" max="2" step="0.1" value="1">
             <span class="tts-control-label" id="tts-rate-value">1.0</span>
         </div>
+       
         <div class="tts-controls-row">
             <span class="tts-control-label">Высота:</span>
             <input type="range" class="tts-slider" id="tts-pitch-slider" min="0.5" max="2" step="0.1" value="1">
             <span class="tts-control-label" id="tts-pitch-value">1.0</span>
         </div>
+       
         <div class="tts-controls-row">
             <span class="tts-control-label">Громкость:</span>
             <input type="range" class="tts-slider" id="tts-volume-slider" min="0" max="1" step="0.1" value="1">
             <span class="tts-control-label" id="tts-volume-value">1.0</span>
         </div>
+       
         <div class="tts-buttons">
-            <button id="tts-play-btn">Play</button>
-            <button id="tts-pause-btn" disabled>Pause</button>
-            <button id="tts-stop-btn" disabled>Stop</button>
+            <button id="tts-play-btn">▶ Воспроизвести</button>
+            <button id="tts-pause-btn">⏸ Пауза</button>
+            <button id="tts-stop-btn">■ Стоп</button>
         </div>
-        <div id="tts-status">Готово</div>
-        <button id="tts-close-btn" style="margin-top:10px;width:100%;background:#666;">Закрыть</button>
+       
+        <button id="tts-close-btn" style="margin-top: 10px; width: 100%; background: #666;">Закрыть</button>
     </div>
-
+   
     <input type="file" id="file-input" accept="image/*">
     <input type="file" id="sound-input" accept="audio/*">
+   
     <audio id="audio-element"></audio>
-
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-
+   
     <script>
-        // === РЕЖИМ ОТЛАДКИ ===
-        const DEBUG_MODE = true; // В OBS поставьте false
-
-        // Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
             authDomain: "greenbackgroundapp.firebaseapp.com",
@@ -268,574 +577,1586 @@
             projectId: "greenbackgroundapp",
             storageBucket: "greenbackgroundapp.appspot.com",
             messagingSenderId: "857271333291",
-            appId: "1:857271333291:web:e754824268f37341c7e2ee"
+            appId: "1:857271333291:web:e754824268f37341c7e2ee",
+            measurementId: "G-S5HL7Q45NE"
         };
-        try { firebase.initializeApp(firebaseConfig); } catch(e) { console.log("Firebase уже инициализирован"); }
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (error) {
+            console.log("Firebase уже инициализирован");
+        }
+       
         const database = firebase.database();
         const imagesRef = database.ref('images');
         const textsRef = database.ref('texts');
         const soundsRef = database.ref('sounds');
-
-        // Переменные
-        let images = {}, texts = {}, sounds = {};
-        let activeInteraction = null, activeElement = null;
-        let startX = 0, startY = 0, startWidth = 0, startHeight = 0, startLeft = 0, startTop = 0;
-        let selectedImageId = null, selectedTextId = null, selectedSoundId = null;
-        let actionHistory = [], historyPointer = -1;
+       
+        let images = {};
+        let texts = {};
+        let sounds = {};
+        let activeInteraction = null;
+        let activeElement = null;
+        let startX = 0, startY = 0;
+        let startWidth = 0, startHeight = 0;
+        let startLeft = 0, startTop = 0;
+        let selectedImageId = null;
+        let selectedTextId = null;
+        let selectedSoundId = null;
+        let actionHistory = [];
+        let historyPointer = -1;
         let resizeDirection = null;
-        let isEditingText = false, currentTextId = null;
+        let isEditingText = false;
+        let currentTextId = null;
         let soundInterval = null;
-
-        // TTS
+       
         let speechSynthesis = window.speechSynthesis;
         let speechUtterance = null;
         let voices = [];
         let isTTSInitialized = false;
-        let ttsRetryCount = 0;
-        const MAX_TTS_RETRIES = 3;
-
-        // Инициализация
         function initApp() {
-            // Применяем режим отладки
-            if (DEBUG_MODE) {
-                document.body.classList.add('debug-mode');
-                console.log('%cРежим отладки: элементы теперь ВИДНЫ локально!', 'color: green; font-weight: bold;');
-            } else {
-                document.body.classList.remove('debug-mode');
-            }
-
+            console.log("Инициализация приложения...");
+           
             document.getElementById('file-input').addEventListener('change', handleFileUpload);
             document.getElementById('sound-input').addEventListener('change', handleSoundUpload);
             document.getElementById('clear-btn').addEventListener('click', clearCanvas);
-            document.getElementById('close-properties').addEventListener('click', () => { document.getElementById('properties-panel').style.display = 'none'; });
-
+            document.getElementById('close-properties').addEventListener('click', () => {
+                document.getElementById('properties-panel').style.display = 'none';
+            });
+           
             document.getElementById('add-text-btn').addEventListener('click', showTextInputPanel);
             document.getElementById('apply-text-btn').addEventListener('click', applyTextChanges);
             document.getElementById('cancel-text-btn').addEventListener('click', cancelTextEdit);
-
+           
             document.getElementById('edit-text-btn').addEventListener('click', editSelectedText);
             document.getElementById('delete-text-btn').addEventListener('click', deleteSelectedText);
             document.getElementById('lock-text-btn').addEventListener('click', toggleTextLock);
             document.getElementById('hide-text-btn').addEventListener('click', toggleTextVisibility);
-
+           
             document.getElementById('speak-text-btn').addEventListener('click', showTTSPanel);
-            document.getElementById('add-sound-btn').addEventListener('click', () => { document.getElementById('sound-input').click(); });
-
+           
+            document.getElementById('add-sound-btn').addEventListener('click', () => {
+                document.getElementById('sound-input').click();
+            });
+           
             document.getElementById('play-btn').addEventListener('click', playSound);
             document.getElementById('pause-btn').addEventListener('click', pauseSound);
             document.getElementById('delete-sound-btn').addEventListener('click', deleteSound);
             document.getElementById('volume-slider').addEventListener('input', updateVolume);
-
+           
+            initTTS();
+           
             document.getElementById('tts-play-btn').addEventListener('click', playTTS);
             document.getElementById('tts-pause-btn').addEventListener('click', pauseTTS);
             document.getElementById('tts-stop-btn').addEventListener('click', stopTTS);
             document.getElementById('tts-close-btn').addEventListener('click', closeTTSPanel);
             document.getElementById('tts-voice-select').addEventListener('change', updateTTSVoice);
-
-            document.getElementById('tts-rate-slider').addEventListener('input', function(){ document.getElementById('tts-rate-value').textContent=this.value; });
-            document.getElementById('tts-pitch-slider').addEventListener('input', function(){ document.getElementById('tts-pitch-value').textContent=this.value; });
-            document.getElementById('tts-volume-slider').addEventListener('input', function(){ document.getElementById('tts-volume-value').textContent=this.value; });
-
-            document.getElementById('elements-layer').addEventListener('mousedown', e => { if (e.target===document.getElementById('elements-layer')) deselectAllElements(); });
-
-            document.getElementById('opacity-slider').addEventListener('input', e => { if(selectedImageId){ const img=document.getElementById(selectedImageId); if(img){ img.style.opacity=e.target.value/100; imagesRef.child(selectedImageId).update({opacity:e.target.value/100}); saveStateToHistory(); }}});
-            document.getElementById('brightness-slider').addEventListener('input', e => { if(selectedImageId){ const img=document.getElementById(selectedImageId); if(img){ img.style.filter=`brightness(${e.target.value}%)`; imagesRef.child(selectedImageId).update({brightness:e.target.value}); saveStateToHistory(); }}});
-
-            document.getElementById('hide-btn').addEventListener('click', () => { if(selectedImageId){ const img=document.getElementById(selectedImageId); if(!img) return; const hidden=img.style.display==='none'; img.style.display=hidden?'block':'none'; imagesRef.child(selectedImageId).update({display:hidden?'block':'none'}); saveStateToHistory(); }});
-            document.getElementById('delete-btn').addEventListener('click', () => { if(selectedImageId && confirm('Удалить изображение?')){ imagesRef.child(selectedImageId).remove(); deselectAllElements(); saveStateToHistory(); }});
-            document.getElementById('settings-btn').addEventListener('click', () => { if(selectedImageId){ const panel=document.getElementById('properties-panel'); const img=document.getElementById(selectedImageId); document.getElementById('opacity-slider').value=(parseFloat(img.style.opacity)||0.3)*100; document.getElementById('brightness-slider').value=img.style.filter.includes('brightness')?parseInt(img.style.filter.match(/brightness\((\d+)%\)/)[1]):85; panel.style.display='block'; }});
-            document.getElementById('lock-btn').addEventListener('click', () => { if(selectedImageId){ const img=document.getElementById(selectedImageId); if(!img) return; const locked=img.classList.contains('locked'); img.classList.toggle('locked'); document.getElementById('lock-btn').textContent=locked?'Закрепить':'Открепить'; imagesRef.child(selectedImageId).update({locked:!locked}); saveStateToHistory(); }});
-
-            imagesRef.on('value', s => { images = s.val()||{}; updateCanvas(images); updateThumbnails(); });
-            textsRef.on('value', s => { texts = s.val()||{}; updateTexts(texts); updateThumbnails(); });
-            soundsRef.on('value', s => { sounds = s.val()||{}; updateThumbnails(); if(selectedSoundId && !sounds[selectedSoundId]){ selectedSoundId=null; document.getElementById('sound-controls').style.display='none'; } if(selectedSoundId && sounds[selectedSoundId]) updateSoundControls(sounds[selectedSoundId]); });
-
+           
+            document.getElementById('tts-rate-slider').addEventListener('input', function() {
+                document.getElementById('tts-rate-value').textContent = this.value;
+                updateTTSRate.call(this);
+            });
+           
+            document.getElementById('tts-pitch-slider').addEventListener('input', function() {
+                document.getElementById('tts-pitch-value').textContent = this.value;
+                updateTTSPitch.call(this);
+            });
+           
+            document.getElementById('tts-volume-slider').addEventListener('input', function() {
+                document.getElementById('tts-volume-value').textContent = this.value;
+                updateTTSVolume.call(this);
+            });
+           
+            document.getElementById('elements-layer').addEventListener('mousedown', (e) => {
+                if (e.target === document.getElementById('elements-layer')) {
+                    deselectAllElements();
+                }
+            });
+           
+            document.getElementById('opacity-slider').addEventListener('input', (e) => {
+                if (selectedImageId) {
+                    const opacity = e.target.value / 100;
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (imgElement) {
+                        imgElement.style.opacity = opacity;
+                    }
+                    imagesRef.child(selectedImageId).update({ opacity: opacity });
+                    saveStateToHistory();
+                }
+            });
+           
+            document.getElementById('brightness-slider').addEventListener('input', (e) => {
+                if (selectedImageId) {
+                    const brightness = e.target.value;
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (imgElement) {
+                        imgElement.style.filter = `brightness(${brightness}%)`;
+                    }
+                    imagesRef.child(selectedImageId).update({ brightness: brightness });
+                    saveStateToHistory();
+                }
+            });
+           
+            document.getElementById('hide-btn').addEventListener('click', () => {
+                if (selectedImageId) {
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (!imgElement) return;
+                   
+                    const isHidden = imgElement.style.display === 'none';
+                   
+                    if (isHidden) {
+                        imgElement.style.display = 'block';
+                        imagesRef.child(selectedImageId).update({
+                            display: 'block'
+                        });
+                    } else {
+                        imgElement.style.display = 'none';
+                        imagesRef.child(selectedImageId).update({
+                            display: 'none'
+                        });
+                    }
+                   
+                    saveStateToHistory();
+                }
+            });
+           
+            document.getElementById('delete-btn').addEventListener('click', () => {
+                if (selectedImageId && confirm("Удалить это изображение?")) {
+                    imagesRef.child(selectedImageId).remove();
+                    deselectAllElements();
+                    saveStateToHistory();
+                }
+            });
+           
+            document.getElementById('settings-btn').addEventListener('click', () => {
+                if (selectedImageId) {
+                    const panel = document.getElementById('properties-panel');
+                    const opacitySlider = document.getElementById('opacity-slider');
+                    const brightnessSlider = document.getElementById('brightness-slider');
+                   
+                    const imgElement = document.getElementById(selectedImageId);
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.3;
+                    opacitySlider.value = currentOpacity * 100;
+                   
+                    const currentBrightness = imgElement.style.filter.includes('brightness') ?
+                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 85;
+                    brightnessSlider.value = currentBrightness;
+                   
+                    panel.style.display = 'block';
+                }
+            });
+           
+            document.getElementById('lock-btn').addEventListener('click', () => {
+                if (selectedImageId) {
+                    const imgElement = document.getElementById(selectedImageId);
+                    if (!imgElement) return;
+                   
+                    const isLocked = imgElement.classList.contains('locked');
+                   
+                    if (isLocked) {
+                        imgElement.classList.remove('locked');
+                        document.getElementById('lock-btn').textContent = 'Закрепить';
+                    } else {
+                        imgElement.classList.add('locked');
+                        document.getElementById('lock-btn').textContent = 'Открепить';
+                    }
+                   
+                    imagesRef.child(selectedImageId).update({
+                        locked: !isLocked
+                    });
+                    saveStateToHistory();
+                }
+            });
+           
+            imagesRef.on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                console.log("Получены данные изображений:", data);
+                images = data;
+                updateCanvas(data);
+                updateThumbnails();
+            });
+           
+            textsRef.on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                console.log("Получены данные текстов:", data);
+                texts = data;
+                updateTexts(data);
+                updateThumbnails();
+            });
+           
+            soundsRef.on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                console.log("Получены данные звуков:", data);
+                sounds = data;
+                updateThumbnails();
+               
+                if (selectedSoundId && !sounds[selectedSoundId]) {
+                    selectedSoundId = null;
+                    document.getElementById('sound-controls').style.display = 'none';
+                }
+               
+                if (selectedSoundId && sounds[selectedSoundId]) {
+                    updateSoundControls(sounds[selectedSoundId]);
+                }
+            });
+           
             document.addEventListener('mousemove', handleMove);
-            document.addEventListener('touchmove', handleMove, {passive:false});
+            document.addEventListener('touchmove', handleMove, { passive: false });
             document.addEventListener('mouseup', endInteraction);
             document.addEventListener('touchend', endInteraction);
-            document.addEventListener('keydown', e => { if(e.ctrlKey && e.key==='z'){ e.preventDefault(); undoAction(); }});
-
-            const audio = document.getElementById('audio-element');
-            audio.addEventListener('timeupdate', updateSoundProgress);
-            audio.addEventListener('ended', soundEnded);
-
-            initTTSWithRetry();
-        }
-
-        // TTS (без изменений)
-        function initTTSWithRetry() {
-            if (!('speechSynthesis' in window)) {
-                updateTTSStatus('TTS не поддерживается браузером', 'error');
-                return;
-            }
-
-            function loadVoices() {
-                voices = speechSynthesis.getVoices();
-                if (voices.length === 0) {
-                    if (ttsRetryCount < MAX_TTS_RETRIES) {
-                        ttsRetryCount++;
-                        updateTTSStatus(`Загрузка голосов... (${ttsRetryCount}/${MAX_TTS_RETRIES})`);
-                        setTimeout(loadVoices, 1000);
-                    } else {
-                        updateTTSStatus('Голоса не найдены. Попробуйте позже.', 'error');
-                    }
-                    return;
+           
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    undoAction();
                 }
-                populateVoiceList();
-                isTTSInitialized = true;
-                updateTTSStatus('Готово к озвучиванию');
-            }
-
-            if (speechSynthesis.getVoices().length > 0) {
-                voices = speechSynthesis.getVoices();
-                populateVoiceList();
-                isTTSInitialized = true;
-                updateTTSStatus('Готово к озвучиванию');
-            } else {
-                speechSynthesis.onvoiceschanged = () => {
-                    loadVoices();
-                    speechSynthesis.onvoiceschanged = null;
-                };
-                setTimeout(loadVoices, 500);
-            }
-        }
-
-        function populateVoiceList() {
-            const sel = document.getElementById('tts-voice-select');
-            sel.innerHTML = '<option value="">Выберите голос...</option>';
-            const ruVoices = voices.filter(v => v.lang.includes('ru') || v.name.toLowerCase().includes('russian'));
-            const allVoices = ruVoices.length > 0 ? ruVoices : voices;
-
-            allVoices.forEach(v => {
-                const opt = document.createElement('option');
-                opt.value = v.name;
-                opt.textContent = `${v.name} (${v.lang})${v.default ? ' [по умолчанию]' : ''}`;
-                sel.appendChild(opt);
             });
-
-            if (ruVoices.length > 0) {
-                sel.value = ruVoices[0].name;
-            }
+           
+            const audioElement = document.getElementById('audio-element');
+            audioElement.addEventListener('timeupdate', updateSoundProgress);
+            audioElement.addEventListener('ended', soundEnded);
+           
+            setupViewport();
+           
+            console.log("Приложение инициализировано");
         }
-
-        function updateTTSStatus(msg, type = 'info') {
-            const statusEl = document.getElementById('tts-status');
-            statusEl.textContent = msg;
-            statusEl.style.color = type === 'error' ? '#f44336' : (type === 'success' ? '#4caf50' : '#666');
-        }
-
+       
         function showTTSPanel() {
             const panel = document.getElementById('tts-panel');
             panel.style.display = 'block';
+           
             document.getElementById('tts-text-input').value = '';
+           
             document.getElementById('tts-rate-slider').value = 1;
             document.getElementById('tts-pitch-slider').value = 1;
             document.getElementById('tts-volume-slider').value = 1;
+           
             document.getElementById('tts-rate-value').textContent = '1.0';
             document.getElementById('tts-pitch-value').textContent = '1.0';
             document.getElementById('tts-volume-value').textContent = '1.0';
+           
             stopTTS();
-            updateTTSStatus('Готово');
         }
-
+       
         function closeTTSPanel() {
-            document.getElementById('tts-panel').style.display = 'none';
+            const panel = document.getElementById('tts-panel');
+            panel.style.display = 'none';
             stopTTS();
         }
-
+       
+        function initTTS() {
+            if ('speechSynthesis' in window) {
+                speechSynthesis.onvoiceschanged = function() {
+                    voices = speechSynthesis.getVoices();
+                    populateVoiceList();
+                    isTTSInitialized = true;
+                };
+               
+                voices = speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    populateVoiceList();
+                    isTTSInitialized = true;
+                }
+            } else {
+                console.warn("Ваш браузер не поддерживает синтез речи");
+                alert("Ваш браузер не поддерживает синтез речи. Функция озвучивания текста недоступна.");
+            }
+        }
+       
+        function populateVoiceList() {
+            const voiceSelect = document.getElementById('tts-voice-select');
+            voiceSelect.innerHTML = '<option value="">Выберите голос...</option>';
+           
+            const russianVoices = voices.filter(voice =>
+                voice.lang.startsWith('ru') ||
+                voice.lang.startsWith('ru-RU') ||
+                voice.name.toLowerCase().includes('russian')
+            );
+           
+            const availableVoices = russianVoices.length > 0 ? russianVoices : voices;
+           
+            availableVoices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                voiceSelect.appendChild(option);
+            });
+           
+            if (russianVoices.length > 0) {
+                voiceSelect.value = russianVoices[0].name;
+            }
+        }
+       
         function playTTS() {
             const text = document.getElementById('tts-text-input').value.trim();
+           
             if (!text) {
-                updateTTSStatus('Введите текст!', 'error');
+                alert("Введите текст для озвучивания");
                 return;
             }
-
+           
             if (!isTTSInitialized) {
-                updateTTSStatus('TTS не инициализирован', 'error');
+                alert("Синтез речи не инициализирован. Попробуйте позже.");
                 return;
             }
-
-            stopTTS();
-
+           
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            }
+           
             speechUtterance = new SpeechSynthesisUtterance(text);
-            const selectedVoiceName = document.getElementById('tts-voice-select').value;
-            const voice = voices.find(v => v.name === selectedVoiceName);
-            if (voice) speechUtterance.voice = voice;
-
-            speechUtterance.rate = parseFloat(document.getElementById('tts-rate-slider').value) || 1;
-            speechUtterance.pitch = parseFloat(document.getElementById('tts-pitch-slider').value) || 1;
-            speechUtterance.volume = parseFloat(document.getElementById('tts-volume-slider').value) || 1;
-
-            speechUtterance.onstart = () => {
-                updateTTSStatus('Озвучивание...');
+           
+            const voiceSelect = document.getElementById('tts-voice-select');
+            const selectedVoice = voices.find(voice => voice.name === voiceSelect.value);
+            if (selectedVoice) {
+                speechUtterance.voice = selectedVoice;
+            }
+           
+            speechUtterance.rate = parseFloat(document.getElementById('tts-rate-slider').value);
+            speechUtterance.pitch = parseFloat(document.getElementById('tts-pitch-slider').value);
+            speechUtterance.volume = parseFloat(document.getElementById('tts-volume-slider').value);
+           
+            speechUtterance.onstart = function() {
+                console.log("Начало озвучивания текста");
                 document.getElementById('tts-play-btn').disabled = true;
                 document.getElementById('tts-pause-btn').disabled = false;
                 document.getElementById('tts-stop-btn').disabled = false;
             };
-
-            speechUtterance.onend = () => {
-                updateTTSStatus('Готово', 'success');
-                resetTTSButtons();
-            };
-
-            speechUtterance.onerror = (e) => {
-                console.error('TTS ошибка:', e);
-                updateTTSStatus(`Ошибка: ${e.error}`, 'error');
-                resetTTSButtons();
-            };
-
-            try {
-                speechSynthesis.speak(speechUtterance);
-            } catch (err) {
-                updateTTSStatus('Не удалось запустить TTS', 'error');
-                console.error(err);
-            }
-        }
-
-        function pauseTTS() {
-            if (speechSynthesis.speaking && !speechSynthesis.paused) {
-                speechSynthesis.pause();
-                updateTTSStatus('Пауза');
+           
+            speechUtterance.onend = function() {
+                console.log("Озвучивание завершено");
                 document.getElementById('tts-play-btn').disabled = false;
                 document.getElementById('tts-pause-btn').disabled = true;
-            } else if (speechSynthesis.paused) {
-                speechSynthesis.resume();
-                updateTTSStatus('Озвучивание...');
-                document.getElementById('tts-play-btn').disabled = true;
-                document.getElementById('tts-pause-btn').disabled = false;
+                document.getElementById('tts-stop-btn').disabled = true;
+            };
+           
+            speechUtterance.onerror = function(event) {
+                console.error("Ошибка озвучивания:", event);
+                alert("Произошла ошибка при озвучивании текста");
+                document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
+                document.getElementById('tts-stop-btn').disabled = true;
+            };
+           
+            speechSynthesis.speak(speechUtterance);
+           
+            document.getElementById('tts-play-btn').disabled = true;
+            document.getElementById('tts-pause-btn').disabled = false;
+            document.getElementById('tts-stop-btn').disabled = false;
+        }
+       
+        function pauseTTS() {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.pause();
+                document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
             }
         }
-
+       
         function stopTTS() {
             speechSynthesis.cancel();
-            updateTTSStatus('Остановлено');
-            resetTTSButtons();
-        }
-
-        function resetTTSButtons() {
             document.getElementById('tts-play-btn').disabled = false;
             document.getElementById('tts-pause-btn').disabled = true;
             document.getElementById('tts-stop-btn').disabled = true;
         }
-
+       
         function updateTTSVoice() {
             if (speechUtterance && speechSynthesis.speaking) {
-                const newVoiceName = this.value;
-                const newVoice = voices.find(v => v.name === newVoiceName);
-                if (newVoice) {
-                    speechUtterance.voice = newVoice;
-                    const text = speechUtterance.text;
-                    stopTTS();
-                    setTimeout(() => {
-                        document.getElementById('tts-text-input').value = text;
-                        playTTS();
-                    }, 100);
+                const selectedVoice = voices.find(voice => voice.name === this.value);
+                if (selectedVoice) {
+                    speechUtterance.voice = selectedVoice;
+                    speechSynthesis.cancel();
+                    setTimeout(playTTS, 100);
                 }
             }
         }
-
-        // === ОБНОВЛЕНИЕ ПОЗИЦИЙ С УЧЁТОМ РЕЖИМА ОТЛАДКИ ===
-        function updateImagePositionAndSize(el, d) {
-            if (activeElement !== el) {
-                el.style.left = d.x + 'px';
-                el.style.top = d.y + 'px';
-                el.style.width = d.width + 'px';
-                el.style.height = d.height + 'px';
-            }
-            // В режиме отладки — всегда видим
-            if (DEBUG_MODE) {
-                el.style.opacity = '1';
-                el.style.filter = 'brightness(100%)';
+       
+        function updateTTSRate() {
+            if (speechUtterance) {
+                speechUtterance.rate = parseFloat(this.value);
             }
         }
-
-        function updateTextPosition(el, d) {
-            if (activeElement !== el) {
-                el.style.left = d.x + 'px';
-                el.style.top = d.y + 'px';
-            }
-            if (DEBUG_MODE) {
-                el.style.opacity = '1';
+       
+        function updateTTSPitch() {
+            if (speechUtterance) {
+                speechUtterance.pitch = parseFloat(this.value);
             }
         }
-
-        // Остальные функции (thumbnails, history, upload и т.д.) — без изменений
-        function updateThumbnails(){
-            const cont=document.getElementById('thumbnails'); cont.innerHTML='';
-            for(const id in images) cont.appendChild(createImageThumbnailElement(images[id]));
-            for(const id in texts) cont.appendChild(createTextThumbnailElement(texts[id]));
-            for(const id in sounds) cont.appendChild(createSoundThumbnailElement(sounds[id],id));
+       
+        function updateTTSVolume() {
+            if (speechUtterance) {
+                speechUtterance.volume = parseFloat(this.value);
+            }
         }
-        function createImageThumbnailElement(d){
-            const t=document.createElement('div'); t.id='thumb_'+d.id; t.className='thumbnail';
-            if(d.display==='none') t.classList.add('thumbnail-hidden');
-            if(selectedImageId===d.id) t.classList.add('selected');
-            const i=document.createElement('img'); i.src=d.src; t.appendChild(i);
-            const b=document.createElement('button'); b.className='thumbnail-button'; b.textContent=d.display==='none'?'Show':'Hide'; b.title=d.display==='none'?'Показать':'Скрыть';
-            if(d.display==='none') b.classList.add('show');
-            b.addEventListener('click',e=>{e.stopPropagation(); toggleImageVisibility(d.id,d.display==='none');});
-            t.appendChild(b);
-            t.addEventListener('click',()=>{selectImageFromThumbnail(d.id);});
-            return t;
+        function updateThumbnails() {
+            const thumbnailsContainer = document.getElementById('thumbnails');
+            thumbnailsContainer.innerHTML = '';
+           
+            for (const id in images) {
+                const imgData = images[id];
+                const thumbnail = createImageThumbnailElement(imgData);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
+           
+            for (const id in texts) {
+                const textData = texts[id];
+                const thumbnail = createTextThumbnailElement(textData);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
+           
+            for (const id in sounds) {
+                const soundData = sounds[id];
+                const thumbnail = createSoundThumbnailElement(soundData, id);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
         }
-        function createTextThumbnailElement(d){
-            const t=document.createElement('div'); t.id='thumb_'+d.id; t.className='thumbnail';
-            if(d.display==='none') t.classList.add('thumbnail-hidden');
-            if(selectedTextId===d.id) t.classList.add('selected');
-            const p=document.createElement('div'); p.className='text-thumbnail'; p.textContent=d.text.length>10?d.text.substring(0,10)+'...':d.text;
-            p.style.fontSize='10px'; p.style.color=d.color; p.style.fontFamily=d.fontFamily||'Arial, sans-serif'; t.appendChild(p);
-            const b=document.createElement('button'); b.className='thumbnail-button'; b.textContent=d.display==='none'?'Show':'Hide'; b.title=d.display==='none'?'Показать':'Скрыть';
-            if(d.display==='none') b.classList.add('show');
-            b.addEventListener('click',e=>{e.stopPropagation(); toggleTextVisibility(d.id,d.display==='none');});
-            t.appendChild(b);
-            t.addEventListener('click',()=>{selectTextFromThumbnail(d.id);});
-            return t;
+       
+        function createImageThumbnailElement(imgData) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + imgData.id;
+            thumbnail.className = 'thumbnail';
+            if (imgData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+           
+            if (selectedImageId === imgData.id) {
+                thumbnail.classList.add('selected');
+            }
+           
+            const img = document.createElement('img');
+            img.src = imgData.src;
+            thumbnail.appendChild(img);
+           
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = imgData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = imgData.display === 'none' ? 'Показать' : 'Скрыть';
+           
+            if (imgData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+           
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleImageVisibility(imgData.id, imgData.display === 'none');
+            });
+           
+            thumbnail.appendChild(toggleBtn);
+           
+            thumbnail.addEventListener('click', () => {
+                selectImageFromThumbnail(imgData.id);
+            });
+           
+            return thumbnail;
         }
-        function createSoundThumbnailElement(d,id){
-            const t=document.createElement('div'); t.id='thumb_'+id; t.className='thumbnail';
-            if(d.display==='none') t.classList.add('thumbnail-hidden');
-            if(selectedSoundId===id) t.classList.add('selected');
-            const p=document.createElement('div'); p.className='sound-thumbnail'; const n=d.name||'sound'; p.textContent=n.length>10?n.substring(0,10)+'...':n; p.title=n; t.appendChild(p);
-            const b=document.createElement('button'); b.className='thumbnail-button'; b.textContent=d.display==='none'?'Show':'Hide'; b.title=d.display==='none'?'Показать':'Скрыть';
-            if(d.display==='none') b.classList.add('show');
-            b.addEventListener('click',e=>{e.stopPropagation(); toggleSoundVisibility(id,d.display==='none');});
-            t.appendChild(b);
-            t.addEventListener('click',()=>{selectSoundFromThumbnail(id);});
-            return t;
+       
+        function createTextThumbnailElement(textData) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + textData.id;
+            thumbnail.className = 'thumbnail';
+            if (textData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+           
+            if (selectedTextId === textData.id) {
+                thumbnail.classList.add('selected');
+            }
+           
+            const textPreview = document.createElement('div');
+            textPreview.className = 'text-thumbnail';
+            textPreview.textContent = textData.text.length > 10
+                ? textData.text.substring(0, 10) + '...'
+                : textData.text;
+            textPreview.style.fontSize = '10px';
+            textPreview.style.color = textData.color;
+            textPreview.style.fontFamily = textData.fontFamily || 'Arial, sans-serif';
+            thumbnail.appendChild(textPreview);
+           
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = textData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = textData.display === 'none' ? 'Показать' : 'Скрыть';
+           
+            if (textData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+           
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleTextVisibility(textData.id, textData.display === 'none');
+            });
+           
+            thumbnail.appendChild(toggleBtn);
+           
+            thumbnail.addEventListener('click', () => {
+                selectTextFromThumbnail(textData.id);
+            });
+           
+            return thumbnail;
         }
-        function toggleImageVisibility(id,show){
-            const disp=show?'block':'none'; const el=document.getElementById(id); if(el) el.style.display=disp;
-            imagesRef.child(id).update({display:disp});
-            const thumb=document.getElementById('thumb_'+id); if(thumb){ const btn=thumb.querySelector('.thumbnail-button'); btn.textContent=show?'Hide':'Show'; btn.title=show?'Скрыть':'Показать'; btn.classList.toggle('show',!show); thumb.classList.toggle('thumbnail-hidden',!show); }
+       
+        function createSoundThumbnailElement(soundData, soundId) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + soundId;
+            thumbnail.className = 'thumbnail';
+           
+            if (soundData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+           
+            if (selectedSoundId === soundId) {
+                thumbnail.classList.add('selected');
+            }
+           
+            const soundPreview = document.createElement('div');
+            soundPreview.className = 'sound-thumbnail';
+           
+            const fileName = soundData.name || 'sound';
+            soundPreview.textContent = fileName.length > 10
+                ? fileName.substring(0, 10) + '...'
+                : fileName;
+            soundPreview.title = fileName;
+           
+            thumbnail.appendChild(soundPreview);
+           
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = soundData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = soundData.display === 'none' ? 'Показать' : 'Скрыть';
+           
+            if (soundData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+           
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleSoundVisibility(soundId, soundData.display === 'none');
+            });
+           
+            thumbnail.appendChild(toggleBtn);
+           
+            thumbnail.addEventListener('click', () => {
+                selectSoundFromThumbnail(soundId);
+            });
+           
+            return thumbnail;
+        }
+       
+        function toggleImageVisibility(imageId, show) {
+            const newDisplay = show ? 'block' : 'none';
+           
+            const imgElement = document.getElementById(imageId);
+            if (imgElement) {
+                imgElement.style.display = newDisplay;
+            }
+           
+            imagesRef.child(imageId).update({
+                display: newDisplay
+            });
+           
+            const thumbnail = document.getElementById('thumb_' + imageId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+           
             saveStateToHistory();
         }
-        function toggleTextVisibility(id,show){
-            const disp=show?'block':'none'; const el=document.getElementById(id); if(el) el.style.display=disp;
-            textsRef.child(id).update({display:disp});
-            const thumb=document.getElementById('thumb_'+id); if(thumb){ const btn=thumb.querySelector('.thumbnail-button'); btn.textContent=show?'Hide':'Show'; btn.title=show?'Скрыть':'Показать'; btn.classList.toggle('show',!show); thumb.classList.toggle('thumbnail-hidden',!show); }
+       
+        function toggleTextVisibility(textId, show) {
+            const newDisplay = show ? 'block' : 'none';
+           
+            const textElement = document.getElementById(textId);
+            if (textElement) {
+                textElement.style.display = newDisplay;
+            }
+           
+            textsRef.child(textId).update({
+                display: newDisplay
+            });
+           
+            const thumbnail = document.getElementById('thumb_' + textId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+           
             saveStateToHistory();
         }
-        function toggleSoundVisibility(id,show){
-            if(!sounds[id]) return; const disp=show?'block':'none';
-            soundsRef.child(id).update({display:disp});
-            const thumb=document.getElementById('thumb_'+id); if(thumb){ const btn=thumb.querySelector('.thumbnail-button'); btn.textContent=show?'Hide':'Show'; btn.title=show?'Скрыть':'Показать'; btn.classList.toggle('show',!show); thumb.classList.toggle('thumbnail-hidden',!show); }
+       
+        function toggleSoundVisibility(soundId, show) {
+            if (!sounds[soundId]) return;
+           
+            const newDisplay = show ? 'block' : 'none';
+           
+            soundsRef.child(soundId).update({
+                display: newDisplay
+            });
+           
+            const thumbnail = document.getElementById('thumb_' + soundId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+           
             saveStateToHistory();
         }
-        function selectImageFromThumbnail(id){
-            const el=document.getElementById(id); if(el && el.style.display!=='none'){ deselectAllElements(); el.classList.add('selected'); selectedImageId=id; document.getElementById('image-controls').style.display='flex'; document.getElementById('lock-btn').textContent=el.classList.contains('locked')?'Открепить':'Закрепить'; const thumb=document.getElementById('thumb_'+id); if(thumb) thumb.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }}
-        function selectTextFromThumbnail(id){
-            const el=document.getElementById(id); if(el && el.style.display!=='none'){ deselectAllElements(); el.classList.add('selected'); selectedTextId=id; document.getElementById('text-controls').style.display='flex'; document.getElementById('lock-text-btn').textContent=el.classList.contains('locked')?'Открепить':'Закрепить'; const thumb=document.getElementById('thumb_'+id); if(thumb) thumb.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }}
-        function selectSoundFromThumbnail(id){
-            if(sounds[id] && (!sounds[id].display || sounds[id].display!=='none')){ deselectAllElements(); selectedSoundId=id; document.getElementById('sound-controls').style.display='flex'; updateSoundControls(sounds[id]); const thumb=document.getElementById('thumb_'+id); if(thumb){ thumb.classList.add('selected'); thumb.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }}}
-        function deselectAllElements(){
-            document.querySelectorAll('.draggable-image,.draggable-text').forEach(e=>e.classList.remove('selected'));
-            ['image-controls','text-controls','sound-controls'].forEach(id=>document.getElementById(id).style.display='none');
-            document.getElementById('properties-panel').style.display='none';
-            document.querySelectorAll('.thumbnail').forEach(t=>t.classList.remove('selected'));
-            selectedImageId=selectedTextId=selectedSoundId=null;
-        }
-
-        function saveStateToHistory(){
-            if(actionHistory.length>=20) actionHistory.shift();
-            Promise.all([imagesRef.once('value').then(s=>s.val()||{}), textsRef.once('value').then(s=>s.val()||{}), soundsRef.once('value').then(s=>s.val()||{})])
-                .then(([i,t,s])=>{ actionHistory.push(JSON.stringify({images:i,texts:t,sounds:s})); historyPointer=actionHistory.length-1; });
-        }
-        function undoAction(){
-            if(historyPointer<=0) return; historyPointer--;
-            const st=JSON.parse(actionHistory[historyPointer]);
-            imagesRef.set(st.images||{}); textsRef.set(st.texts||{}); soundsRef.set(st.sounds||{});
-        }
-
-        function handleFileUpload(e){
-            const f=e.target.files[0]; if(!f) return;
-            const r=new FileReader(); r.onload=ev=>{
-                const img=new Image(); img.onload=()=>{
-                    const id='img_'+Date.now(); const x=100, y=100;
-                    imagesRef.child(id).set({id,x,y,width:img.width,height:img.height,src:ev.target.result,opacity:0.3,brightness:85,isNew:true,locked:false,display:'block'});
-                    saveStateToHistory();
-                }; img.src=ev.target.result;
-            }; r.readAsDataURL(f); e.target.value='';
-        }
-        function handleSoundUpload(e){
-            const f=e.target.files[0]; if(!f) return;
-            const r=new FileReader(); r.onload=ev=>{
-                const id='sound_'+Date.now();
-                soundsRef.child(id).set({id,src:ev.target.result,name:f.name,playing:false,currentTime:0,duration:0,volume:100,display:'block'});
-                saveStateToHistory();
-            }; r.readAsDataURL(f); e.target.value='';
-        }
-
-        function updateSoundControls(d){
-            const ctrl=document.getElementById('sound-controls'); const audio=document.getElementById('audio-element');
-            if(d && d.src){ ctrl.style.display='flex'; if(audio.src!==d.src){ audio.src=d.src; audio.onloadedmetadata=()=>{ soundsRef.child(selectedSoundId).update({duration:audio.duration}); }; }}
-            if(d.volume!==undefined){ audio.volume=d.volume/100; document.getElementById('volume-slider').value=d.volume; } else { audio.volume=1; document.getElementById('volume-slider').value=100; }
-            if(d.playing && audio.paused){ audio.currentTime=d.currentTime||0; audio.play().catch(()=>{}); } else if(!d.playing && !audio.paused) audio.pause();
-            updateProgressVisualization(d.currentTime, d.duration);
-        }
-        function playSound(){
-            if(!selectedSoundId || !sounds[selectedSoundId]) return;
-            const audio=document.getElementById('audio-element'); audio.play().then(()=>{ soundsRef.child(selectedSoundId).update({playing:true,currentTime:audio.currentTime}); if(soundInterval) clearInterval(soundInterval); soundInterval=setInterval(()=>{ if(!audio.paused) soundsRef.child(selectedSoundId).update({currentTime:audio.currentTime}); },1000); }).catch(()=>{});
-        }
-        function pauseSound(){
-            if(!selectedSoundId || !sounds[selectedSoundId]) return;
-            const audio=document.getElementById('audio-element'); audio.pause(); soundsRef.child(selectedSoundId).update({playing:false,currentTime:audio.currentTime}); if(soundInterval){ clearInterval(soundInterval); soundInterval=null; }
-        }
-        function updateVolume(e){
-            if(!selectedSoundId || !sounds[selectedSoundId]) return;
-            const v=e.target.value; const audio=document.getElementById('audio-element'); audio.volume=v/100; soundsRef.child(selectedSoundId).update({volume:v}); saveStateToHistory();
-        }
-        function deleteSound(){
-            if(selectedSoundId && confirm('Удалить звук?')){ soundsRef.child(selectedSoundId).remove(); document.getElementById('audio-element').src=''; document.getElementById('audio-element').pause(); if(soundInterval){ clearInterval(soundInterval); soundInterval=null; } deselectAllElements(); saveStateToHistory(); }
-        }
-        function updateSoundProgress(){
-            if(!selectedSoundId || !sounds[selectedSoundId] || !sounds[selectedSoundId].playing) return;
-            const audio=document.getElementById('audio-element'); updateProgressVisualization(audio.currentTime, audio.duration);
-        }
-        function updateProgressVisualization(cur,dur){
-            const p=document.getElementById('sound-progress'); if(dur>0) p.style.width=(cur/dur*100)+'%'; else p.style.width='0%';
-        }
-        function soundEnded(){
-            if(soundInterval){ clearInterval(soundInterval); soundInterval=null; }
-            if(selectedSoundId) soundsRef.child(selectedSoundId).update({playing:false,currentTime:0});
-        }
-
-        function showTextInputPanel(){
-            deselectAllElements(); const p=document.getElementById('text-input-panel'); document.getElementById('text-input').value=''; document.getElementById('font-size-input').value=16; document.getElementById('text-color-input').value='#000000'; document.getElementById('font-family-select').value="'Comic Sans MS', cursive"; document.getElementById('text-panel-title').textContent='Добавить текст'; p.style.display='block'; isEditingText=false; currentTextId=null;
-        }
-        function applyTextChanges(){
-            const txt=document.getElementById('text-input').value.trim(); if(!txt) return;
-            const fs=parseInt(document.getElementById('font-size-input').value); const col=document.getElementById('text-color-input').value; const ff=document.getElementById('font-family-select').value;
-            if(isEditingText && currentTextId){ textsRef.child(currentTextId).update({text:txt,fontSize:fs,color:col,fontFamily:ff}); } else { const id='text_'+Date.now(); const x=100, y=100; textsRef.child(id).set({id,text:txt,x,y,fontSize:fs,color:col,fontFamily:ff,opacity:0.3,isNew:true,locked:false,display:'block'}); }
-            document.getElementById('text-input-panel').style.display='none'; saveStateToHistory(); isEditingText=false; currentTextId=null;
-        }
-        function cancelTextEdit(){ document.getElementById('text-input-panel').style.display='none'; isEditingText=false; currentTextId=null; }
-        function editSelectedText(){
-            if(!selectedTextId) return; const el=document.getElementById(selectedTextId); if(!el) return;
-            const p=document.getElementById('text-input-panel'); document.getElementById('text-input').value=el.textContent; document.getElementById('font-size-input').value=parseInt(el.style.fontSize); document.getElementById('text-color-input').value=el.style.color; document.getElementById('font-family-select').value=el.style.fontFamily; document.getElementById('text-panel-title').textContent='Редактировать текст'; p.style.display='block'; isEditingText=true; currentTextId=selectedTextId;
-        }
-        function deleteSelectedText(){ if(selectedTextId && confirm('Удалить текст?')){ textsRef.child(selectedTextId).remove(); deselectAllElements(); saveStateToHistory(); }}
-        function toggleTextLock(){
-            if(selectedTextId){ const el=document.getElementById(selectedTextId); if(!el) return; const locked=el.classList.contains('locked'); el.classList.toggle('locked'); document.getElementById('lock-text-btn').textContent=locked?'Закрепить':'Открепить'; textsRef.child(selectedTextId).update({locked:!locked}); saveStateToHistory(); }
-        }
-
-        function updateCanvas(data){
-            const cont=document.getElementById('elements-layer');
-            document.querySelectorAll('.draggable-image').forEach(el=>{ if(!data[el.id]){ el.remove(); if(selectedImageId===el.id) deselectAllElements(); }});
-            for(const id in data){
-                const d=data[id]; let el=document.getElementById(id);
-                if(!el){ el=createImageElement(d); cont.appendChild(el); }
-                updateImagePositionAndSize(el,d); updateImageOpacity(el,d); updateImageBrightness(el,d); updateImageLockState(el,d); updateImageDisplayState(el,d);
-                if(d.isNew){ deselectAllElements(); el.classList.add('selected'); selectedImageId=id; document.getElementById('image-controls').style.display='flex'; document.getElementById('lock-btn').textContent=d.locked?'Открепить':'Закрепить'; imagesRef.child(id).update({isNew:null}); }
+       
+        function selectImageFromThumbnail(imageId) {
+            const imgElement = document.getElementById(imageId);
+            if (imgElement && imgElement.style.display !== 'none') {
+                deselectAllElements();
+                imgElement.classList.add('selected');
+                selectedImageId = imageId;
+                document.getElementById('image-controls').style.display = 'flex';
+               
+                const isLocked = imgElement.classList.contains('locked');
+                const lockBtn = document.getElementById('lock-btn');
+                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+               
+                const thumbnail = document.getElementById('thumb_' + imageId);
+                if (thumbnail) {
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
             }
         }
-        function updateTexts(data){
-            const cont=document.getElementById('elements-layer');
-            document.querySelectorAll('.draggable-text').forEach(el=>{ if(!data[el.id]){ el.remove(); if(selectedTextId===el.id) deselectAllElements(); }});
-            for(const id in data){
-                const d=data[id]; let el=document.getElementById(id);
-                if(!el){ el=createTextElement(d); cont.appendChild(el); } else { updateTextPosition(el,d); updateTextContent(el,d); updateTextLockState(el,d); updateTextDisplayState(el,d); }
-                if(d.opacity!==undefined && !DEBUG_MODE) el.style.opacity=d.opacity;
-                if(d.fontFamily) el.style.fontFamily=d.fontFamily;
-                if(d.isNew){ deselectAllElements(); el.classList.add('selected'); selectedTextId=id; document.getElementById('text-controls').style.display='flex'; document.getElementById('lock-text-btn').textContent=d.locked?'Открепить':'Закрепить'; textsRef.child(id).update({isNew:null}); }
+       
+        function selectTextFromThumbnail(textId) {
+            const textElement = document.getElementById(textId);
+            if (textElement && textElement.style.display !== 'none') {
+                deselectAllElements();
+                textElement.classList.add('selected');
+                selectedTextId = textId;
+                document.getElementById('text-controls').style.display = 'flex';
+               
+                const isLocked = textElement.classList.contains('locked');
+                const lockBtn = document.getElementById('lock-text-btn');
+                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+               
+                const thumbnail = document.getElementById('thumb_' + textId);
+                if (thumbnail) {
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
             }
         }
-
-        function createImageElement(d){
-            const w=document.createElement('div'); w.id=d.id; w.className='draggable-image';
-            w.style.left=d.x+'px'; w.style.top=d.y+'px'; w.style.width=d.width+'px'; w.style.height=d.height+'px';
-            w.style.opacity=(DEBUG_MODE ? 1 : (d.opacity!==undefined?d.opacity:0.3)); 
-            w.style.filter=`brightness(${(DEBUG_MODE ? 100 : (d.brightness!==undefined?d.brightness:85))}%)`;
-            if(d.locked) w.classList.add('locked'); w.style.display=d.display==='none'?'none':'block';
-            const i=document.createElement('img'); i.src=d.src; i.style.width='100%'; i.style.height='100%'; i.style.objectFit='contain'; i.draggable=false; w.appendChild(i);
-            addResizeHandles(w);
-            w.addEventListener('mousedown', e=>{ if(e.target.classList.contains('resize-handle')) return; startSelect(e); });
-            w.addEventListener('touchstart', e=>{ if(e.target.classList.contains('resize-handle')) return; startSelect(e); }, {passive:false});
-            return w;
+       
+        function selectSoundFromThumbnail(soundId) {
+            if (sounds[soundId] && (!sounds[soundId].display || sounds[soundId].display !== 'none')) {
+                deselectAllElements();
+                selectedSoundId = soundId;
+                document.getElementById('sound-controls').style.display = 'flex';
+               
+                updateSoundControls(sounds[soundId]);
+               
+                const thumbnail = document.getElementById('thumb_' + soundId);
+                if (thumbnail) {
+                    thumbnail.classList.add('selected');
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }
         }
-        function createTextElement(d){
-            const el=document.createElement('div'); el.id=d.id; el.className='draggable-text';
-            el.style.left=d.x+'px'; el.style.top=d.y+'px'; el.textContent=d.text;
-            el.style.fontSize=d.fontSize+'px'; el.style.color=d.color;
-            el.style.fontFamily=d.fontFamily||"'Comic Sans MS', cursive";
-            el.style.opacity=(DEBUG_MODE ? 1 : (d.opacity!==undefined?d.opacity:0.3));
-            if(d.locked) el.classList.add('locked'); el.style.display=d.display==='none'?'none':'block';
-            el.style.width='auto'; el.style.height='auto';
-            addResizeHandles(el);
-            el.addEventListener('mousedown', e=>{ if(e.target.classList.contains('resize-handle')) return; startTextSelect(e); });
-            el.addEventListener('touchstart', e=>{ if(e.target.classList.contains('resize-handle')) return; startTextSelect(e); }, {passive:false});
-            return el;
+       
+        function deselectAllElements() {
+            document.querySelectorAll('.draggable-image').forEach(el => el.classList.remove('selected'));
+            document.querySelectorAll('.draggable-text').forEach(el => el.classList.remove('selected'));
+            document.getElementById('image-controls').style.display = 'none';
+            document.getElementById('text-controls').style.display = 'none';
+            document.getElementById('sound-controls').style.display = 'none';
+            document.getElementById('properties-panel').style.display = 'none';
+           
+            document.querySelectorAll('.thumbnail').forEach(thumb => {
+                thumb.classList.remove('selected');
+            });
+           
+            selectedImageId = null;
+            selectedTextId = null;
+            selectedSoundId = null;
         }
-        function addResizeHandles(el){
-            el.querySelectorAll('.resize-handle').forEach(h=>h.remove());
-            ['n','ne','e','se','s','sw','w','nw'].forEach(dir=>{
-                const h=document.createElement('div'); h.className=`resize-handle resize-${dir}`; el.appendChild(h);
-                h.addEventListener('mousedown', e=>{ e.preventDefault(); e.stopPropagation(); startResize(e,dir); });
-                h.addEventListener('touchstart', e=>{ e.preventDefault(); e.stopPropagation(); startResize(e,dir); }, {passive:false});
+       
+        function saveStateToHistory() {
+            if (actionHistory.length >= 20) {
+                actionHistory.shift();
+            }
+           
+            Promise.all([
+                imagesRef.once('value').then(snapshot => snapshot.val() || {}),
+                textsRef.once('value').then(snapshot => snapshot.val() || {}),
+                soundsRef.once('value').then(snapshot => snapshot.val() || {})
+            ]).then(([imagesData, textsData, soundsData]) => {
+                const currentState = { images: imagesData, texts: textsData, sounds: soundsData };
+                actionHistory.push(JSON.stringify(currentState));
+                historyPointer = actionHistory.length - 1;
             });
         }
-
-        function startSelect(e){
-            e.preventDefault(); e.stopPropagation(); const el=e.currentTarget; const locked=el.classList.contains('locked');
-            deselectAllElements(); el.classList.add('selected'); selectedImageId=el.id; document.getElementById('image-controls').style.display='flex'; document.getElementById('lock-btn').textContent=locked?'Открепить':'Закрепить';
-            if(!locked){ activeInteraction='select'; activeElement=el; const x=parseInt(el.style.left)||0, y=parseInt(el.style.top)||0; startX=(e.type==='touchstart'?e.touches[0].clientX:e.clientX)-x; startY=(e.type==='touchstart'?e.touches[0].clientY:e.clientY)-y; }
+       
+        function undoAction() {
+            if (historyPointer <= 0) return;
+           
+            historyPointer--;
+            const previousState = JSON.parse(actionHistory[historyPointer]);
+            imagesRef.set(previousState.images || {});
+            textsRef.set(previousState.texts || {});
+            soundsRef.set(previousState.sounds || {});
         }
-        function startTextSelect(e){
-            e.preventDefault(); e.stopPropagation(); const el=e.currentTarget; const locked=el.classList.contains('locked');
-            deselectAllElements(); el.classList.add('selected'); selectedTextId=el.id; document.getElementById('text-controls').style.display='flex'; document.getElementById('lock-text-btn').textContent=locked?'Открепить':'Закрепить';
-            if(!locked){ activeInteraction='select'; activeElement=el; const x=parseInt(el.style.left)||0, y=parseInt(el.style.top)||0; startX=(e.type==='touchstart'?e.touches[0].clientX:e.clientX)-x; startY=(e.type==='touchstart'?e.touches[0].clientY:e.clientY)-y; }
+       
+        function setupViewport() {
+            const appContainer = document.getElementById('app-container');
+            const scale = Math.min(
+                window.innerWidth / 2560,
+                window.innerHeight / 1212
+            );
+            appContainer.style.transform = `scale(${scale})`;
+            appContainer.style.transformOrigin = 'top left';
         }
-        function startResize(e,dir){
-            if(e.currentTarget.parentElement.classList.contains('locked')) return;
-            e.preventDefault(); e.stopPropagation(); activeInteraction='resize'; activeElement=e.currentTarget.parentElement; resizeDirection=dir;
-            const r=activeElement.getBoundingClientRect(); startX=e.type==='touchstart'?e.touches[0].clientX:e.clientX; startY=e.type==='touchstart'?e.touches[0].clientY:e.clientY;
-            startWidth=parseFloat(activeElement.style.width)||activeElement.offsetWidth; startHeight=parseFloat(activeElement.style.height)||activeElement.offsetHeight;
-            startLeft=parseFloat(activeElement.style.left)||0; startTop=parseFloat(activeElement.style.top)||0;
+       
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+           
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const id = 'img_' + Date.now();
+                    const x = 100;
+                    const y = 100;
+                   
+                    imagesRef.child(id).set({
+                        id: id,
+                        src: event.target.result,
+                        x: x,
+                        y: y,
+                        width: img.width,
+                        height: img.height,
+                        opacity: 0.3,
+                        brightness: 85,
+                        isNew: true,
+                        locked: false,
+                        display: 'block'
+                    });
+                    saveStateToHistory();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
         }
-        function handleMove(e){
-            if(!activeInteraction || !activeElement || activeElement.classList.contains('locked')) return; e.preventDefault();
-            const cx=e.type==='touchmove'?e.touches[0].clientX:e.clientX, cy=e.type==='touchmove'?e.touches[0].clientY:e.clientY;
-            if(activeInteraction==='select' || activeInteraction==='drag'){
-                const x=cx-startX, y=cy-startY; const cont=document.getElementById('canvas-wrapper');
-                const maxX=cont.offsetWidth-activeElement.offsetWidth, maxY=cont.offsetHeight-activeElement.offsetHeight;
-                const bx=Math.max(0,Math.min(x,maxX)), by=Math.max(0,Math.min(y,maxY));
-                activeElement.style.left=bx+'px'; activeElement.style.top=by+'px';
-                if(activeElement.classList.contains('draggable-image')) imagesRef.child(activeElement.id).update({x:bx,y:by});
-                else if(activeElement.classList.contains('draggable-text')) textsRef.child(activeElement.id).update({x:bx,y:by});
-                if(activeInteraction==='select') activeInteraction='drag';
-            } else if(activeInteraction==='resize'){
-                const dx=cx-startX, dy=cy-startY; let w=startWidth, h=startHeight, l=startLeft, t=startTop;
-                switch(resizeDirection){
-                    case 'n': h=Math.max(50,startHeight-dy); t=startTop+(startHeight-h); break;
-                    case 'ne': h=Math.max(50,startHeight-dy); t=startTop+(startHeight-h); w=Math.max(50,startWidth+dx); break;
-                    case 'e': w=Math.max(50,startWidth+dx); break;
-                    case 'se': w=Math.max(50,startWidth+dx); h=Math.max(50,startHeight+dy); break;
-                    case 's': h=Math.max(50,startHeight+dy); break;
-                    case 'sw': w=Math.max(50,startWidth-dx); l=startLeft+(startWidth-w); h=Math.max(50,startHeight+dy); break;
-                    case 'w': w=Math.max(50,startWidth-dx); l=startLeft+(startWidth-w); break;
-                    case 'nw': w=Math.max(50,startWidth-dx); l=startLeft+(startWidth-w); h=Math.max(50,startHeight-dy); t=startTop+(startHeight-h); break;
+       
+        function handleSoundUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+           
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const id = 'sound_' + Date.now();
+               
+                soundsRef.child(id).set({
+                    id: id,
+                    src: event.target.result,
+                    name: file.name,
+                    playing: false,
+                    currentTime: 0,
+                    duration: 0,
+                    volume: 100,
+                    display: 'block'
+                });
+                saveStateToHistory();
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+       
+        function updateSoundControls(soundData) {
+            const soundControls = document.getElementById('sound-controls');
+            const audioElement = document.getElementById('audio-element');
+           
+            if (soundData && soundData.src) {
+                soundControls.style.display = 'flex';
+               
+                if (audioElement.src !== soundData.src) {
+                    audioElement.src = soundData.src;
+                   
+                    audioElement.onloadedmetadata = () => {
+                        soundsRef.child(selectedSoundId).update({ duration: audioElement.duration });
+                    };
                 }
-                activeElement.style.width=w+'px'; activeElement.style.height=h+'px'; activeElement.style.left=l+'px'; activeElement.style.top=t+'px';
-                if(activeElement.classList.contains('draggable-image')) imagesRef.child(activeElement.id).update({width:w,height:h,x:l,y:t});
-                else if(activeElement.classList.contains('draggable-text')){
-                    const fs=parseInt(activeElement.style.fontSize)||16; const scale=w/startWidth; const nfs=Math.max(10,Math.min(72,Math.round(fs*scale)));
-                    activeElement.style.fontSize=nfs+'px'; textsRef.child(activeElement.id).update({fontSize:nfs,x:l,y:t});
+               
+                if (soundData.volume !== undefined) {
+                    audioElement.volume = soundData.volume / 100;
+                    document.getElementById('volume-slider').value = soundData.volume;
+                } else {
+                    audioElement.volume = 1;
+                    document.getElementById('volume-slider').value = 100;
+                }
+               
+                if (soundData.playing && audioElement.paused) {
+                    audioElement.currentTime = soundData.currentTime || 0;
+                    audioElement.play().catch(e => console.log("Автовоспроизведение заблокировано"));
+                } else if (!soundData.playing && !audioElement.paused) {
+                    audioElement.pause();
+                }
+               
+                updateProgressVisualization(soundData.currentTime, soundData.duration);
+            } else {
+                soundControls.style.display = 'none';
+                audioElement.src = '';
+                if (soundInterval) {
+                    clearInterval(soundInterval);
+                    soundInterval = null;
                 }
             }
         }
-        function endInteraction(){ if(activeInteraction) saveStateToHistory(); activeInteraction=null; activeElement=null; resizeDirection=null; }
-
-        function updateImageOpacity(el,d){ if(!DEBUG_MODE) el.style.opacity=d.opacity!==undefined?d.opacity:0.3; }
-        function updateImageBrightness(el,d){ if(!DEBUG_MODE) el.style.filter=`brightness(${d.brightness!==undefined?d.brightness:85}%)`; }
-        function updateImageLockState(el,d){ if(d.locked){ el.classList.add('locked'); el.style.cursor='default'; } else { el.classList.remove('locked'); el.style.cursor='move'; }}
-        function updateImageDisplayState(el,d){ el.style.display=d.display==='none'?'none':'block'; }
-        function updateTextLockState(el,d){ if(d.locked){ el.classList.add('locked'); el.style.cursor='default'; } else { el.classList.remove('locked'); el.style.cursor='move'; }}
-        function updateTextDisplayState(el,d){ el.style.display=d.display==='none'?'none':'block'; }
-        function updateTextContent(el,d){ el.textContent=d.text; el.style.fontSize=d.fontSize+'px'; el.style.color=d.color; if(d.fontFamily) el.style.fontFamily=d.fontFamily; }
-
-        function clearCanvas(){ if(confirm('Очистить холст для всех?')){ imagesRef.remove(); textsRef.remove(); soundsRef.remove(); deselectAllElements(); saveStateToHistory(); }}
-
+       
+        function playSound() {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+           
+            const audioElement = document.getElementById('audio-element');
+            audioElement.play().then(() => {
+                soundsRef.child(selectedSoundId).update({
+                    playing: true,
+                    currentTime: audioElement.currentTime
+                });
+               
+                if (soundInterval) clearInterval(soundInterval);
+                soundInterval = setInterval(() => {
+                    if (!audioElement.paused) {
+                        soundsRef.child(selectedSoundId).update({
+                            currentTime: audioElement.currentTime
+                        });
+                    }
+                }, 1000);
+            }).catch(e => {
+                console.error("Ошибка воспроизведения:", e);
+            });
+        }
+       
+        function pauseSound() {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+           
+            const audioElement = document.getElementById('audio-element');
+            audioElement.pause();
+            soundsRef.child(selectedSoundId).update({
+                playing: false,
+                currentTime: audioElement.currentTime
+            });
+           
+            if (soundInterval) {
+                clearInterval(soundInterval);
+                soundInterval = null;
+            }
+        }
+       
+        function updateVolume(e) {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+           
+            const volume = e.target.value;
+            const audioElement = document.getElementById('audio-element');
+            audioElement.volume = volume / 100;
+           
+            soundsRef.child(selectedSoundId).update({
+                volume: volume
+            });
+           
+            saveStateToHistory();
+        }
+       
+        function deleteSound() {
+            if (selectedSoundId && confirm("Удалить этот звук?")) {
+                soundsRef.child(selectedSoundId).remove();
+                const audioElement = document.getElementById('audio-element');
+                audioElement.src = '';
+                audioElement.pause();
+               
+                if (soundInterval) {
+                    clearInterval(soundInterval);
+                    soundInterval = null;
+                }
+               
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+       
+        function updateSoundProgress() {
+            if (!selectedSoundId || !sounds[selectedSoundId] || !sounds[selectedSoundId].playing) return;
+           
+            const audioElement = document.getElementById('audio-element');
+            updateProgressVisualization(audioElement.currentTime, audioElement.duration);
+        }
+       
+        function updateProgressVisualization(currentTime, duration) {
+            const progressElement = document.getElementById('sound-progress');
+            if (duration > 0) {
+                const percentage = (currentTime / duration) * 100;
+                progressElement.style.width = percentage + '%';
+            } else {
+                progressElement.style.width = '0%';
+            }
+        }
+       
+        function soundEnded() {
+            if (soundInterval) {
+                clearInterval(soundInterval);
+                soundInterval = null;
+            }
+           
+            if (selectedSoundId) {
+                soundsRef.child(selectedSoundId).update({
+                    playing: false,
+                    currentTime: 0
+                });
+            }
+        }
+       
+        function showTextInputPanel() {
+            deselectAllElements();
+            const panel = document.getElementById('text-input-panel');
+            document.getElementById('text-input').value = '';
+            document.getElementById('font-size-input').value = 16;
+            document.getElementById('text-color-input').value = '#000000';
+            document.getElementById('font-family-select').value = "'Comic Sans MS', cursive";
+            document.getElementById('text-panel-title').textContent = "Добавить текст";
+            panel.style.display = 'block';
+            isEditingText = false;
+            currentTextId = null;
+        }
+       
+        function applyTextChanges() {
+            const text = document.getElementById('text-input').value.trim();
+            if (!text) return;
+           
+            const fontSize = parseInt(document.getElementById('font-size-input').value);
+            const color = document.getElementById('text-color-input').value;
+            const fontFamily = document.getElementById('font-family-select').value;
+           
+            if (isEditingText && currentTextId) {
+                textsRef.child(currentTextId).update({
+                    text: text,
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily
+                });
+            } else {
+                const id = 'text_' + Date.now();
+                const x = 100;
+                const y = 100;
+               
+                textsRef.child(id).set({
+                    id: id,
+                    text: text,
+                    x: x,
+                    y: y,
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily,
+                    opacity: 0.3,
+                    isNew: true,
+                    locked: false,
+                    display: 'block'
+                });
+            }
+           
+            document.getElementById('text-input-panel').style.display = 'none';
+            saveStateToHistory();
+            isEditingText = false;
+            currentTextId = null;
+        }
+       
+        function cancelTextEdit() {
+            document.getElementById('text-input-panel').style.display = 'none';
+            isEditingText = false;
+            currentTextId = null;
+        }
+       
+        function editSelectedText() {
+            if (!selectedTextId) return;
+           
+            const textElement = document.getElementById(selectedTextId);
+            if (!textElement) return;
+           
+            const panel = document.getElementById('text-input-panel');
+            document.getElementById('text-input').value = textElement.textContent;
+            document.getElementById('font-size-input').value = parseInt(textElement.style.fontSize);
+            document.getElementById('text-color-input').value = textElement.style.color;
+           
+            const fontFamily = textElement.style.fontFamily;
+            document.getElementById('font-family-select').value = fontFamily;
+           
+            document.getElementById('text-panel-title').textContent = "Редактировать текст";
+            panel.style.display = 'block';
+            isEditingText = true;
+            currentTextId = selectedTextId;
+        }
+       
+        function deleteSelectedText() {
+            if (selectedTextId && confirm("Удалить этот текст?")) {
+                textsRef.child(selectedTextId).remove();
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+       
+        function toggleTextLock() {
+            if (selectedTextId) {
+                const textElement = document.getElementById(selectedTextId);
+                if (!textElement) return;
+               
+                const isLocked = textElement.classList.contains('locked');
+               
+                if (isLocked) {
+                    textElement.classList.remove('locked');
+                    document.getElementById('lock-text-btn').textContent = 'Закрепить';
+                } else {
+                    textElement.classList.add('locked');
+                    document.getElementById('lock-text-btn').textContent = 'Открепить';
+                }
+               
+                textsRef.child(selectedTextId).update({
+                    locked: !isLocked
+                });
+                saveStateToHistory();
+            }
+        }
+       
+        function updateCanvas(imagesData) {
+            const container = document.getElementById('elements-layer');
+           
+            document.querySelectorAll('.draggable-image').forEach(img => {
+                if (!imagesData[img.id]) {
+                    img.remove();
+                    if (selectedImageId === img.id) {
+                        deselectAllElements();
+                    }
+                }
+            });
+           
+            for (const id in imagesData) {
+                const imgData = imagesData[id];
+                let img = document.getElementById(id);
+               
+                if (!img) {
+                    img = createImageElement(imgData);
+                    container.appendChild(img);
+                }
+               
+                updateImagePositionAndSize(img, imgData);
+                updateImageOpacity(img, imgData);
+                updateImageBrightness(img, imgData);
+                updateImageLockState(img, imgData);
+                updateImageDisplayState(img, imgData);
+               
+                if (imgData.isNew) {
+                    deselectAllElements();
+                    img.classList.add('selected');
+                    selectedImageId = id;
+                    document.getElementById('image-controls').style.display = 'flex';
+                   
+                    const lockBtn = document.getElementById('lock-btn');
+                    lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
+                   
+                    imagesRef.child(id).update({ isNew: null });
+                }
+            }
+        }
+       
+        function updateTexts(textsData) {
+            const container = document.getElementById('elements-layer');
+           
+            document.querySelectorAll('.draggable-text').forEach(textEl => {
+                if (!textsData[textEl.id]) {
+                    textEl.remove();
+                    if (selectedTextId === textEl.id) {
+                        deselectAllElements();
+                    }
+                }
+            });
+           
+            for (const id in textsData) {
+                const textData = textsData[id];
+                let textEl = document.getElementById(id);
+               
+                if (!textEl) {
+                    textEl = createTextElement(textData);
+                    container.appendChild(textEl);
+                } else {
+                    updateTextPosition(textEl, textData);
+                    updateTextContent(textEl, textData);
+                    updateTextLockState(textEl, textData);
+                    updateTextDisplayState(textEl, textData);
+                }
+               
+                if (textData.opacity !== undefined) {
+                    textEl.style.opacity = textData.opacity;
+                }
+               
+                if (textData.fontFamily) {
+                    textEl.style.fontFamily = textData.fontFamily;
+                }
+               
+                if (textData.isNew) {
+                    deselectAllElements();
+                    textEl.classList.add('selected');
+                    selectedTextId = id;
+                    document.getElementById('text-controls').style.display = 'flex';
+                   
+                    const lockBtn = document.getElementById('lock-text-btn');
+                    lockBtn.textContent = textData.locked ? 'Открепить' : 'Закрепить';
+                   
+                    textsRef.child(id).update({ isNew: null });
+                }
+            }
+        }
+       
+        function createImageElement(imgData) {
+            const imgWrapper = document.createElement('div');
+            imgWrapper.id = imgData.id;
+            imgWrapper.className = 'draggable-image';
+            imgWrapper.style.left = imgData.x + 'px';
+            imgWrapper.style.top = imgData.y + 'px';
+            imgWrapper.style.width = imgData.width + 'px';
+            imgWrapper.style.height = imgData.height + 'px';
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 85}%)`;
+           
+            if (imgData.locked) {
+                imgWrapper.classList.add('locked');
+            }
+           
+            if (imgData.display === 'none') {
+                imgWrapper.style.display = 'none';
+            } else {
+                imgWrapper.style.display = 'block';
+            }
+           
+            const img = document.createElement('img');
+            img.src = imgData.src;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.draggable = false;
+            imgWrapper.appendChild(img);
+           
+            addResizeHandles(imgWrapper);
+           
+            imgWrapper.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('resize-handle')) return;
+                startSelect(e);
+            });
+            imgWrapper.addEventListener('touchstart', (e) => {
+                if (e.target.classList.contains('resize-handle')) return;
+                startSelect(e);
+            }, { passive: false });
+           
+            return imgWrapper;
+        }
+       
+        function createTextElement(textData) {
+            const textEl = document.createElement('div');
+            textEl.id = textData.id;
+            textEl.className = 'draggable-text';
+            textEl.style.left = textData.x + 'px';
+            textEl.style.top = textData.y + 'px';
+            textEl.textContent = textData.text;
+            textEl.style.fontSize = textData.fontSize + 'px';
+            textEl.style.color = textData.color;
+           
+            if (textData.fontFamily) {
+                textEl.style.fontFamily = textData.fontFamily;
+            } else {
+                textEl.style.fontFamily = "'Comic Sans MS', cursive";
+            }
+           
+            if (textData.opacity !== undefined) {
+                textEl.style.opacity = textData.opacity;
+            } else {
+                textEl.style.opacity = 0.3;
+            }
+           
+            if (textData.locked) {
+                textEl.classList.add('locked');
+            }
+           
+            if (textData.display === 'none') {
+                textEl.style.display = 'none';
+            } else {
+                textEl.style.display = 'block';
+            }
+           
+            textEl.style.width = 'auto';
+            textEl.style.height = 'auto';
+           
+            addResizeHandles(textEl);
+           
+            textEl.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('resize-handle')) return;
+                startTextSelect(e);
+            });
+            textEl.addEventListener('touchstart', (e) => {
+                if (e.target.classList.contains('resize-handle')) return;
+                startTextSelect(e);
+            }, { passive: false });
+           
+            return textEl;
+        }
+       
+        function addResizeHandles(element) {
+            element.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
+           
+            const directions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+           
+            directions.forEach(dir => {
+                const handle = document.createElement('div');
+                handle.className = `resize-handle resize-${dir}`;
+                element.appendChild(handle);
+               
+                handle.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startResize(e, dir);
+                });
+               
+                handle.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startResize(e, dir);
+                }, { passive: false });
+            });
+        }
+       
+        function startSelect(e) {
+            e.preventDefault();
+            e.stopPropagation();
+           
+            const imgElement = e.currentTarget;
+            const isLocked = imgElement.classList.contains('locked');
+           
+            deselectAllElements();
+           
+            imgElement.classList.add('selected');
+            selectedImageId = imgElement.id;
+            document.getElementById('image-controls').style.display = 'flex';
+           
+            const lockBtn = document.getElementById('lock-btn');
+            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+           
+            if (!isLocked) {
+                activeInteraction = 'select';
+                activeElement = imgElement;
+               
+                const currentX = parseInt(imgElement.style.left) || 0;
+                const currentY = parseInt(imgElement.style.top) || 0;
+               
+                if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX - currentX;
+                    startY = e.touches[0].clientY - currentY;
+                } else {
+                    startX = e.clientX - currentX;
+                    startY = e.clientY - currentY;
+                }
+            }
+        }
+       
+        function startTextSelect(e) {
+            e.preventDefault();
+            e.stopPropagation();
+           
+            const textElement = e.currentTarget;
+            const isLocked = textElement.classList.contains('locked');
+           
+            deselectAllElements();
+           
+            textElement.classList.add('selected');
+            selectedTextId = textElement.id;
+            document.getElementById('text-controls').style.display = 'flex';
+           
+            const lockBtn = document.getElementById('lock-text-btn');
+            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+           
+            if (!isLocked) {
+                activeInteraction = 'select';
+                activeElement = textElement;
+               
+                const currentX = parseInt(textElement.style.left) || 0;
+                const currentY = parseInt(textElement.style.top) || 0;
+               
+                if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX - currentX;
+                    startY = e.touches[0].clientY - currentY;
+                } else {
+                    startX = e.clientX - currentX;
+                    startY = e.clientY - currentY;
+                }
+            }
+        }
+       
+        function updateImagePositionAndSize(img, imgData) {
+            if (activeElement !== img) {
+                img.style.left = imgData.x + 'px';
+                img.style.top = imgData.y + 'px';
+                img.style.width = imgData.width + 'px';
+                img.style.height = imgData.height + 'px';
+            }
+        }
+       
+        function updateTextPosition(textEl, textData) {
+            if (activeElement !== textEl) {
+                textEl.style.left = textData.x + 'px';
+                textEl.style.top = textData.y + 'px';
+            }
+        }
+       
+        function updateTextContent(textEl, textData) {
+            textEl.textContent = textData.text;
+            textEl.style.fontSize = textData.fontSize + 'px';
+            textEl.style.color = textData.color;
+            if (textData.fontFamily) {
+                textEl.style.fontFamily = textData.fontFamily;
+            }
+        }
+       
+        function updateImageOpacity(img, imgData) {
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+        }
+       
+        function updateImageBrightness(img, imgData) {
+            if (imgData.brightness !== undefined) {
+                img.style.filter = `brightness(${imgData.brightness}%)`;
+            } else {
+                img.style.filter = 'brightness(85%)';
+            }
+        }
+       
+        function updateImageLockState(img, imgData) {
+            if (imgData.locked) {
+                img.classList.add('locked');
+                img.style.cursor = 'default';
+            } else {
+                img.classList.remove('locked');
+                img.style.cursor = 'move';
+            }
+        }
+       
+        function updateImageDisplayState(img, imgData) {
+            if (imgData.display === 'none') {
+                img.style.display = 'none';
+            } else {
+                img.style.display = 'block';
+            }
+        }
+       
+        function updateTextDisplayState(textEl, textData) {
+            if (textData.display === 'none') {
+                textEl.style.display = 'none';
+            } else {
+                textEl.style.display = 'block';
+            }
+        }
+       
+        function updateTextLockState(textEl, textData) {
+            if (textData.locked) {
+                textEl.classList.add('locked');
+                textEl.style.cursor = 'default';
+            } else {
+                textEl.classList.remove('locked');
+                textEl.style.cursor = 'move';
+            }
+        }
+       
+        function clearCanvas() {
+            if (confirm("Очистить холст для всех пользователей?")) {
+                imagesRef.remove();
+                textsRef.remove();
+                soundsRef.remove();
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+       
+        function startResize(e, direction) {
+            if (e.currentTarget.parentElement.classList.contains('locked')) return;
+           
+            e.preventDefault();
+            e.stopPropagation();
+           
+            activeInteraction = 'resize';
+            activeElement = e.currentTarget.parentElement;
+            resizeDirection = direction;
+           
+            const rect = activeElement.getBoundingClientRect();
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+           
+            startWidth = parseFloat(activeElement.style.width) || activeElement.offsetWidth;
+            startHeight = parseFloat(activeElement.style.height) || activeElement.offsetHeight;
+            startLeft = parseFloat(activeElement.style.left) || 0;
+            startTop = parseFloat(activeElement.style.top) || 0;
+        }
+       
+        function handleMove(e) {
+            if (!activeInteraction || !activeElement) return;
+            if (activeElement.classList.contains('locked')) return;
+           
+            e.preventDefault();
+            let clientX, clientY;
+           
+            if (e.type === 'touchmove') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+           
+            if (activeInteraction === 'select' || activeInteraction === 'drag') {
+                const x = clientX - startX;
+                const y = clientY - startY;
+               
+                const container = document.getElementById('canvas-wrapper');
+                const maxX = container.offsetWidth - activeElement.offsetWidth;
+                const maxY = container.offsetHeight - activeElement.offsetHeight;
+               
+                const boundedX = Math.max(0, Math.min(x, maxX));
+                const boundedY = Math.max(0, Math.min(y, maxY));
+               
+                activeElement.style.left = boundedX + 'px';
+                activeElement.style.top = boundedY + 'px';
+               
+                if (activeElement.classList.contains('draggable-image')) {
+                    imagesRef.child(activeElement.id).update({
+                        x: boundedX,
+                        y: boundedY
+                    });
+                } else if (activeElement.classList.contains('draggable-text')) {
+                    textsRef.child(activeElement.id).update({
+                        x: boundedX,
+                        y: boundedY
+                    });
+                }
+               
+                if (activeInteraction === 'select') {
+                    activeInteraction = 'drag';
+                }
+            }
+            else if (activeInteraction === 'resize') {
+                const deltaX = clientX - startX;
+                const deltaY = clientY - startY;
+               
+                let newWidth = startWidth;
+                let newHeight = startHeight;
+                let newLeft = startLeft;
+                let newTop = startTop;
+               
+                switch (resizeDirection) {
+                    case 'n':
+                        newHeight = Math.max(50, startHeight - deltaY);
+                        newTop = startTop + (startHeight - newHeight);
+                        break;
+                    case 'ne':
+                        newHeight = Math.max(50, startHeight - deltaY);
+                        newTop = startTop + (startHeight - newHeight);
+                        newWidth = Math.max(50, startWidth + deltaX);
+                        break;
+                    case 'e':
+                        newWidth = Math.max(50, startWidth + deltaX);
+                        break;
+                    case 'se':
+                        newWidth = Math.max(50, startWidth + deltaX);
+                        newHeight = Math.max(50, startHeight + deltaY);
+                        break;
+                    case 's':
+                        newHeight = Math.max(50, startHeight + deltaY);
+                        break;
+                    case 'sw':
+                        newWidth = Math.max(50, startWidth - deltaX);
+                        newLeft = startLeft + (startWidth - newWidth);
+                        newHeight = Math.max(50, startHeight + deltaY);
+                        break;
+                    case 'w':
+                        newWidth = Math.max(50, startWidth - deltaX);
+                        newLeft = startLeft + (startWidth - newWidth);
+                        break;
+                    case 'nw':
+                        newWidth = Math.max(50, startWidth - deltaX);
+                        newLeft = startLeft + (startWidth - newWidth);
+                        newHeight = Math.max(50, startHeight - deltaY);
+                        newTop = startTop + (startHeight - newHeight);
+                        break;
+                }
+               
+                activeElement.style.width = newWidth + 'px';
+                activeElement.style.height = newHeight + 'px';
+                activeElement.style.left = newLeft + 'px';
+                activeElement.style.top = newTop + 'px';
+               
+                if (activeElement.classList.contains('draggable-image')) {
+                    imagesRef.child(activeElement.id).update({
+                        width: newWidth,
+                        height: newHeight,
+                        x: newLeft,
+                        y: newTop
+                    });
+                } else if (activeElement.classList.contains('draggable-text')) {
+                    const fontSize = parseInt(activeElement.style.fontSize) || 16;
+                    const scaleFactor = newWidth / startWidth;
+                    const newFontSize = Math.max(10, Math.min(72, Math.round(fontSize * scaleFactor)));
+                   
+                    activeElement.style.fontSize = newFontSize + 'px';
+                    textsRef.child(activeElement.id).update({
+                        fontSize: newFontSize,
+                        x: newLeft,
+                        y: newTop
+                    });
+                }
+            }
+        }
+       
+        function endInteraction() {
+            if (activeInteraction) {
+                saveStateToHistory();
+            }
+            activeInteraction = null;
+            activeElement = null;
+            resizeDirection = null;
+        }
+       
         window.addEventListener('DOMContentLoaded', initApp);
+        window.addEventListener('resize', setupViewport);
     </script>
 </body>
 </html>
+ 
+перепиши это в оверлей обс и чтобы зелёный фон на изображениях не считался хромакеем

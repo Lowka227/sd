@@ -157,13 +157,23 @@
             z-index: 1;
         }
        
-        #elements-layer {
+        #images-layer {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 2;
+            pointer-events: none;
+        }
+       
+        #texts-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
             pointer-events: none;
         }
        
@@ -177,17 +187,19 @@
             box-sizing: border-box;
             filter: brightness(85%);
             pointer-events: auto;
-            mix-blend-mode: normal;
-            isolation: isolate;
-            background-color: rgba(0, 0, 0, 0.01);
+            mix-blend-mode: normal !important;
+            isolation: auto;
+            background-color: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         .draggable-image img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             pointer-events: none;
-            mix-blend-mode: normal;
-            isolation: isolate;
+            mix-blend-mode: normal !important;
+            isolation: auto;
+            display: block;
         }
         .draggable-text {
             position: absolute;
@@ -199,12 +211,13 @@
             display: inline-block;
             white-space: nowrap;
             transform-origin: top left;
-            background-color: rgba(255, 255, 255, 0.7);
+            background-color: rgba(255, 255, 255, 0.9);
             padding: 2px 5px;
             border-radius: 3px;
             pointer-events: auto;
-            mix-blend-mode: normal;
-            isolation: isolate;
+            mix-blend-mode: normal !important;
+            isolation: auto;
+            border: 1px solid rgba(0, 0, 0, 0.1);
         }
         .selected {
             position: relative;
@@ -480,7 +493,8 @@
        
         <div id="canvas-wrapper">
             <div id="green-background"></div>
-            <div id="elements-layer"></div>
+            <div id="images-layer"></div>
+            <div id="texts-layer"></div>
         </div>
     </div>
    
@@ -613,6 +627,7 @@
         let speechUtterance = null;
         let voices = [];
         let isTTSInitialized = false;
+        
         function initApp() {
             console.log("Инициализация приложения...");
            
@@ -666,8 +681,14 @@
                 updateTTSVolume.call(this);
             });
            
-            document.getElementById('elements-layer').addEventListener('mousedown', (e) => {
-                if (e.target === document.getElementById('elements-layer')) {
+            document.getElementById('images-layer').addEventListener('mousedown', (e) => {
+                if (e.target === document.getElementById('images-layer')) {
+                    deselectAllElements();
+                }
+            });
+            
+            document.getElementById('texts-layer').addEventListener('mousedown', (e) => {
+                if (e.target === document.getElementById('texts-layer')) {
                     deselectAllElements();
                 }
             });
@@ -987,6 +1008,7 @@
                 speechUtterance.volume = parseFloat(this.value);
             }
         }
+        
         function updateThumbnails() {
             const thumbnailsContainer = document.getElementById('thumbnails');
             thumbnailsContainer.innerHTML = '';
@@ -1648,7 +1670,7 @@
         }
        
         function updateCanvas(imagesData) {
-            const container = document.getElementById('elements-layer');
+            const container = document.getElementById('images-layer');
            
             document.querySelectorAll('.draggable-image').forEach(img => {
                 if (!imagesData[img.id]) {
@@ -1689,7 +1711,7 @@
         }
        
         function updateTexts(textsData) {
-            const container = document.getElementById('elements-layer');
+            const container = document.getElementById('texts-layer');
            
             document.querySelectorAll('.draggable-text').forEach(textEl => {
                 if (!textsData[textEl.id]) {
@@ -2158,5 +2180,3 @@
     </script>
 </body>
 </html>
- 
-перепиши это в оверлей обс и чтобы зелёный фон на изображениях не считался хромакеем

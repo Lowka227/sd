@@ -145,17 +145,10 @@
             height: 1152px;
             position: relative;
             overflow: hidden;
+            background-color: #00ff00; /* Зеленый фон теперь здесь */
         }
        
-        #green-background {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #00ff00;
-            z-index: 1;
-        }
+        /* Убрали отдельный green-background */
        
         #images-layer {
             position: absolute;
@@ -165,6 +158,7 @@
             height: 100%;
             z-index: 2;
             pointer-events: none;
+            background: transparent !important;
         }
        
         #texts-layer {
@@ -175,6 +169,7 @@
             height: 100%;
             z-index: 3;
             pointer-events: none;
+            background: transparent !important;
         }
        
         .draggable-image {
@@ -183,23 +178,21 @@
             user-select: none;
             touch-action: none;
             transition: opacity 0.3s, filter 0.3s;
-            opacity: 0.3;
+            opacity: 1; /* Изменили с 0.3 на 1 */
             box-sizing: border-box;
-            filter: brightness(85%);
+            filter: brightness(100%); /* Изменили с 85% на 100% */
             pointer-events: auto;
-            mix-blend-mode: normal !important;
-            isolation: auto;
             background-color: transparent;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
         }
         .draggable-image img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             pointer-events: none;
-            mix-blend-mode: normal !important;
-            isolation: auto;
             display: block;
+            background-color: transparent !important;
         }
         .draggable-text {
             position: absolute;
@@ -207,16 +200,14 @@
             user-select: none;
             touch-action: none;
             box-sizing: border-box;
-            opacity: 0.3;
+            opacity: 1; /* Изменили с 0.3 на 1 */
             display: inline-block;
             white-space: nowrap;
             transform-origin: top left;
-            background-color: rgba(255, 255, 255, 0.9);
+            background-color: rgba(255, 255, 255, 0.95); /* Более плотный фон */
             padding: 2px 5px;
             border-radius: 3px;
             pointer-events: auto;
-            mix-blend-mode: normal !important;
-            isolation: auto;
             border: 1px solid rgba(0, 0, 0, 0.1);
         }
         .selected {
@@ -492,7 +483,7 @@
         </div>
        
         <div id="canvas-wrapper">
-            <div id="green-background"></div>
+            <!-- Зеленый фон теперь у canvas-wrapper -->
             <div id="images-layer"></div>
             <div id="texts-layer"></div>
         </div>
@@ -502,11 +493,11 @@
         <h3>Свойства изображения</h3>
         <label>
             Прозрачность:
-            <input type="range" id="opacity-slider" min="0" max="100" value="30">
+            <input type="range" id="opacity-slider" min="0" max="100" value="100"> <!-- Изменили с 30 на 100 -->
         </label>
         <label>
             Яркость:
-            <input type="range" id="brightness-slider" min="0" max="200" value="85">
+            <input type="range" id="brightness-slider" min="0" max="200" value="100"> <!-- Изменили с 85 на 100 -->
         </label>
         <button id="close-properties">Закрыть</button>
     </div>
@@ -755,11 +746,11 @@
                     const brightnessSlider = document.getElementById('brightness-slider');
                    
                     const imgElement = document.getElementById(selectedImageId);
-                    const currentOpacity = parseFloat(imgElement.style.opacity) || 0.3;
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 1; // Изменили с 0.3 на 1
                     opacitySlider.value = currentOpacity * 100;
                    
                     const currentBrightness = imgElement.style.filter.includes('brightness') ?
-                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 85;
+                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 100; // Изменили с 85 на 100
                     brightnessSlider.value = currentBrightness;
                    
                     panel.style.display = 'block';
@@ -1379,8 +1370,8 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        opacity: 0.3,
-                        brightness: 85,
+                        opacity: 1, // Изменили с 0.3 на 1
+                        brightness: 100, // Изменили с 85 на 100
                         isNew: true,
                         locked: false,
                         display: 'block'
@@ -1600,7 +1591,7 @@
                     fontSize: fontSize,
                     color: color,
                     fontFamily: fontFamily,
-                    opacity: 0.3,
+                    opacity: 1, // Изменили с 0.3 на 1
                     isNew: true,
                     locked: false,
                     display: 'block'
@@ -1766,8 +1757,8 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
-            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 85}%)`;
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1; // Изменили с 0.3 на 1
+            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 100}%)`; // Изменили с 85 на 100
            
             if (imgData.locked) {
                 imgWrapper.classList.add('locked');
@@ -1820,7 +1811,7 @@
             if (textData.opacity !== undefined) {
                 textEl.style.opacity = textData.opacity;
             } else {
-                textEl.style.opacity = 0.3;
+                textEl.style.opacity = 1; // Изменили с 0.3 на 1
             }
            
             if (textData.locked) {
@@ -1966,14 +1957,14 @@
         }
        
         function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 0.3;
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1; // Изменили с 0.3 на 1
         }
        
         function updateImageBrightness(img, imgData) {
             if (imgData.brightness !== undefined) {
                 img.style.filter = `brightness(${imgData.brightness}%)`;
             } else {
-                img.style.filter = 'brightness(85%)';
+                img.style.filter = 'brightness(100%)'; // Изменили с 85% на 100%
             }
         }
        

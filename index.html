@@ -145,10 +145,8 @@
             height: 1152px;
             position: relative;
             overflow: hidden;
-            background-color: #00ff00; /* Зеленый фон теперь здесь */
+            background-color: #00ff00;
         }
-       
-        /* Убрали отдельный green-background */
        
         #images-layer {
             position: absolute;
@@ -178,9 +176,9 @@
             user-select: none;
             touch-action: none;
             transition: opacity 0.3s, filter 0.3s;
-            opacity: 1; /* Изменили с 0.3 на 1 */
+            opacity: 1;
             box-sizing: border-box;
-            filter: brightness(100%); /* Изменили с 85% на 100% */
+            filter: brightness(100%);
             pointer-events: auto;
             background-color: transparent;
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -199,16 +197,18 @@
             cursor: move;
             user-select: none;
             touch-action: none;
-            box-sizing: border-box;
-            opacity: 1; /* Изменили с 0.3 на 1 */
+            box-sizing: content-box;
+            opacity: 1;
             display: inline-block;
             white-space: nowrap;
             transform-origin: top left;
-            background-color: rgba(255, 255, 255, 0.95); /* Более плотный фон */
+            background-color: rgba(255, 255, 255, 0.95);
             padding: 2px 5px;
             border-radius: 3px;
             pointer-events: auto;
             border: 1px solid rgba(0, 0, 0, 0.1);
+            min-width: 20px;
+            min-height: 20px;
         }
         .selected {
             position: relative;
@@ -318,34 +318,63 @@
             width: 100%;
             margin-bottom: 10px;
         }
-        #text-input-panel {
+        
+        /* Упрощенная панель добавления текста */
+        #simple-text-input {
             position: absolute;
-            top: 80px;
-            left: 20px;
+            top: 100px;
+            left: 100px;
+            z-index: 1000;
             background: white;
-            padding: 10px;
+            border: 2px solid #4285f4;
             border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 100;
+            padding: 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             display: none;
+            min-width: 200px;
+            transform: translate(-50%, -50%);
         }
-        #text-input {
-            width: 200px;
+        #simple-text-input textarea {
+            width: 300px;
+            min-height: 40px;
+            padding: 10px;
+            border: none;
+            border-radius: 3px;
+            resize: both;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            box-sizing: border-box;
+            overflow: hidden;
+            outline: none;
+        }
+        .text-toolbar {
+            display: flex;
+            gap: 5px;
             padding: 5px;
-            margin-bottom: 10px;
+            background: #f5f5f5;
+            border-top: 1px solid #ddd;
+            flex-wrap: wrap;
         }
-        #font-size-input {
-            width: 100%;
-            margin-bottom: 10px;
+        .text-toolbar button {
+            padding: 5px 10px;
+            font-size: 12px;
         }
-        #text-color-input {
-            margin-bottom: 10px;
-        }
-        #font-family-select {
-            width: 100%;
+        .text-toolbar select {
             padding: 5px;
-            margin-bottom: 10px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
         }
+        .text-toolbar input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+        .text-toolbar input[type="range"] {
+            width: 60px;
+        }
+        
         .sound-visualization {
             width: 100px;
             height: 30px;
@@ -483,9 +512,25 @@
         </div>
        
         <div id="canvas-wrapper">
-            <!-- Зеленый фон теперь у canvas-wrapper -->
             <div id="images-layer"></div>
             <div id="texts-layer"></div>
+        </div>
+    </div>
+    
+    <!-- Упрощенная панель добавления текста -->
+    <div id="simple-text-input">
+        <textarea id="text-input-area" placeholder="Введите текст..."></textarea>
+        <div class="text-toolbar">
+            <select id="font-family-select">
+                <option value="'Comic Sans MS', cursive">Comic Sans</option>
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+                <option value="Verdana, sans-serif">Verdana</option>
+            </select>
+            <input type="range" id="font-size-slider" min="12" max="72" value="16" title="Размер шрифта">
+            <input type="color" id="text-color-picker" value="#000000" title="Цвет текста">
+            <button id="apply-text-simple">Готово</button>
+            <button id="cancel-text-simple" style="background: #f44336;">Отмена</button>
         </div>
     </div>
    
@@ -493,41 +538,13 @@
         <h3>Свойства изображения</h3>
         <label>
             Прозрачность:
-            <input type="range" id="opacity-slider" min="0" max="100" value="100"> <!-- Изменили с 30 на 100 -->
+            <input type="range" id="opacity-slider" min="0" max="100" value="100">
         </label>
         <label>
             Яркость:
-            <input type="range" id="brightness-slider" min="0" max="200" value="100"> <!-- Изменили с 85 на 100 -->
+            <input type="range" id="brightness-slider" min="0" max="200" value="100">
         </label>
         <button id="close-properties">Закрыть</button>
-    </div>
-   
-    <div id="text-input-panel">
-        <h3 id="text-panel-title">Добавить текст</h3>
-        <input type="text" id="text-input" placeholder="Введите текст">
-        <label>
-            Размер шрифта:
-            <input type="range" id="font-size-input" min="10" max="72" value="16">
-        </label>
-        <label>
-            Цвет текста:
-            <input type="color" id="text-color-input" value="#000000">
-        </label>
-        <label>
-            Шрифт:
-            <select id="font-family-select">
-                <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
-                <option value="Arial, sans-serif">Arial</option>
-                <option value="'Times New Roman', serif">Times New Roman</option>
-                <option value="Verdana, sans-serif">Verdana</option>
-                <option value="Georgia, serif">Georgia</option>
-                <option value="'Courier New', monospace">Courier New</option>
-                <option value="Impact, sans-serif">Impact</option>
-                <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
-            </select>
-        </label>
-        <button id="apply-text-btn">Применить</button>
-        <button id="cancel-text-btn">Отмена</button>
     </div>
    
     <div id="tts-panel">
@@ -610,8 +627,7 @@
         let actionHistory = [];
         let historyPointer = -1;
         let resizeDirection = null;
-        let isEditingText = false;
-        let currentTextId = null;
+        let isAddingText = false;
         let soundInterval = null;
        
         let speechSynthesis = window.speechSynthesis;
@@ -629,10 +645,12 @@
                 document.getElementById('properties-panel').style.display = 'none';
             });
            
-            document.getElementById('add-text-btn').addEventListener('click', showTextInputPanel);
-            document.getElementById('apply-text-btn').addEventListener('click', applyTextChanges);
-            document.getElementById('cancel-text-btn').addEventListener('click', cancelTextEdit);
-           
+            // Упрощенное добавление текста
+            document.getElementById('add-text-btn').addEventListener('click', showSimpleTextInput);
+            document.getElementById('apply-text-simple').addEventListener('click', createTextFromSimpleInput);
+            document.getElementById('cancel-text-simple').addEventListener('click', cancelSimpleTextInput);
+            
+            // События для текстовых элементов
             document.getElementById('edit-text-btn').addEventListener('click', editSelectedText);
             document.getElementById('delete-text-btn').addEventListener('click', deleteSelectedText);
             document.getElementById('lock-text-btn').addEventListener('click', toggleTextLock);
@@ -671,6 +689,12 @@
                 document.getElementById('tts-volume-value').textContent = this.value;
                 updateTTSVolume.call(this);
             });
+           
+            // Настройки текста в упрощенной панели
+            document.getElementById('font-size-slider').addEventListener('input', updateTextPreview);
+            document.getElementById('text-color-picker').addEventListener('input', updateTextPreview);
+            document.getElementById('font-family-select').addEventListener('change', updateTextPreview);
+            document.getElementById('text-input-area').addEventListener('input', updateTextPreview);
            
             document.getElementById('images-layer').addEventListener('mousedown', (e) => {
                 if (e.target === document.getElementById('images-layer')) {
@@ -746,11 +770,11 @@
                     const brightnessSlider = document.getElementById('brightness-slider');
                    
                     const imgElement = document.getElementById(selectedImageId);
-                    const currentOpacity = parseFloat(imgElement.style.opacity) || 1; // Изменили с 0.3 на 1
+                    const currentOpacity = parseFloat(imgElement.style.opacity) || 1;
                     opacitySlider.value = currentOpacity * 100;
                    
                     const currentBrightness = imgElement.style.filter.includes('brightness') ?
-                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 100; // Изменили с 85 на 100
+                        parseInt(imgElement.style.filter.match(/brightness\((\d+)%\)/)[1]) : 100;
                     brightnessSlider.value = currentBrightness;
                    
                     panel.style.display = 'block';
@@ -821,6 +845,12 @@
                     e.preventDefault();
                     undoAction();
                 }
+                if (e.key === 'Escape' && isAddingText) {
+                    cancelSimpleTextInput();
+                }
+                if (e.key === 'Enter' && e.ctrlKey && isAddingText) {
+                    createTextFromSimpleInput();
+                }
             });
            
             const audioElement = document.getElementById('audio-element');
@@ -831,7 +861,152 @@
            
             console.log("Приложение инициализировано");
         }
-       
+        
+        function showSimpleTextInput() {
+            deselectAllElements();
+            const panel = document.getElementById('simple-text-input');
+            const textarea = document.getElementById('text-input-area');
+            
+            // Позиция по центру экрана
+            const canvasWrapper = document.getElementById('canvas-wrapper');
+            const centerX = canvasWrapper.offsetWidth / 2;
+            const centerY = canvasWrapper.offsetHeight / 2;
+            
+            panel.style.left = centerX + 'px';
+            panel.style.top = centerY + 'px';
+            panel.style.display = 'block';
+            panel.style.transform = 'translate(-50%, -50%)';
+            
+            textarea.value = '';
+            textarea.style.fontSize = '16px';
+            textarea.style.color = '#000000';
+            textarea.style.fontFamily = "'Comic Sans MS', cursive";
+            
+            document.getElementById('font-size-slider').value = 16;
+            document.getElementById('text-color-picker').value = '#000000';
+            document.getElementById('font-family-select').value = "'Comic Sans MS', cursive";
+            
+            isAddingText = true;
+            textarea.focus();
+        }
+        
+        function updateTextPreview() {
+            const textarea = document.getElementById('text-input-area');
+            const fontSize = document.getElementById('font-size-slider').value;
+            const color = document.getElementById('text-color-picker').value;
+            const fontFamily = document.getElementById('font-family-select').value;
+            
+            textarea.style.fontSize = fontSize + 'px';
+            textarea.style.color = color;
+            textarea.style.fontFamily = fontFamily;
+            
+            // Автоматическое изменение размера textarea под текст
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+        
+        function createTextFromSimpleInput() {
+            const text = document.getElementById('text-input-area').value.trim();
+            if (!text) {
+                alert("Введите текст");
+                return;
+            }
+            
+            const panel = document.getElementById('simple-text-input');
+            const fontSize = parseInt(document.getElementById('font-size-slider').value);
+            const color = document.getElementById('text-color-picker').value;
+            const fontFamily = document.getElementById('font-family-select').value;
+            
+            const id = 'text_' + Date.now();
+            const x = parseInt(panel.style.left) - (panel.offsetWidth / 2);
+            const y = parseInt(panel.style.top) - (panel.offsetHeight / 2);
+            
+            textsRef.child(id).set({
+                id: id,
+                text: text,
+                x: x,
+                y: y,
+                fontSize: fontSize,
+                color: color,
+                fontFamily: fontFamily,
+                opacity: 1,
+                isNew: true,
+                locked: false,
+                display: 'block'
+            });
+            
+            panel.style.display = 'none';
+            isAddingText = false;
+            saveStateToHistory();
+        }
+        
+        function cancelSimpleTextInput() {
+            document.getElementById('simple-text-input').style.display = 'none';
+            isAddingText = false;
+        }
+        
+        function editSelectedText() {
+            if (!selectedTextId) return;
+           
+            const textElement = document.getElementById(selectedTextId);
+            if (!textElement) return;
+            
+            const panel = document.getElementById('simple-text-input');
+            const textarea = document.getElementById('text-input-area');
+            
+            // Позиционируем панель над текстовым элементом
+            const rect = textElement.getBoundingClientRect();
+            const canvasRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
+            
+            panel.style.left = (rect.left + rect.width/2 - canvasRect.left) + 'px';
+            panel.style.top = (rect.top + rect.height/2 - canvasRect.top) + 'px';
+            panel.style.display = 'block';
+            panel.style.transform = 'translate(-50%, -50%)';
+            
+            textarea.value = textElement.textContent;
+            textarea.style.fontSize = textElement.style.fontSize;
+            textarea.style.color = textElement.style.color;
+            textarea.style.fontFamily = textElement.style.fontFamily;
+            
+            document.getElementById('font-size-slider').value = parseInt(textElement.style.fontSize);
+            document.getElementById('text-color-picker').value = textElement.style.color;
+            document.getElementById('font-family-select').value = textElement.style.fontFamily;
+            
+            textarea.focus();
+            isAddingText = true;
+            
+            // Удаляем старый текст после начала редактирования
+            document.getElementById('apply-text-simple').onclick = function() {
+                updateTextAfterEdit();
+            };
+        }
+        
+        function updateTextAfterEdit() {
+            const text = document.getElementById('text-input-area').value.trim();
+            if (!text) {
+                alert("Текст не может быть пустым");
+                return;
+            }
+            
+            const fontSize = parseInt(document.getElementById('font-size-slider').value);
+            const color = document.getElementById('text-color-picker').value;
+            const fontFamily = document.getElementById('font-family-select').value;
+            
+            textsRef.child(selectedTextId).update({
+                text: text,
+                fontSize: fontSize,
+                color: color,
+                fontFamily: fontFamily
+            });
+            
+            document.getElementById('simple-text-input').style.display = 'none';
+            isAddingText = false;
+            saveStateToHistory();
+            
+            // Восстанавливаем стандартный обработчик
+            document.getElementById('apply-text-simple').onclick = createTextFromSimpleInput;
+        }
+        
         function showTTSPanel() {
             const panel = document.getElementById('tts-panel');
             panel.style.display = 'block';
@@ -1081,7 +1256,7 @@
                 : textData.text;
             textPreview.style.fontSize = '10px';
             textPreview.style.color = textData.color;
-            textPreview.style.fontFamily = textData.fontFamily || 'Arial, sans-serif';
+            textPreview.style.fontFamily = textData.fontFamily || "'Comic Sans MS', cursive";
             thumbnail.appendChild(textPreview);
            
             const toggleBtn = document.createElement('button');
@@ -1305,6 +1480,7 @@
             document.getElementById('text-controls').style.display = 'none';
             document.getElementById('sound-controls').style.display = 'none';
             document.getElementById('properties-panel').style.display = 'none';
+            document.getElementById('simple-text-input').style.display = 'none';
            
             document.querySelectorAll('.thumbnail').forEach(thumb => {
                 thumb.classList.remove('selected');
@@ -1313,6 +1489,7 @@
             selectedImageId = null;
             selectedTextId = null;
             selectedSoundId = null;
+            isAddingText = false;
         }
        
         function saveStateToHistory() {
@@ -1370,8 +1547,8 @@
                         y: y,
                         width: img.width,
                         height: img.height,
-                        opacity: 1, // Изменили с 0.3 на 1
-                        brightness: 100, // Изменили с 85 на 100
+                        opacity: 1,
+                        brightness: 100,
                         isNew: true,
                         locked: false,
                         display: 'block'
@@ -1550,86 +1727,6 @@
             }
         }
        
-        function showTextInputPanel() {
-            deselectAllElements();
-            const panel = document.getElementById('text-input-panel');
-            document.getElementById('text-input').value = '';
-            document.getElementById('font-size-input').value = 16;
-            document.getElementById('text-color-input').value = '#000000';
-            document.getElementById('font-family-select').value = "'Comic Sans MS', cursive";
-            document.getElementById('text-panel-title').textContent = "Добавить текст";
-            panel.style.display = 'block';
-            isEditingText = false;
-            currentTextId = null;
-        }
-       
-        function applyTextChanges() {
-            const text = document.getElementById('text-input').value.trim();
-            if (!text) return;
-           
-            const fontSize = parseInt(document.getElementById('font-size-input').value);
-            const color = document.getElementById('text-color-input').value;
-            const fontFamily = document.getElementById('font-family-select').value;
-           
-            if (isEditingText && currentTextId) {
-                textsRef.child(currentTextId).update({
-                    text: text,
-                    fontSize: fontSize,
-                    color: color,
-                    fontFamily: fontFamily
-                });
-            } else {
-                const id = 'text_' + Date.now();
-                const x = 100;
-                const y = 100;
-               
-                textsRef.child(id).set({
-                    id: id,
-                    text: text,
-                    x: x,
-                    y: y,
-                    fontSize: fontSize,
-                    color: color,
-                    fontFamily: fontFamily,
-                    opacity: 1, // Изменили с 0.3 на 1
-                    isNew: true,
-                    locked: false,
-                    display: 'block'
-                });
-            }
-           
-            document.getElementById('text-input-panel').style.display = 'none';
-            saveStateToHistory();
-            isEditingText = false;
-            currentTextId = null;
-        }
-       
-        function cancelTextEdit() {
-            document.getElementById('text-input-panel').style.display = 'none';
-            isEditingText = false;
-            currentTextId = null;
-        }
-       
-        function editSelectedText() {
-            if (!selectedTextId) return;
-           
-            const textElement = document.getElementById(selectedTextId);
-            if (!textElement) return;
-           
-            const panel = document.getElementById('text-input-panel');
-            document.getElementById('text-input').value = textElement.textContent;
-            document.getElementById('font-size-input').value = parseInt(textElement.style.fontSize);
-            document.getElementById('text-color-input').value = textElement.style.color;
-           
-            const fontFamily = textElement.style.fontFamily;
-            document.getElementById('font-family-select').value = fontFamily;
-           
-            document.getElementById('text-panel-title').textContent = "Редактировать текст";
-            panel.style.display = 'block';
-            isEditingText = true;
-            currentTextId = selectedTextId;
-        }
-       
         function deleteSelectedText() {
             if (selectedTextId && confirm("Удалить этот текст?")) {
                 textsRef.child(selectedTextId).remove();
@@ -1721,7 +1818,6 @@
                     textEl = createTextElement(textData);
                     container.appendChild(textEl);
                 } else {
-                    updateTextPosition(textEl, textData);
                     updateTextContent(textEl, textData);
                     updateTextLockState(textEl, textData);
                     updateTextDisplayState(textEl, textData);
@@ -1757,8 +1853,8 @@
             imgWrapper.style.top = imgData.y + 'px';
             imgWrapper.style.width = imgData.width + 'px';
             imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1; // Изменили с 0.3 на 1
-            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 100}%)`; // Изменили с 85 на 100
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
+            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 100}%)`;
            
             if (imgData.locked) {
                 imgWrapper.classList.add('locked');
@@ -1811,7 +1907,7 @@
             if (textData.opacity !== undefined) {
                 textEl.style.opacity = textData.opacity;
             } else {
-                textEl.style.opacity = 1; // Изменили с 0.3 на 1
+                textEl.style.opacity = 1;
             }
            
             if (textData.locked) {
@@ -1824,6 +1920,7 @@
                 textEl.style.display = 'block';
             }
            
+            // Автоматический размер под текст
             textEl.style.width = 'auto';
             textEl.style.height = 'auto';
            
@@ -1940,13 +2037,6 @@
             }
         }
        
-        function updateTextPosition(textEl, textData) {
-            if (activeElement !== textEl) {
-                textEl.style.left = textData.x + 'px';
-                textEl.style.top = textData.y + 'px';
-            }
-        }
-       
         function updateTextContent(textEl, textData) {
             textEl.textContent = textData.text;
             textEl.style.fontSize = textData.fontSize + 'px';
@@ -1957,14 +2047,14 @@
         }
        
         function updateImageOpacity(img, imgData) {
-            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1; // Изменили с 0.3 на 1
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
         }
        
         function updateImageBrightness(img, imgData) {
             if (imgData.brightness !== undefined) {
                 img.style.filter = `brightness(${imgData.brightness}%)`;
             } else {
-                img.style.filter = 'brightness(100%)'; // Изменили с 85% на 100%
+                img.style.filter = 'brightness(100%)';
             }
         }
        
@@ -2095,37 +2185,37 @@
                
                 switch (resizeDirection) {
                     case 'n':
-                        newHeight = Math.max(50, startHeight - deltaY);
+                        newHeight = Math.max(20, startHeight - deltaY);
                         newTop = startTop + (startHeight - newHeight);
                         break;
                     case 'ne':
-                        newHeight = Math.max(50, startHeight - deltaY);
+                        newHeight = Math.max(20, startHeight - deltaY);
                         newTop = startTop + (startHeight - newHeight);
-                        newWidth = Math.max(50, startWidth + deltaX);
+                        newWidth = Math.max(20, startWidth + deltaX);
                         break;
                     case 'e':
-                        newWidth = Math.max(50, startWidth + deltaX);
+                        newWidth = Math.max(20, startWidth + deltaX);
                         break;
                     case 'se':
-                        newWidth = Math.max(50, startWidth + deltaX);
-                        newHeight = Math.max(50, startHeight + deltaY);
+                        newWidth = Math.max(20, startWidth + deltaX);
+                        newHeight = Math.max(20, startHeight + deltaY);
                         break;
                     case 's':
-                        newHeight = Math.max(50, startHeight + deltaY);
+                        newHeight = Math.max(20, startHeight + deltaY);
                         break;
                     case 'sw':
-                        newWidth = Math.max(50, startWidth - deltaX);
+                        newWidth = Math.max(20, startWidth - deltaX);
                         newLeft = startLeft + (startWidth - newWidth);
-                        newHeight = Math.max(50, startHeight + deltaY);
+                        newHeight = Math.max(20, startHeight + deltaY);
                         break;
                     case 'w':
-                        newWidth = Math.max(50, startWidth - deltaX);
+                        newWidth = Math.max(20, startWidth - deltaX);
                         newLeft = startLeft + (startWidth - newWidth);
                         break;
                     case 'nw':
-                        newWidth = Math.max(50, startWidth - deltaX);
+                        newWidth = Math.max(20, startWidth - deltaX);
                         newLeft = startLeft + (startWidth - newWidth);
-                        newHeight = Math.max(50, startHeight - deltaY);
+                        newHeight = Math.max(20, startHeight - deltaY);
                         newTop = startTop + (startHeight - newHeight);
                         break;
                 }
@@ -2143,13 +2233,7 @@
                         y: newTop
                     });
                 } else if (activeElement.classList.contains('draggable-text')) {
-                    const fontSize = parseInt(activeElement.style.fontSize) || 16;
-                    const scaleFactor = newWidth / startWidth;
-                    const newFontSize = Math.max(10, Math.min(72, Math.round(fontSize * scaleFactor)));
-                   
-                    activeElement.style.fontSize = newFontSize + 'px';
                     textsRef.child(activeElement.id).update({
-                        fontSize: newFontSize,
                         x: newLeft,
                         y: newTop
                     });

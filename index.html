@@ -200,15 +200,18 @@
             box-sizing: content-box;
             opacity: 1;
             display: inline-block;
-            white-space: nowrap;
+            white-space: pre-wrap; /* Изменено с nowrap на pre-wrap */
+            word-wrap: break-word;
+            word-break: break-word;
             transform-origin: top left;
             background-color: rgba(255, 255, 255, 0.95);
-            padding: 2px 5px;
+            padding: 5px 8px;
             border-radius: 3px;
             pointer-events: auto;
             border: 1px solid rgba(0, 0, 0, 0.1);
             min-width: 20px;
             min-height: 20px;
+            line-height: 1.3;
         }
         .selected {
             position: relative;
@@ -333,7 +336,7 @@
         }
         #simple-text-input textarea {
             width: 300px;
-            min-height: 40px;
+            min-height: 60px;
             padding: 10px;
             border: none;
             border-radius: 3px;
@@ -341,8 +344,9 @@
             font-family: Arial, sans-serif;
             font-size: 16px;
             box-sizing: border-box;
-            overflow: hidden;
+            overflow-y: auto;
             outline: none;
+            line-height: 1.3;
         }
         .text-toolbar {
             display: flex;
@@ -801,34 +805,46 @@
             });
            
             imagesRef.on('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                console.log("Получены данные изображений:", data);
-                images = data;
-                updateCanvas(data);
-                updateThumbnails();
+                try {
+                    const data = snapshot.val() || {};
+                    console.log("Получены данные изображений:", data);
+                    images = data;
+                    updateCanvas(data);
+                    updateThumbnails();
+                } catch (error) {
+                    console.error("Ошибка при обработке изображений:", error);
+                }
             });
            
             textsRef.on('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                console.log("Получены данные текстов:", data);
-                texts = data;
-                updateTexts(data);
-                updateThumbnails();
+                try {
+                    const data = snapshot.val() || {};
+                    console.log("Получены данные текстов:", data);
+                    texts = data;
+                    updateTexts(data);
+                    updateThumbnails();
+                } catch (error) {
+                    console.error("Ошибка при обработке текстов:", error);
+                }
             });
            
             soundsRef.on('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                console.log("Получены данные звуков:", data);
-                sounds = data;
-                updateThumbnails();
-               
-                if (selectedSoundId && !sounds[selectedSoundId]) {
-                    selectedSoundId = null;
-                    document.getElementById('sound-controls').style.display = 'none';
-                }
-               
-                if (selectedSoundId && sounds[selectedSoundId]) {
-                    updateSoundControls(sounds[selectedSoundId]);
+                try {
+                    const data = snapshot.val() || {};
+                    console.log("Получены данные звуков:", data);
+                    sounds = data;
+                    updateThumbnails();
+                   
+                    if (selectedSoundId && !sounds[selectedSoundId]) {
+                        selectedSoundId = null;
+                        document.getElementById('sound-controls').style.display = 'none';
+                    }
+                   
+                    if (selectedSoundId && sounds[selectedSoundId]) {
+                        updateSoundControls(sounds[selectedSoundId]);
+                    }
+                } catch (error) {
+                    console.error("Ошибка при обработке звуков:", error);
                 }
             });
            
@@ -860,154 +876,192 @@
         }
         
         function showSimpleTextInput() {
-            deselectAllElements();
-            const panel = document.getElementById('simple-text-input');
-            const textarea = document.getElementById('text-input-area');
-            
-            // Позиция по центру экрана
-            const canvasWrapper = document.getElementById('canvas-wrapper');
-            const centerX = canvasWrapper.offsetWidth / 2;
-            const centerY = canvasWrapper.offsetHeight / 2;
-            
-            panel.style.left = (canvasWrapper.offsetLeft + centerX) + 'px';
-            panel.style.top = (canvasWrapper.offsetTop + centerY) + 'px';
-            panel.style.display = 'block';
-            
-            textarea.value = '';
-            textarea.style.fontSize = '16px';
-            textarea.style.color = '#000000';
-            textarea.style.fontFamily = "'Comic Sans MS', cursive";
-            
-            document.getElementById('font-size-slider').value = 16;
-            document.getElementById('text-color-picker').value = '#000000';
-            document.getElementById('font-family-select').value = "'Comic Sans MS', cursive";
-            
-            isAddingText = true;
-            textarea.focus();
+            try {
+                deselectAllElements();
+                const panel = document.getElementById('simple-text-input');
+                const textarea = document.getElementById('text-input-area');
+                
+                // Позиция по центру экрана
+                const canvasWrapper = document.getElementById('canvas-wrapper');
+                const centerX = canvasWrapper.offsetWidth / 2;
+                const centerY = canvasWrapper.offsetHeight / 2;
+                
+                panel.style.left = (centerX - 150) + 'px'; // 150 - половина ширины панели
+                panel.style.top = (centerY - 100) + 'px'; // 100 - половина высоты панели
+                panel.style.display = 'block';
+                
+                textarea.value = '';
+                textarea.style.fontSize = '16px';
+                textarea.style.color = '#000000';
+                textarea.style.fontFamily = "'Comic Sans MS', cursive";
+                
+                document.getElementById('font-size-slider').value = 16;
+                document.getElementById('text-color-picker').value = '#000000';
+                document.getElementById('font-family-select').value = "'Comic Sans MS', cursive";
+                
+                isAddingText = true;
+                setTimeout(() => textarea.focus(), 100);
+            } catch (error) {
+                console.error("Ошибка при показе панели текста:", error);
+                alert("Ошибка при открытии панели добавления текста");
+            }
         }
         
         function updateTextPreview() {
-            const textarea = document.getElementById('text-input-area');
-            const fontSize = document.getElementById('font-size-slider').value;
-            const color = document.getElementById('text-color-picker').value;
-            const fontFamily = document.getElementById('font-family-select').value;
-            
-            textarea.style.fontSize = fontSize + 'px';
-            textarea.style.color = color;
-            textarea.style.fontFamily = fontFamily;
-            
-            // Автоматическое изменение размера textarea под текст
-            textarea.style.height = 'auto';
-            textarea.style.height = textarea.scrollHeight + 'px';
+            try {
+                const textarea = document.getElementById('text-input-area');
+                const fontSize = document.getElementById('font-size-slider').value;
+                const color = document.getElementById('text-color-picker').value;
+                const fontFamily = document.getElementById('font-family-select').value;
+                
+                textarea.style.fontSize = fontSize + 'px';
+                textarea.style.color = color;
+                textarea.style.fontFamily = fontFamily;
+                
+                // Автоматическое изменение размера textarea под текст
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight + 10) + 'px';
+            } catch (error) {
+                console.error("Ошибка при обновлении предпросмотра текста:", error);
+            }
         }
         
         function createTextFromSimpleInput() {
-            const text = document.getElementById('text-input-area').value.trim();
-            if (!text) {
-                alert("Введите текст");
-                return;
+            try {
+                const text = document.getElementById('text-input-area').value;
+                if (!text || text.trim() === '') {
+                    alert("Введите текст");
+                    return;
+                }
+                
+                const panel = document.getElementById('simple-text-input');
+                const fontSize = parseInt(document.getElementById('font-size-slider').value) || 16;
+                const color = document.getElementById('text-color-picker').value || '#000000';
+                const fontFamily = document.getElementById('font-family-select').value || "'Comic Sans MS', cursive";
+                
+                const id = 'text_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                
+                // Позиция панели относительно canvas-wrapper
+                const canvasWrapper = document.getElementById('canvas-wrapper');
+                const panelRect = panel.getBoundingClientRect();
+                const canvasRect = canvasWrapper.getBoundingClientRect();
+                
+                const x = panelRect.left - canvasRect.left;
+                const y = panelRect.top - canvasRect.top;
+                
+                // Безопасная очистка текста
+                const cleanText = text.replace(/[^\w\sА-Яа-яЁё.,!?;:()\-—–'"«»\n\r]/g, '');
+                
+                textsRef.child(id).set({
+                    id: id,
+                    text: cleanText,
+                    x: Math.max(0, x),
+                    y: Math.max(0, y),
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily,
+                    opacity: 1,
+                    isNew: true,
+                    locked: false,
+                    display: 'block'
+                });
+                
+                panel.style.display = 'none';
+                isAddingText = false;
+                saveStateToHistory();
+            } catch (error) {
+                console.error("Ошибка при создании текста:", error);
+                alert("Ошибка при добавлении текста. Попробуйте еще раз.");
             }
-            
-            const panel = document.getElementById('simple-text-input');
-            const fontSize = parseInt(document.getElementById('font-size-slider').value);
-            const color = document.getElementById('text-color-picker').value;
-            const fontFamily = document.getElementById('font-family-select').value;
-            
-            const id = 'text_' + Date.now();
-            
-            // Позиция панели относительно canvas-wrapper
-            const canvasRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
-            const panelRect = panel.getBoundingClientRect();
-            
-            const x = panelRect.left - canvasRect.left;
-            const y = panelRect.top - canvasRect.top;
-            
-            textsRef.child(id).set({
-                id: id,
-                text: text,
-                x: x,
-                y: y,
-                fontSize: fontSize,
-                color: color,
-                fontFamily: fontFamily,
-                opacity: 1,
-                isNew: true,
-                locked: false,
-                display: 'block'
-            });
-            
-            panel.style.display = 'none';
-            isAddingText = false;
-            saveStateToHistory();
         }
         
         function cancelSimpleTextInput() {
-            document.getElementById('simple-text-input').style.display = 'none';
-            isAddingText = false;
+            try {
+                document.getElementById('simple-text-input').style.display = 'none';
+                isAddingText = false;
+                // Восстанавливаем стандартный обработчик
+                document.getElementById('apply-text-simple').onclick = createTextFromSimpleInput;
+            } catch (error) {
+                console.error("Ошибка при отмене текста:", error);
+            }
         }
         
         function editSelectedText() {
-            if (!selectedTextId) return;
-           
-            const textElement = document.getElementById(selectedTextId);
-            if (!textElement) return;
-            
-            const panel = document.getElementById('simple-text-input');
-            const textarea = document.getElementById('text-input-area');
-            
-            // Позиционируем панель над текстовым элементом
-            const textRect = textElement.getBoundingClientRect();
-            const canvasRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
-            
-            const x = textRect.left - canvasRect.left;
-            const y = textRect.top - canvasRect.top;
-            
-            panel.style.left = (canvasRect.left + x + textRect.width/2) + 'px';
-            panel.style.top = (canvasRect.top + y + textRect.height/2) + 'px';
-            panel.style.display = 'block';
-            
-            textarea.value = textElement.textContent;
-            textarea.style.fontSize = textElement.style.fontSize;
-            textarea.style.color = textElement.style.color;
-            textarea.style.fontFamily = textElement.style.fontFamily;
-            
-            document.getElementById('font-size-slider').value = parseInt(textElement.style.fontSize);
-            document.getElementById('text-color-picker').value = textElement.style.color;
-            document.getElementById('font-family-select').value = textElement.style.fontFamily;
-            
-            textarea.focus();
-            isAddingText = true;
-            
-            // Удаляем старый текст после начала редактирования
-            document.getElementById('apply-text-simple').onclick = function() {
-                updateTextAfterEdit();
-            };
+            try {
+                if (!selectedTextId) return;
+               
+                const textElement = document.getElementById(selectedTextId);
+                if (!textElement) return;
+                
+                const panel = document.getElementById('simple-text-input');
+                const textarea = document.getElementById('text-input-area');
+                
+                // Позиционируем панель над текстовым элементом
+                const textRect = textElement.getBoundingClientRect();
+                const canvasWrapper = document.getElementById('canvas-wrapper');
+                const canvasRect = canvasWrapper.getBoundingClientRect();
+                
+                const x = Math.max(0, textRect.left - canvasRect.left);
+                const y = Math.max(0, textRect.top - canvasRect.top);
+                
+                panel.style.left = (x - 150 + textRect.width/2) + 'px';
+                panel.style.top = (y - 100 + textRect.height/2) + 'px';
+                panel.style.display = 'block';
+                
+                textarea.value = textElement.textContent || '';
+                textarea.style.fontSize = textElement.style.fontSize || '16px';
+                textarea.style.color = textElement.style.color || '#000000';
+                textarea.style.fontFamily = textElement.style.fontFamily || "'Comic Sans MS', cursive";
+                
+                document.getElementById('font-size-slider').value = parseInt(textElement.style.fontSize) || 16;
+                document.getElementById('text-color-picker').value = textElement.style.color || '#000000';
+                document.getElementById('font-family-select').value = textElement.style.fontFamily || "'Comic Sans MS', cursive";
+                
+                isAddingText = true;
+                setTimeout(() => textarea.focus(), 100);
+                
+                // Удаляем старый текст после начала редактирования
+                document.getElementById('apply-text-simple').onclick = function() {
+                    updateTextAfterEdit();
+                };
+            } catch (error) {
+                console.error("Ошибка при редактировании текста:", error);
+                alert("Ошибка при редактировании текста");
+            }
         }
         
         function updateTextAfterEdit() {
-            const text = document.getElementById('text-input-area').value.trim();
-            if (!text) {
-                alert("Текст не может быть пустым");
-                return;
+            try {
+                const text = document.getElementById('text-input-area').value;
+                if (!text || text.trim() === '') {
+                    alert("Текст не может быть пустым");
+                    return;
+                }
+                
+                const fontSize = parseInt(document.getElementById('font-size-slider').value) || 16;
+                const color = document.getElementById('text-color-picker').value || '#000000';
+                const fontFamily = document.getElementById('font-family-select').value || "'Comic Sans MS', cursive";
+                
+                // Безопасная очистка текста
+                const cleanText = text.replace(/[^\w\sА-Яа-яЁё.,!?;:()\-—–'"«»\n\r]/g, '');
+                
+                textsRef.child(selectedTextId).update({
+                    text: cleanText,
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily
+                });
+                
+                document.getElementById('simple-text-input').style.display = 'none';
+                isAddingText = false;
+                saveStateToHistory();
+                
+                // Восстанавливаем стандартный обработчик
+                document.getElementById('apply-text-simple').onclick = createTextFromSimpleInput;
+            } catch (error) {
+                console.error("Ошибка при обновлении текста:", error);
+                alert("Ошибка при сохранении изменений");
             }
-            
-            const fontSize = parseInt(document.getElementById('font-size-slider').value);
-            const color = document.getElementById('text-color-picker').value;
-            const fontFamily = document.getElementById('font-family-select').value;
-            
-            textsRef.child(selectedTextId).update({
-                text: text,
-                fontSize: fontSize,
-                color: color,
-                fontFamily: fontFamily
-            });
-            
-            document.getElementById('simple-text-input').style.display = 'none';
-            isAddingText = false;
-            saveStateToHistory();
-            
-            // Восстанавливаем стандартный обработчик
-            document.getElementById('apply-text-simple').onclick = createTextFromSimpleInput;
         }
         
         function showTTSPanel() {
@@ -1254,11 +1308,12 @@
            
             const textPreview = document.createElement('div');
             textPreview.className = 'text-thumbnail';
-            textPreview.textContent = textData.text.length > 10
-                ? textData.text.substring(0, 10) + '...'
-                : textData.text;
+            const previewText = textData.text || '';
+            textPreview.textContent = previewText.length > 10
+                ? previewText.substring(0, 10) + '...'
+                : previewText;
             textPreview.style.fontSize = '10px';
-            textPreview.style.color = textData.color;
+            textPreview.style.color = textData.color || '#000000';
             textPreview.style.fontFamily = textData.fontFamily || "'Comic Sans MS', cursive";
             thumbnail.appendChild(textPreview);
            
@@ -1539,7 +1594,7 @@
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    const id = 'img_' + Date.now();
+                    const id = 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                     const x = 100;
                     const y = 100;
                    
@@ -1558,7 +1613,13 @@
                     });
                     saveStateToHistory();
                 };
+                img.onerror = () => {
+                    alert("Ошибка загрузки изображения");
+                };
                 img.src = event.target.result;
+            };
+            reader.onerror = () => {
+                alert("Ошибка чтения файла");
             };
             reader.readAsDataURL(file);
             e.target.value = '';
@@ -1570,7 +1631,7 @@
            
             const reader = new FileReader();
             reader.onload = (event) => {
-                const id = 'sound_' + Date.now();
+                const id = 'sound_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                
                 soundsRef.child(id).set({
                     id: id,
@@ -1897,9 +1958,9 @@
             textEl.className = 'draggable-text';
             textEl.style.left = textData.x + 'px';
             textEl.style.top = textData.y + 'px';
-            textEl.textContent = textData.text;
-            textEl.style.fontSize = textData.fontSize + 'px';
-            textEl.style.color = textData.color;
+            textEl.textContent = textData.text || '';
+            textEl.style.fontSize = (textData.fontSize || 16) + 'px';
+            textEl.style.color = textData.color || '#000000';
            
             if (textData.fontFamily) {
                 textEl.style.fontFamily = textData.fontFamily;
@@ -1937,6 +1998,13 @@
                 if (e.target.classList.contains('resize-handle')) return;
                 startTextSelect(e);
             }, { passive: false });
+           
+            // Двойной клик для редактирования
+            textEl.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                editSelectedText();
+            });
            
             return textEl;
         }
@@ -2041,9 +2109,9 @@
         }
        
         function updateTextContent(textEl, textData) {
-            textEl.textContent = textData.text;
-            textEl.style.fontSize = textData.fontSize + 'px';
-            textEl.style.color = textData.color;
+            textEl.textContent = textData.text || '';
+            textEl.style.fontSize = (textData.fontSize || 16) + 'px';
+            textEl.style.color = textData.color || '#000000';
             if (textData.fontFamily) {
                 textEl.style.fontFamily = textData.fontFamily;
             }

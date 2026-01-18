@@ -188,7 +188,7 @@
         .draggable-image img {
             width: 100%;
             height: 100%;
-            object-fit: fill;
+            object-fit: contain;
             pointer-events: none;
             display: block;
             background-color: transparent !important;
@@ -230,6 +230,22 @@
             z-index: 10;
             opacity: 0;
             transition: opacity 0.2s;
+            cursor: pointer;
+        }
+        .rotate-handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #4caf50;
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: grab;
+            top: -30px;
+            left: 50%;
+            margin-left: -8px;
         }
         .resize-n {
             top: -5px;
@@ -274,21 +290,6 @@
             top: -5px;
             left: -5px;
             cursor: nw-resize;
-        }
-        .rotate-handle {
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            background-color: #34a853;
-            border: 2px solid white;
-            border-radius: 50%;
-            z-index: 10;
-            opacity: 0;
-            transition: opacity 0.2s;
-            top: -25px;
-            left: 50%;
-            margin-left: -8px;
-            cursor: grab;
         }
         .selected:not(.locked) .resize-handle,
         .selected:not(.locked) .rotate-handle {
@@ -339,60 +340,6 @@
             margin-bottom: 10px;
         }
         
-        .transform-panel {
-            position: absolute;
-            top: 120px;
-            right: 20px;
-            background: white;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 100;
-            display: none;
-            width: 250px;
-        }
-        .transform-panel h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #333;
-        }
-        .transform-control {
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-            gap: 10px;
-        }
-        .transform-control label {
-            min-width: 100px;
-            font-size: 14px;
-        }
-        .transform-control input[type="range"] {
-            flex: 1;
-        }
-        .transform-value {
-            min-width: 40px;
-            text-align: center;
-            font-size: 14px;
-        }
-        .transform-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        .transform-buttons button {
-            flex: 1;
-        }
-        #flip-horizontal-btn {
-            background: #fbbc05;
-        }
-        #flip-vertical-btn {
-            background: #ea4335;
-        }
-        #reset-transform-btn {
-            background: #666;
-        }
-        
-        /* Упрощенная панель добавления текста */
         #simple-text-input {
             position: absolute;
             z-index: 1000;
@@ -537,63 +484,20 @@
         #tts-stop-btn {
             background: #f44336;
         }
-        
-        .rotation-indicator {
+        .rotate-indicator {
             position: absolute;
-            bottom: -30px;
+            top: -20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 3px;
             font-size: 12px;
-            white-space: nowrap;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .dragging .rotation-indicator {
-            opacity: 1;
-        }
-        
-        /* Модальное окно для URL */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            display: none;
-            justify-content: center;
-            align-items: center;
-        }
-        .modal {
+            color: #4caf50;
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            min-width: 400px;
-            max-width: 600px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: none;
         }
-        .modal h3 {
-            margin-top: 0;
-            margin-bottom: 15px;
-        }
-        .modal input[type="url"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
+        .selected .rotate-indicator {
+            display: block;
         }
     </style>
 </head>
@@ -604,8 +508,6 @@
             <button id="add-text-btn">Добавить текст</button>
             <button id="add-sound-btn">Добавить звук</button>
             <button id="speak-text-btn">Озвучить текст</button>
-            <button id="load-from-url-btn">Загрузить из URL</button>
-            <button id="transform-btn">Трансформация</button>
             <button id="clear-btn">Очистить</button>
            
             <div id="thumbnails-container">
@@ -617,6 +519,10 @@
                 <button id="delete-btn">Удалить</button>
                 <button id="settings-btn">Настройки</button>
                 <button id="lock-btn">Закрепить</button>
+                <button id="flip-h-btn">Отразить по гориз.</button>
+                <button id="flip-v-btn">Отразить по верт.</button>
+                <input type="range" id="rotate-slider" min="-180" max="180" value="0" style="width: 100px;">
+                <span id="rotate-value">0°</span>
             </div>
            
             <div id="text-controls">
@@ -648,18 +554,6 @@
         </div>
     </div>
     
-    <!-- Модальное окно для загрузки по URL -->
-    <div id="url-modal" class="modal-overlay">
-        <div class="modal">
-            <h3>Загрузить изображение по URL</h3>
-            <input type="url" id="url-input" placeholder="https://lowka227.github.io/sd/example.png" value="https://lowka227.github.io/sd/">
-            <div class="modal-buttons">
-                <button id="cancel-url">Отмена</button>
-                <button id="load-url" style="background: #4285f4;">Загрузить</button>
-            </div>
-        </div>
-    </div>
-    
     <!-- Упрощенная панель добавления текста -->
     <div id="simple-text-input">
         <textarea id="text-input-area" placeholder="Введите текст..."></textarea>
@@ -688,48 +582,6 @@
             <input type="range" id="brightness-slider" min="0" max="200" value="100">
         </label>
         <button id="close-properties">Закрыть</button>
-    </div>
-    
-    <div class="transform-panel" id="transform-panel">
-        <h3>Трансформация изображения</h3>
-        
-        <div class="transform-control">
-            <label>Поворот:</label>
-            <input type="range" id="rotation-slider" min="0" max="360" value="0">
-            <span class="transform-value" id="rotation-value">0°</span>
-        </div>
-        
-        <div class="transform-control">
-            <label>Масштаб X:</label>
-            <input type="range" id="scale-x-slider" min="10" max="300" value="100">
-            <span class="transform-value" id="scale-x-value">100%</span>
-        </div>
-        
-        <div class="transform-control">
-            <label>Масштаб Y:</label>
-            <input type="range" id="scale-y-slider" min="10" max="300" value="100">
-            <span class="transform-value" id="scale-y-value">100%</span>
-        </div>
-        
-        <div class="transform-control">
-            <label>Искажение X:</label>
-            <input type="range" id="skew-x-slider" min="-50" max="50" value="0">
-            <span class="transform-value" id="skew-x-value">0°</span>
-        </div>
-        
-        <div class="transform-control">
-            <label>Искажение Y:</label>
-            <input type="range" id="skew-y-slider" min="-50" max="50" value="0">
-            <span class="transform-value" id="skew-y-value">0°</span>
-        </div>
-        
-        <div class="transform-buttons">
-            <button id="flip-horizontal-btn">Отразить по горизонтали</button>
-            <button id="flip-vertical-btn">Отразить по вертикали</button>
-            <button id="reset-transform-btn">Сбросить</button>
-        </div>
-        
-        <button id="close-transform" style="margin-top: 10px; width: 100%; background: #666;">Закрыть</button>
     </div>
    
     <div id="tts-panel">
@@ -806,6 +658,7 @@
         let startX = 0, startY = 0;
         let startWidth = 0, startHeight = 0;
         let startLeft = 0, startTop = 0;
+        let startRotation = 0;
         let selectedImageId = null;
         let selectedTextId = null;
         let selectedSoundId = null;
@@ -814,13 +667,7 @@
         let resizeDirection = null;
         let isAddingText = false;
         let soundInterval = null;
-        
-        let rotateCenterX = 0;
-        let rotateCenterY = 0;
-        let initialAngle = 0;
         let isRotating = false;
-        let isFlippedHorizontal = false;
-        let isFlippedVertical = false;
        
         let speechSynthesis = window.speechSynthesis;
         let speechUtterance = null;
@@ -837,30 +684,6 @@
                 document.getElementById('properties-panel').style.display = 'none';
             });
            
-            // Загрузка из URL
-            document.getElementById('load-from-url-btn').addEventListener('click', showURLModal);
-            document.getElementById('cancel-url').addEventListener('click', hideURLModal);
-            document.getElementById('load-url').addEventListener('click', loadImageFromURL);
-            document.getElementById('url-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    loadImageFromURL();
-                }
-            });
-           
-            // Кнопка трансформации
-            document.getElementById('transform-btn').addEventListener('click', showTransformPanel);
-            document.getElementById('close-transform').addEventListener('click', closeTransformPanel);
-            
-            // Управление трансформацией
-            document.getElementById('rotation-slider').addEventListener('input', updateRotationFromSlider);
-            document.getElementById('scale-x-slider').addEventListener('input', updateScaleXFromSlider);
-            document.getElementById('scale-y-slider').addEventListener('input', updateScaleYFromSlider);
-            document.getElementById('skew-x-slider').addEventListener('input', updateSkewXFromSlider);
-            document.getElementById('skew-y-slider').addEventListener('input', updateSkewYFromSlider);
-            document.getElementById('flip-horizontal-btn').addEventListener('click', flipHorizontal);
-            document.getElementById('flip-vertical-btn').addEventListener('click', flipVertical);
-            document.getElementById('reset-transform-btn').addEventListener('click', resetTransform);
-            
             // Упрощенное добавление текста
             document.getElementById('add-text-btn').addEventListener('click', showSimpleTextInput);
             document.getElementById('apply-text-simple').addEventListener('click', createTextFromSimpleInput);
@@ -882,6 +705,27 @@
             document.getElementById('pause-btn').addEventListener('click', pauseSound);
             document.getElementById('delete-sound-btn').addEventListener('click', deleteSound);
             document.getElementById('volume-slider').addEventListener('input', updateVolume);
+           
+            // Новые обработчики для поворота и отражения
+            document.getElementById('rotate-slider').addEventListener('input', function() {
+                const value = this.value;
+                document.getElementById('rotate-value').textContent = value + '°';
+                if (selectedImageId) {
+                    rotateImage(selectedImageId, value);
+                }
+            });
+           
+            document.getElementById('flip-h-btn').addEventListener('click', () => {
+                if (selectedImageId) {
+                    flipImageHorizontal(selectedImageId);
+                }
+            });
+           
+            document.getElementById('flip-v-btn').addEventListener('click', () => {
+                if (selectedImageId) {
+                    flipImageVertical(selectedImageId);
+                }
+            });
            
             initTTS();
            
@@ -1079,11 +923,6 @@
                 if (e.key === 'Enter' && e.ctrlKey && isAddingText) {
                     createTextFromSimpleInput();
                 }
-                if (e.key === 'Escape') {
-                    hideURLModal();
-                    closeTransformPanel();
-                    closeTTSPanel();
-                }
             });
            
             const audioElement = document.getElementById('audio-element');
@@ -1095,441 +934,6 @@
             console.log("Приложение инициализировано");
         }
         
-        // Функции для загрузки из URL
-        function showURLModal() {
-            const modal = document.getElementById('url-modal');
-            const input = document.getElementById('url-input');
-            input.value = 'https://lowka227.github.io/sd/';
-            input.focus();
-            modal.style.display = 'flex';
-        }
-        
-        function hideURLModal() {
-            document.getElementById('url-modal').style.display = 'none';
-        }
-        
-        function loadImageFromURL() {
-            const urlInput = document.getElementById('url-input');
-            let url = urlInput.value.trim();
-            
-            if (!url) {
-                alert("Введите URL изображения");
-                return;
-            }
-            
-            // Проверяем URL
-            if (!isValidURL(url)) {
-                alert("Пожалуйста, введите корректный URL");
-                return;
-            }
-            
-            // Если URL заканчивается на /, добавляем test.png для примера
-            if (url.endsWith('/')) {
-                url = url + 'test.png';
-            }
-            
-            // Показываем статус загрузки
-            document.getElementById('status').textContent = 'Загрузка...';
-            document.getElementById('status').style.color = '#fbbc05';
-            
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            
-            img.onload = function() {
-                const id = 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                const x = 100;
-                const y = 100;
-                
-                // Ограничиваем размер если изображение слишком большое
-                const maxWidth = 800;
-                const maxHeight = 600;
-                let width = img.width;
-                let height = img.height;
-                
-                if (width > maxWidth || height > maxHeight) {
-                    const ratio = Math.min(maxWidth / width, maxHeight / height);
-                    width = Math.floor(width * ratio);
-                    height = Math.floor(height * ratio);
-                }
-                
-                // Создаем canvas для конвертации в data URL
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                
-                const dataURL = canvas.toDataURL('image/png');
-                
-                imagesRef.child(id).set({
-                    id: id,
-                    src: dataURL,
-                    x: x,
-                    y: y,
-                    width: width,
-                    height: height,
-                    opacity: 1,
-                    brightness: 100,
-                    isNew: true,
-                    locked: false,
-                    display: 'block',
-                    source: 'url',
-                    originalUrl: url
-                });
-                
-                saveStateToHistory();
-                hideURLModal();
-                document.getElementById('status').textContent = 'Синхронизировано';
-                document.getElementById('status').style.color = '#666';
-            };
-            
-            img.onerror = function() {
-                alert("Не удалось загрузить изображение по указанному URL\n" + 
-                      "Проверьте правильность URL и доступность изображения");
-                document.getElementById('status').textContent = 'Ошибка загрузки';
-                document.getElementById('status').style.color = '#ea4335';
-                setTimeout(() => {
-                    document.getElementById('status').textContent = 'Синхронизировано';
-                    document.getElementById('status').style.color = '#666';
-                }, 3000);
-            };
-            
-            img.src = url;
-        }
-        
-        function isValidURL(string) {
-            try {
-                new URL(string);
-                return true;
-            } catch (_) {
-                return false;
-            }
-        }
-        
-        // Функции трансформации
-        function showTransformPanel() {
-            if (!selectedImageId) {
-                alert("Сначала выберите изображение");
-                return;
-            }
-            
-            const panel = document.getElementById('transform-panel');
-            const imgElement = document.getElementById(selectedImageId);
-            
-            if (!imgElement) return;
-            
-            const style = window.getComputedStyle(imgElement);
-            const transform = style.transform || 'none';
-            
-            let rotation = 0;
-            let scaleX = 100;
-            let scaleY = 100;
-            let skewX = 0;
-            let skewY = 0;
-            
-            if (transform !== 'none') {
-                const matrix = new DOMMatrix(transform);
-                
-                rotation = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI);
-                if (rotation < 0) rotation += 360;
-                
-                const scaleXSign = matrix.a < 0 ? -1 : 1;
-                const scaleYSign = matrix.d < 0 ? -1 : 1;
-                scaleX = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b) * 100 * scaleXSign;
-                scaleY = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d) * 100 * scaleYSign;
-                
-                skewX = Math.atan2(matrix.c, matrix.d) * (180 / Math.PI);
-                skewY = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI) - rotation;
-            }
-            
-            // Убираем отражение из расчета scale
-            scaleX = Math.abs(scaleX);
-            scaleY = Math.abs(scaleY);
-            
-            // Проверяем отражения
-            const currentTransform = imgElement.style.transform || '';
-            isFlippedHorizontal = currentTransform.includes('scaleX(-1)') || scaleX < 0;
-            isFlippedVertical = currentTransform.includes('scaleY(-1)') || scaleY < 0;
-            
-            document.getElementById('rotation-slider').value = rotation;
-            document.getElementById('rotation-value').textContent = rotation.toFixed(0) + '°';
-            
-            document.getElementById('scale-x-slider').value = scaleX;
-            document.getElementById('scale-x-value').textContent = scaleX.toFixed(0) + '%';
-            
-            document.getElementById('scale-y-slider').value = scaleY;
-            document.getElementById('scale-y-value').textContent = scaleY.toFixed(0) + '%';
-            
-            document.getElementById('skew-x-slider').value = skewX;
-            document.getElementById('skew-x-value').textContent = skewX.toFixed(0) + '°';
-            
-            document.getElementById('skew-y-slider').value = skewY;
-            document.getElementById('skew-y-value').textContent = skewY.toFixed(0) + '°';
-            
-            panel.style.display = 'block';
-        }
-        
-        function closeTransformPanel() {
-            document.getElementById('transform-panel').style.display = 'none';
-        }
-        
-        function updateRotationFromSlider() {
-            if (!selectedImageId) return;
-            
-            const rotation = parseInt(this.value);
-            document.getElementById('rotation-value').textContent = rotation + '°';
-            
-            applyTransform();
-        }
-        
-        function updateScaleXFromSlider() {
-            if (!selectedImageId) return;
-            
-            const scaleX = parseInt(this.value);
-            document.getElementById('scale-x-value').textContent = scaleX + '%';
-            
-            applyTransform();
-        }
-        
-        function updateScaleYFromSlider() {
-            if (!selectedImageId) return;
-            
-            const scaleY = parseInt(this.value);
-            document.getElementById('scale-y-value').textContent = scaleY + '%';
-            
-            applyTransform();
-        }
-        
-        function updateSkewXFromSlider() {
-            if (!selectedImageId) return;
-            
-            const skewX = parseInt(this.value);
-            document.getElementById('skew-x-value').textContent = skewX + '°';
-            
-            applyTransform();
-        }
-        
-        function updateSkewYFromSlider() {
-            if (!selectedImageId) return;
-            
-            const skewY = parseInt(this.value);
-            document.getElementById('skew-y-value').textContent = skewY + '°';
-            
-            applyTransform();
-        }
-        
-        function applyTransform() {
-            if (!selectedImageId) return;
-            
-            const imgElement = document.getElementById(selectedImageId);
-            if (!imgElement) return;
-            
-            const rotation = parseInt(document.getElementById('rotation-slider').value);
-            const scaleX = parseInt(document.getElementById('scale-x-slider').value) / 100;
-            const scaleY = parseInt(document.getElementById('scale-y-slider').value) / 100;
-            const skewX = parseInt(document.getElementById('skew-x-slider').value);
-            const skewY = parseInt(document.getElementById('skew-y-slider').value);
-            
-            let transform = '';
-            
-            if (rotation !== 0) {
-                transform += `rotate(${rotation}deg) `;
-            }
-            
-            if (skewX !== 0) {
-                transform += `skewX(${skewX}deg) `;
-            }
-            if (skewY !== 0) {
-                transform += `skewY(${skewY}deg) `;
-            }
-            
-            // Применяем масштабирование и отражение отдельно
-            let scaleTransform = '';
-            let finalScaleX = scaleX;
-            let finalScaleY = scaleY;
-            
-            if (isFlippedHorizontal) {
-                finalScaleX *= -1;
-            }
-            if (isFlippedVertical) {
-                finalScaleY *= -1;
-            }
-            
-            if (finalScaleX !== 1 || finalScaleY !== 1) {
-                scaleTransform = `scale(${finalScaleX}, ${finalScaleY})`;
-            }
-            
-            transform += scaleTransform;
-            
-            imgElement.style.transform = transform.trim();
-            
-            imagesRef.child(selectedImageId).update({
-                transform: transform.trim(),
-                rotation: rotation,
-                scaleX: scaleX * 100,
-                scaleY: scaleY * 100,
-                skewX: skewX,
-                skewY: skewY,
-                flippedHorizontal: isFlippedHorizontal,
-                flippedVertical: isFlippedVertical
-            });
-            
-            saveStateToHistory();
-        }
-        
-        function flipHorizontal() {
-            if (!selectedImageId) return;
-            
-            isFlippedHorizontal = !isFlippedHorizontal;
-            applyTransform();
-        }
-        
-        function flipVertical() {
-            if (!selectedImageId) return;
-            
-            isFlippedVertical = !isFlippedVertical;
-            applyTransform();
-        }
-        
-        function resetTransform() {
-            if (!selectedImageId) return;
-            
-            document.getElementById('rotation-slider').value = 0;
-            document.getElementById('scale-x-slider').value = 100;
-            document.getElementById('scale-y-slider').value = 100;
-            document.getElementById('skew-x-slider').value = 0;
-            document.getElementById('skew-y-slider').value = 0;
-            
-            document.getElementById('rotation-value').textContent = '0°';
-            document.getElementById('scale-x-value').textContent = '100%';
-            document.getElementById('scale-y-value').textContent = '100%';
-            document.getElementById('skew-x-value').textContent = '0°';
-            document.getElementById('skew-y-value').textContent = '0°';
-            
-            isFlippedHorizontal = false;
-            isFlippedVertical = false;
-            
-            applyTransform();
-        }
-        
-        function startRotation(e) {
-            if (!selectedImageId) return;
-            
-            const imgElement = document.getElementById(selectedImageId);
-            if (!imgElement || imgElement.classList.contains('locked')) return;
-            
-            e.preventDefault();
-            e.stopPropagation();
-            
-            isRotating = true;
-            activeInteraction = 'rotate';
-            activeElement = imgElement;
-            
-            const rect = imgElement.getBoundingClientRect();
-            rotateCenterX = rect.left + rect.width / 2;
-            rotateCenterY = rect.top + rect.height / 2;
-            
-            const style = window.getComputedStyle(imgElement);
-            const transform = style.transform || 'none';
-            let currentRotation = 0;
-            
-            if (transform !== 'none') {
-                const matrix = new DOMMatrix(transform);
-                currentRotation = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI);
-                if (currentRotation < 0) currentRotation += 360;
-            }
-            
-            initialAngle = currentRotation;
-            
-            let rotationIndicator = imgElement.querySelector('.rotation-indicator');
-            if (!rotationIndicator) {
-                rotationIndicator = document.createElement('div');
-                rotationIndicator.className = 'rotation-indicator';
-                imgElement.appendChild(rotationIndicator);
-            }
-            imgElement.classList.add('dragging');
-            
-            if (e.type === 'touchstart') {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-            } else {
-                startX = e.clientX;
-                startY = e.clientY;
-            }
-        }
-        
-        function updateRotation(e) {
-            if (!isRotating || !activeElement) return;
-            
-            let clientX, clientY;
-            
-            if (e.type === 'touchmove') {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            }
-            
-            const dx = clientX - rotateCenterX;
-            const dy = clientY - rotateCenterY;
-            const currentAngle = Math.atan2(dy, dx) * (180 / Math.PI);
-            
-            const startDx = startX - rotateCenterX;
-            const startDy = startY - rotateCenterY;
-            const startAngle = Math.atan2(startDy, startDx) * (180 / Math.PI);
-            
-            let deltaAngle = currentAngle - startAngle;
-            
-            let newRotation = initialAngle + deltaAngle;
-            if (newRotation < 0) newRotation += 360;
-            if (newRotation >= 360) newRotation -= 360;
-            
-            const rotationIndicator = activeElement.querySelector('.rotation-indicator');
-            if (rotationIndicator) {
-                rotationIndicator.textContent = newRotation.toFixed(0) + '°';
-            }
-            
-            const style = window.getComputedStyle(activeElement);
-            const currentTransform = style.transform || 'none';
-            
-            let transform = currentTransform.replace(/rotate\([^)]*\)\s*/g, '');
-            
-            transform = `rotate(${newRotation}deg) ${transform}`.trim();
-            
-            activeElement.style.transform = transform;
-            
-            document.getElementById('rotation-slider').value = newRotation;
-            document.getElementById('rotation-value').textContent = newRotation.toFixed(0) + '°';
-            
-            imagesRef.child(activeElement.id).update({
-                transform: transform,
-                rotation: newRotation
-            });
-        }
-        
-        function endRotation() {
-            if (isRotating && activeElement) {
-                saveStateToHistory();
-                
-                const rotationIndicator = activeElement.querySelector('.rotation-indicator');
-                if (rotationIndicator) {
-                    setTimeout(() => {
-                        activeElement.classList.remove('dragging');
-                    }, 300);
-                }
-            }
-            
-            isRotating = false;
-            activeInteraction = null;
-            activeElement = null;
-        }
-        
-        // Остальные функции (handleMove, endInteraction, и т.д.) остаются такими же
-        // как в предыдущем коде, я их пропущу для краткости
-        // Вы можете скопировать их из предыдущего ответа
-        
-        // Инициализация остальных функций
         function showSimpleTextInput() {
             try {
                 deselectAllElements();
@@ -1561,16 +965,1488 @@
             }
         }
         
-        // ... [остальные функции такие же как в предыдущем коде] ...
-        // Для экономии места пропущу их, но они должны быть в полном коде
+        function updateTextPreview() {
+            try {
+                const textarea = document.getElementById('text-input-area');
+                const fontSize = document.getElementById('font-size-slider').value;
+                const color = document.getElementById('text-color-picker').value;
+                const fontFamily = document.getElementById('font-family-select').value;
+                
+                textarea.style.fontSize = fontSize + 'px';
+                textarea.style.color = color;
+                textarea.style.fontFamily = fontFamily;
+                
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight + 10) + 'px';
+            } catch (error) {
+                console.error("Ошибка при обновлении предпросмотра текста:", error);
+            }
+        }
         
-        // Важные функции для завершения
-        function handleMove(e) {
-            if (isRotating) {
-                updateRotation(e);
-                return;
+        function createTextFromSimpleInput() {
+            try {
+                const text = document.getElementById('text-input-area').value;
+                if (!text || text.trim() === '') {
+                    alert("Введите текст");
+                    return;
+                }
+                
+                const panel = document.getElementById('simple-text-input');
+                const fontSize = parseInt(document.getElementById('font-size-slider').value) || 16;
+                const color = document.getElementById('text-color-picker').value || '#000000';
+                const fontFamily = document.getElementById('font-family-select').value || "'Comic Sans MS', cursive";
+                
+                const id = 'text_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                
+                const canvasWrapper = document.getElementById('canvas-wrapper');
+                const panelRect = panel.getBoundingClientRect();
+                const canvasRect = canvasWrapper.getBoundingClientRect();
+                
+                const x = panelRect.left - canvasRect.left;
+                const y = panelRect.top - canvasRect.top;
+                
+                const cleanText = text.replace(/[^\w\sА-Яа-яЁё.,!?;:()\-—–'"«»\n\r]/g, '');
+                
+                textsRef.child(id).set({
+                    id: id,
+                    text: cleanText,
+                    x: Math.max(0, x),
+                    y: Math.max(0, y),
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily,
+                    opacity: 1,
+                    isNew: true,
+                    locked: false,
+                    display: 'block'
+                });
+                
+                panel.style.display = 'none';
+                isAddingText = false;
+                saveStateToHistory();
+            } catch (error) {
+                console.error("Ошибка при создании текста:", error);
+                alert("Ошибка при добавлении текста. Попробуйте еще раз.");
+            }
+        }
+        
+        function cancelSimpleTextInput() {
+            try {
+                document.getElementById('simple-text-input').style.display = 'none';
+                isAddingText = false;
+                document.getElementById('apply-text-simple').onclick = createTextFromSimpleInput;
+            } catch (error) {
+                console.error("Ошибка при отмене текста:", error);
+            }
+        }
+        
+        function editSelectedText() {
+            try {
+                if (!selectedTextId) return;
+               
+                const textElement = document.getElementById(selectedTextId);
+                if (!textElement) return;
+                
+                const panel = document.getElementById('simple-text-input');
+                const textarea = document.getElementById('text-input-area');
+                
+                const textRect = textElement.getBoundingClientRect();
+                const canvasWrapper = document.getElementById('canvas-wrapper');
+                const canvasRect = canvasWrapper.getBoundingClientRect();
+                
+                const x = Math.max(0, textRect.left - canvasRect.left);
+                const y = Math.max(0, textRect.top - canvasRect.top);
+                
+                panel.style.left = (x - 150 + textRect.width/2) + 'px';
+                panel.style.top = (y - 100 + textRect.height/2) + 'px';
+                panel.style.display = 'block';
+                
+                textarea.value = textElement.textContent || '';
+                textarea.style.fontSize = textElement.style.fontSize || '16px';
+                textarea.style.color = textElement.style.color || '#000000';
+                textarea.style.fontFamily = textElement.style.fontFamily || "'Comic Sans MS', cursive";
+                
+                document.getElementById('font-size-slider').value = parseInt(textElement.style.fontSize) || 16;
+                document.getElementById('text-color-picker').value = textElement.style.color || '#000000';
+                document.getElementById('font-family-select').value = textElement.style.fontFamily || "'Comic Sans MS', cursive";
+                
+                isAddingText = true;
+                setTimeout(() => textarea.focus(), 100);
+                
+                document.getElementById('apply-text-simple').onclick = function() {
+                    updateTextAfterEdit();
+                };
+            } catch (error) {
+                console.error("Ошибка при редактировании текста:", error);
+                alert("Ошибка при редактировании текста");
+            }
+        }
+        
+        function updateTextAfterEdit() {
+            try {
+                const text = document.getElementById('text-input-area').value;
+                if (!text || text.trim() === '') {
+                    alert("Текст не может быть пустым");
+                    return;
+                }
+                
+                const fontSize = parseInt(document.getElementById('font-size-slider').value) || 16;
+                const color = document.getElementById('text-color-picker').value || '#000000';
+                const fontFamily = document.getElementById('font-family-select').value || "'Comic Sans MS', cursive";
+                
+                const cleanText = text.replace(/[^\w\sА-Яа-яЁё.,!?;:()\-—–'"«»\n\r]/g, '');
+                
+                textsRef.child(selectedTextId).update({
+                    text: cleanText,
+                    fontSize: fontSize,
+                    color: color,
+                    fontFamily: fontFamily
+                });
+                
+                document.getElementById('simple-text-input').style.display = 'none';
+                isAddingText = false;
+                saveStateToHistory();
+                
+                document.getElementById('apply-text-simple').onclick = createTextFromSimpleInput;
+            } catch (error) {
+                console.error("Ошибка при обновлении текста:", error);
+                alert("Ошибка при сохранении изменений");
+            }
+        }
+        
+        // Функции для поворота и отражения
+        function rotateImage(imageId, angle) {
+            const imgElement = document.getElementById(imageId);
+            if (!imgElement) return;
+            
+            const currentTransform = imgElement.style.transform || '';
+            let transform = currentTransform;
+            
+            // Удаляем старый поворот
+            transform = transform.replace(/rotate\([^)]+\)\s*/g, '');
+            
+            // Добавляем новый поворот
+            transform = `rotate(${angle}deg) ${transform}`.trim();
+            
+            // Удаляем старые отражения
+            transform = transform.replace(/scaleX\([^)]+\)\s*/g, '');
+            transform = transform.replace(/scaleY\([^)]+\)\s*/g, '');
+            
+            // Добавляем отражения если они есть
+            if (imgElement.dataset.flipH === 'true') {
+                transform += ' scaleX(-1)';
+            }
+            if (imgElement.dataset.flipV === 'true') {
+                transform += ' scaleY(-1)';
             }
             
+            imgElement.style.transform = transform;
+            
+            // Сохраняем угол поворота
+            imagesRef.child(imageId).update({
+                rotation: parseInt(angle)
+            });
+            
+            saveStateToHistory();
+        }
+        
+        function flipImageHorizontal(imageId) {
+            const imgElement = document.getElementById(imageId);
+            if (!imgElement) return;
+            
+            const isFlipped = imgElement.dataset.flipH === 'true';
+            const newFlipState = !isFlipped;
+            
+            imgElement.dataset.flipH = newFlipState.toString();
+            
+            // Применяем трансформацию
+            applyTransformations(imgElement);
+            
+            imagesRef.child(imageId).update({
+                flipHorizontal: newFlipState
+            });
+            
+            saveStateToHistory();
+        }
+        
+        function flipImageVertical(imageId) {
+            const imgElement = document.getElementById(imageId);
+            if (!imgElement) return;
+            
+            const isFlipped = imgElement.dataset.flipV === 'true';
+            const newFlipState = !isFlipped;
+            
+            imgElement.dataset.flipV = newFlipState.toString();
+            
+            // Применяем трансформацию
+            applyTransformations(imgElement);
+            
+            imagesRef.child(imageId).update({
+                flipVertical: newFlipState
+            });
+            
+            saveStateToHistory();
+        }
+        
+        function applyTransformations(element) {
+            let transform = '';
+            
+            // Добавляем поворот
+            const rotation = element.dataset.rotation || 0;
+            if (rotation && rotation !== '0') {
+                transform += `rotate(${rotation}deg) `;
+            }
+            
+            // Добавляем отражения
+            if (element.dataset.flipH === 'true') {
+                transform += 'scaleX(-1) ';
+            }
+            if (element.dataset.flipV === 'true') {
+                transform += 'scaleY(-1) ';
+            }
+            
+            element.style.transform = transform.trim();
+        }
+        
+        function showTTSPanel() {
+            const panel = document.getElementById('tts-panel');
+            panel.style.display = 'block';
+           
+            document.getElementById('tts-text-input').value = '';
+           
+            document.getElementById('tts-rate-slider').value = 1;
+            document.getElementById('tts-pitch-slider').value = 1;
+            document.getElementById('tts-volume-slider').value = 1;
+           
+            document.getElementById('tts-rate-value').textContent = '1.0';
+            document.getElementById('tts-pitch-value').textContent = '1.0';
+            document.getElementById('tts-volume-value').textContent = '1.0';
+           
+            stopTTS();
+        }
+       
+        function closeTTSPanel() {
+            const panel = document.getElementById('tts-panel');
+            panel.style.display = 'none';
+            stopTTS();
+        }
+       
+        function initTTS() {
+            if ('speechSynthesis' in window) {
+                speechSynthesis.onvoiceschanged = function() {
+                    voices = speechSynthesis.getVoices();
+                    populateVoiceList();
+                    isTTSInitialized = true;
+                };
+               
+                voices = speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    populateVoiceList();
+                    isTTSInitialized = true;
+                }
+            } else {
+                console.warn("Ваш браузер не поддерживает синтез речи");
+                alert("Ваш браузер не поддерживает синтез речи. Функция озвучивания текста недоступна.");
+            }
+        }
+       
+        function populateVoiceList() {
+            const voiceSelect = document.getElementById('tts-voice-select');
+            voiceSelect.innerHTML = '<option value="">Выберите голос...</option>';
+           
+            const russianVoices = voices.filter(voice =>
+                voice.lang.startsWith('ru') ||
+                voice.lang.startsWith('ru-RU') ||
+                voice.name.toLowerCase().includes('russian')
+            );
+           
+            const availableVoices = russianVoices.length > 0 ? russianVoices : voices;
+           
+            availableVoices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                voiceSelect.appendChild(option);
+            });
+           
+            if (russianVoices.length > 0) {
+                voiceSelect.value = russianVoices[0].name;
+            }
+        }
+       
+        function playTTS() {
+            const text = document.getElementById('tts-text-input').value.trim();
+           
+            if (!text) {
+                alert("Введите текст для озвучивания");
+                return;
+            }
+           
+            if (!isTTSInitialized) {
+                alert("Синтез речи не инициализирован. Попробуйте позже.");
+                return;
+            }
+           
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            }
+           
+            speechUtterance = new SpeechSynthesisUtterance(text);
+           
+            const voiceSelect = document.getElementById('tts-voice-select');
+            const selectedVoice = voices.find(voice => voice.name === voiceSelect.value);
+            if (selectedVoice) {
+                speechUtterance.voice = selectedVoice;
+            }
+           
+            speechUtterance.rate = parseFloat(document.getElementById('tts-rate-slider').value);
+            speechUtterance.pitch = parseFloat(document.getElementById('tts-pitch-slider').value);
+            speechUtterance.volume = parseFloat(document.getElementById('tts-volume-slider').value);
+           
+            speechUtterance.onstart = function() {
+                console.log("Начало озвучивания текста");
+                document.getElementById('tts-play-btn').disabled = true;
+                document.getElementById('tts-pause-btn').disabled = false;
+                document.getElementById('tts-stop-btn').disabled = false;
+            };
+           
+            speechUtterance.onend = function() {
+                console.log("Озвучивание завершено");
+                document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
+                document.getElementById('tts-stop-btn').disabled = true;
+            };
+           
+            speechUtterance.onerror = function(event) {
+                console.error("Ошибка озвучивания:", event);
+                alert("Произошла ошибка при озвучивании текста");
+                document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
+                document.getElementById('tts-stop-btn').disabled = true;
+            };
+           
+            speechSynthesis.speak(speechUtterance);
+           
+            document.getElementById('tts-play-btn').disabled = true;
+            document.getElementById('tts-pause-btn').disabled = false;
+            document.getElementById('tts-stop-btn').disabled = false;
+        }
+       
+        function pauseTTS() {
+            if (speechSynthesis.speaking) {
+                speechSynthesis.pause();
+                document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
+            }
+        }
+       
+        function stopTTS() {
+            speechSynthesis.cancel();
+            document.getElementById('tts-play-btn').disabled = false;
+                document.getElementById('tts-pause-btn').disabled = true;
+                document.getElementById('tts-stop-btn').disabled = true;
+            }
+       
+        function updateTTSVoice() {
+            if (speechUtterance && speechSynthesis.speaking) {
+                const selectedVoice = voices.find(voice => voice.name === this.value);
+                if (selectedVoice) {
+                    speechUtterance.voice = selectedVoice;
+                    speechSynthesis.cancel();
+                    setTimeout(playTTS, 100);
+                }
+            }
+        }
+       
+        function updateTTSRate() {
+            if (speechUtterance) {
+                speechUtterance.rate = parseFloat(this.value);
+            }
+        }
+       
+        function updateTTSPitch() {
+            if (speechUtterance) {
+                speechUtterance.pitch = parseFloat(this.value);
+            }
+        }
+       
+        function updateTTSVolume() {
+            if (speechUtterance) {
+                speechUtterance.volume = parseFloat(this.value);
+            }
+        }
+        
+        function updateThumbnails() {
+            const thumbnailsContainer = document.getElementById('thumbnails');
+            thumbnailsContainer.innerHTML = '';
+           
+            for (const id in images) {
+                const imgData = images[id];
+                const thumbnail = createImageThumbnailElement(imgData);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
+           
+            for (const id in texts) {
+                const textData = texts[id];
+                const thumbnail = createTextThumbnailElement(textData);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
+           
+            for (const id in sounds) {
+                const soundData = sounds[id];
+                const thumbnail = createSoundThumbnailElement(soundData, id);
+                thumbnailsContainer.appendChild(thumbnail);
+            }
+        }
+       
+        function createImageThumbnailElement(imgData) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + imgData.id;
+            thumbnail.className = 'thumbnail';
+            if (imgData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+           
+            if (selectedImageId === imgData.id) {
+                thumbnail.classList.add('selected');
+            }
+           
+            const img = document.createElement('img');
+            img.src = imgData.src;
+            thumbnail.appendChild(img);
+           
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = imgData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = imgData.display === 'none' ? 'Показать' : 'Скрыть';
+           
+            if (imgData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+           
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleImageVisibility(imgData.id, imgData.display === 'none');
+            });
+           
+            thumbnail.appendChild(toggleBtn);
+           
+            thumbnail.addEventListener('click', () => {
+                selectImageFromThumbnail(imgData.id);
+            });
+           
+            return thumbnail;
+        }
+       
+        function createTextThumbnailElement(textData) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + textData.id;
+            thumbnail.className = 'thumbnail';
+            if (textData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+           
+            if (selectedTextId === textData.id) {
+                thumbnail.classList.add('selected');
+            }
+           
+            const textPreview = document.createElement('div');
+            textPreview.className = 'text-thumbnail';
+            const previewText = textData.text || '';
+            textPreview.textContent = previewText.length > 10
+                ? previewText.substring(0, 10) + '...'
+                : previewText;
+            textPreview.style.fontSize = '10px';
+            textPreview.style.color = textData.color || '#000000';
+            textPreview.style.fontFamily = textData.fontFamily || "'Comic Sans MS', cursive";
+            thumbnail.appendChild(textPreview);
+           
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = textData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = textData.display === 'none' ? 'Показать' : 'Скрыть';
+           
+            if (textData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+           
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleTextVisibility(textData.id, textData.display === 'none');
+            });
+           
+            thumbnail.appendChild(toggleBtn);
+           
+            thumbnail.addEventListener('click', () => {
+                selectTextFromThumbnail(textData.id);
+            });
+           
+            return thumbnail;
+        }
+       
+        function createSoundThumbnailElement(soundData, soundId) {
+            const thumbnail = document.createElement('div');
+            thumbnail.id = 'thumb_' + soundId;
+            thumbnail.className = 'thumbnail';
+           
+            if (soundData.display === 'none') {
+                thumbnail.classList.add('thumbnail-hidden');
+            }
+           
+            if (selectedSoundId === soundId) {
+                thumbnail.classList.add('selected');
+            }
+           
+            const soundPreview = document.createElement('div');
+            soundPreview.className = 'sound-thumbnail';
+           
+            const fileName = soundData.name || 'sound';
+            soundPreview.textContent = fileName.length > 10
+                ? fileName.substring(0, 10) + '...'
+                : fileName;
+            soundPreview.title = fileName;
+           
+            thumbnail.appendChild(soundPreview);
+           
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'thumbnail-button';
+            toggleBtn.textContent = soundData.display === 'none' ? '👁' : '✕';
+            toggleBtn.title = soundData.display === 'none' ? 'Показать' : 'Скрыть';
+           
+            if (soundData.display === 'none') {
+                toggleBtn.classList.add('show');
+            }
+           
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleSoundVisibility(soundId, soundData.display === 'none');
+            });
+           
+            thumbnail.appendChild(toggleBtn);
+           
+            thumbnail.addEventListener('click', () => {
+                selectSoundFromThumbnail(soundId);
+            });
+           
+            return thumbnail;
+        }
+       
+        function toggleImageVisibility(imageId, show) {
+            const newDisplay = show ? 'block' : 'none';
+           
+            const imgElement = document.getElementById(imageId);
+            if (imgElement) {
+                imgElement.style.display = newDisplay;
+            }
+           
+            imagesRef.child(imageId).update({
+                display: newDisplay
+            });
+           
+            const thumbnail = document.getElementById('thumb_' + imageId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+           
+            saveStateToHistory();
+        }
+       
+        function toggleTextVisibility(textId, show) {
+            const newDisplay = show ? 'block' : 'none';
+           
+            const textElement = document.getElementById(textId);
+            if (textElement) {
+                textElement.style.display = newDisplay;
+            }
+           
+            textsRef.child(textId).update({
+                display: newDisplay
+            });
+           
+            const thumbnail = document.getElementById('thumb_' + textId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+           
+            saveStateToHistory();
+        }
+       
+        function toggleSoundVisibility(soundId, show) {
+            if (!sounds[soundId]) return;
+           
+            const newDisplay = show ? 'block' : 'none';
+           
+            soundsRef.child(soundId).update({
+                display: newDisplay
+            });
+           
+            const thumbnail = document.getElementById('thumb_' + soundId);
+            if (thumbnail) {
+                const btn = thumbnail.querySelector('.thumbnail-button');
+                if (btn) {
+                    btn.textContent = show ? '✕' : '👁';
+                    btn.title = show ? 'Скрыть' : 'Показать';
+                    if (show) {
+                        btn.classList.remove('show');
+                        thumbnail.classList.remove('thumbnail-hidden');
+                    } else {
+                        btn.classList.add('show');
+                        thumbnail.classList.add('thumbnail-hidden');
+                    }
+                }
+            }
+           
+            saveStateToHistory();
+        }
+       
+        function selectImageFromThumbnail(imageId) {
+            const imgElement = document.getElementById(imageId);
+            if (imgElement && imgElement.style.display !== 'none') {
+                deselectAllElements();
+                imgElement.classList.add('selected');
+                selectedImageId = imageId;
+                document.getElementById('image-controls').style.display = 'flex';
+               
+                const isLocked = imgElement.classList.contains('locked');
+                const lockBtn = document.getElementById('lock-btn');
+                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+               
+                // Обновляем слайдер поворота
+                const rotation = imgElement.dataset.rotation || 0;
+                document.getElementById('rotate-slider').value = rotation;
+                document.getElementById('rotate-value').textContent = rotation + '°';
+               
+                const thumbnail = document.getElementById('thumb_' + imageId);
+                if (thumbnail) {
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }
+        }
+       
+        function selectTextFromThumbnail(textId) {
+            const textElement = document.getElementById(textId);
+            if (textElement && textElement.style.display !== 'none') {
+                deselectAllElements();
+                textElement.classList.add('selected');
+                selectedTextId = textId;
+                document.getElementById('text-controls').style.display = 'flex';
+               
+                const isLocked = textElement.classList.contains('locked');
+                const lockBtn = document.getElementById('lock-text-btn');
+                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+               
+                const thumbnail = document.getElementById('thumb_' + textId);
+                if (thumbnail) {
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }
+        }
+       
+        function selectSoundFromThumbnail(soundId) {
+            if (sounds[soundId] && (!sounds[soundId].display || sounds[soundId].display !== 'none')) {
+                deselectAllElements();
+                selectedSoundId = soundId;
+                document.getElementById('sound-controls').style.display = 'flex';
+               
+                updateSoundControls(sounds[soundId]);
+               
+                const thumbnail = document.getElementById('thumb_' + soundId);
+                if (thumbnail) {
+                    thumbnail.classList.add('selected');
+                    thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }
+        }
+       
+        function deselectAllElements() {
+            document.querySelectorAll('.draggable-image').forEach(el => el.classList.remove('selected'));
+            document.querySelectorAll('.draggable-text').forEach(el => el.classList.remove('selected'));
+            document.getElementById('image-controls').style.display = 'none';
+            document.getElementById('text-controls').style.display = 'none';
+            document.getElementById('sound-controls').style.display = 'none';
+            document.getElementById('properties-panel').style.display = 'none';
+            document.getElementById('simple-text-input').style.display = 'none';
+           
+            document.querySelectorAll('.thumbnail').forEach(thumb => {
+                thumb.classList.remove('selected');
+            });
+           
+            selectedImageId = null;
+            selectedTextId = null;
+            selectedSoundId = null;
+            isAddingText = false;
+        }
+       
+        function saveStateToHistory() {
+            if (actionHistory.length >= 20) {
+                actionHistory.shift();
+            }
+           
+            Promise.all([
+                imagesRef.once('value').then(snapshot => snapshot.val() || {}),
+                textsRef.once('value').then(snapshot => snapshot.val() || {}),
+                soundsRef.once('value').then(snapshot => snapshot.val() || {})
+            ]).then(([imagesData, textsData, soundsData]) => {
+                const currentState = { images: imagesData, texts: textsData, sounds: soundsData };
+                actionHistory.push(JSON.stringify(currentState));
+                historyPointer = actionHistory.length - 1;
+            });
+        }
+       
+        function undoAction() {
+            if (historyPointer <= 0) return;
+           
+            historyPointer--;
+            const previousState = JSON.parse(actionHistory[historyPointer]);
+            imagesRef.set(previousState.images || {});
+            textsRef.set(previousState.texts || {});
+            soundsRef.set(previousState.sounds || {});
+        }
+       
+        function setupViewport() {
+            const appContainer = document.getElementById('app-container');
+            const scale = Math.min(
+                window.innerWidth / 2560,
+                window.innerHeight / 1212
+            );
+            appContainer.style.transform = `scale(${scale})`;
+            appContainer.style.transformOrigin = 'top left';
+        }
+       
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+           
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const id = 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    const x = 100;
+                    const y = 100;
+                   
+                    imagesRef.child(id).set({
+                        id: id,
+                        src: event.target.result,
+                        x: x,
+                        y: y,
+                        width: img.width,
+                        height: img.height,
+                        opacity: 1,
+                        brightness: 100,
+                        rotation: 0,
+                        flipHorizontal: false,
+                        flipVertical: false,
+                        isNew: true,
+                        locked: false,
+                        display: 'block'
+                    });
+                    saveStateToHistory();
+                };
+                img.onerror = () => {
+                    alert("Ошибка загрузки изображения");
+                };
+                img.src = event.target.result;
+            };
+            reader.onerror = () => {
+                alert("Ошибка чтения файла");
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+       
+        function handleSoundUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+           
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const id = 'sound_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+               
+                soundsRef.child(id).set({
+                    id: id,
+                    src: event.target.result,
+                    name: file.name,
+                    playing: false,
+                    currentTime: 0,
+                    duration: 0,
+                    volume: 100,
+                    display: 'block'
+                });
+                saveStateToHistory();
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
+       
+        function updateSoundControls(soundData) {
+            const soundControls = document.getElementById('sound-controls');
+            const audioElement = document.getElementById('audio-element');
+           
+            if (soundData && soundData.src) {
+                soundControls.style.display = 'flex';
+               
+                if (audioElement.src !== soundData.src) {
+                    audioElement.src = soundData.src;
+                   
+                    audioElement.onloadedmetadata = () => {
+                        soundsRef.child(selectedSoundId).update({ duration: audioElement.duration });
+                    };
+                }
+               
+                if (soundData.volume !== undefined) {
+                    audioElement.volume = soundData.volume / 100;
+                    document.getElementById('volume-slider').value = soundData.volume;
+                } else {
+                    audioElement.volume = 1;
+                    document.getElementById('volume-slider').value = 100;
+                }
+               
+                if (soundData.playing && audioElement.paused) {
+                    audioElement.currentTime = soundData.currentTime || 0;
+                    audioElement.play().catch(e => console.log("Автовоспроизведение заблокировано"));
+                } else if (!soundData.playing && !audioElement.paused) {
+                    audioElement.pause();
+                }
+               
+                updateProgressVisualization(soundData.currentTime, soundData.duration);
+            } else {
+                soundControls.style.display = 'none';
+                audioElement.src = '';
+                if (soundInterval) {
+                    clearInterval(soundInterval);
+                    soundInterval = null;
+                }
+            }
+        }
+       
+        function playSound() {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+           
+            const audioElement = document.getElementById('audio-element');
+            audioElement.play().then(() => {
+                soundsRef.child(selectedSoundId).update({
+                    playing: true,
+                    currentTime: audioElement.currentTime
+                });
+               
+                if (soundInterval) clearInterval(soundInterval);
+                soundInterval = setInterval(() => {
+                    if (!audioElement.paused) {
+                        soundsRef.child(selectedSoundId).update({
+                            currentTime: audioElement.currentTime
+                        });
+                    }
+                }, 1000);
+            }).catch(e => {
+                console.error("Ошибка воспроизведения:", e);
+            });
+        }
+       
+        function pauseSound() {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+           
+            const audioElement = document.getElementById('audio-element');
+            audioElement.pause();
+            soundsRef.child(selectedSoundId).update({
+                playing: false,
+                currentTime: audioElement.currentTime
+            });
+           
+            if (soundInterval) {
+                clearInterval(soundInterval);
+                soundInterval = null;
+            }
+        }
+       
+        function updateVolume(e) {
+            if (!selectedSoundId || !sounds[selectedSoundId]) return;
+           
+            const volume = e.target.value;
+            const audioElement = document.getElementById('audio-element');
+            audioElement.volume = volume / 100;
+           
+            soundsRef.child(selectedSoundId).update({
+                volume: volume
+            });
+           
+            saveStateToHistory();
+        }
+       
+        function deleteSound() {
+            if (selectedSoundId && confirm("Удалить этот звук?")) {
+                soundsRef.child(selectedSoundId).remove();
+                const audioElement = document.getElementById('audio-element');
+                audioElement.src = '';
+                audioElement.pause();
+               
+                if (soundInterval) {
+                    clearInterval(soundInterval);
+                    soundInterval = null;
+                }
+               
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+       
+        function updateSoundProgress() {
+            if (!selectedSoundId || !sounds[selectedSoundId] || !sounds[selectedSoundId].playing) return;
+           
+            const audioElement = document.getElementById('audio-element');
+            updateProgressVisualization(audioElement.currentTime, audioElement.duration);
+        }
+       
+        function updateProgressVisualization(currentTime, duration) {
+            const progressElement = document.getElementById('sound-progress');
+            if (duration > 0) {
+                const percentage = (currentTime / duration) * 100;
+                progressElement.style.width = percentage + '%';
+            } else {
+                progressElement.style.width = '0%';
+            }
+        }
+       
+        function soundEnded() {
+            if (soundInterval) {
+                clearInterval(soundInterval);
+                soundInterval = null;
+            }
+           
+            if (selectedSoundId) {
+                soundsRef.child(selectedSoundId).update({
+                    playing: false,
+                    currentTime: 0
+                });
+            }
+        }
+       
+        function deleteSelectedText() {
+            if (selectedTextId && confirm("Удалить этот текст?")) {
+                textsRef.child(selectedTextId).remove();
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+       
+        function toggleTextLock() {
+            if (selectedTextId) {
+                const textElement = document.getElementById(selectedTextId);
+                if (!textElement) return;
+               
+                const isLocked = textElement.classList.contains('locked');
+               
+                if (isLocked) {
+                    textElement.classList.remove('locked');
+                    document.getElementById('lock-text-btn').textContent = 'Закрепить';
+                } else {
+                    textElement.classList.add('locked');
+                    document.getElementById('lock-text-btn').textContent = 'Открепить';
+                }
+               
+                textsRef.child(selectedTextId).update({
+                    locked: !isLocked
+                });
+                saveStateToHistory();
+            }
+        }
+       
+        function updateCanvas(imagesData) {
+            const container = document.getElementById('images-layer');
+           
+            document.querySelectorAll('.draggable-image').forEach(img => {
+                if (!imagesData[img.id]) {
+                    img.remove();
+                    if (selectedImageId === img.id) {
+                        deselectAllElements();
+                    }
+                }
+            });
+           
+            for (const id in imagesData) {
+                const imgData = imagesData[id];
+                let img = document.getElementById(id);
+               
+                if (!img) {
+                    img = createImageElement(imgData);
+                    container.appendChild(img);
+                }
+               
+                updateImagePositionAndSize(img, imgData);
+                updateImageOpacity(img, imgData);
+                updateImageBrightness(img, imgData);
+                updateImageLockState(img, imgData);
+                updateImageDisplayState(img, imgData);
+                updateImageTransformations(img, imgData);
+               
+                if (imgData.isNew) {
+                    deselectAllElements();
+                    img.classList.add('selected');
+                    selectedImageId = id;
+                    document.getElementById('image-controls').style.display = 'flex';
+                   
+                    const lockBtn = document.getElementById('lock-btn');
+                    lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
+                   
+                    // Обновляем слайдер поворота
+                    const rotation = imgData.rotation || 0;
+                    document.getElementById('rotate-slider').value = rotation;
+                    document.getElementById('rotate-value').textContent = rotation + '°';
+                   
+                    imagesRef.child(id).update({ isNew: null });
+                }
+            }
+        }
+       
+        function updateTexts(textsData) {
+            const container = document.getElementById('texts-layer');
+           
+            document.querySelectorAll('.draggable-text').forEach(textEl => {
+                if (!textsData[textEl.id]) {
+                    textEl.remove();
+                    if (selectedTextId === textEl.id) {
+                        deselectAllElements();
+                    }
+                }
+            });
+           
+            for (const id in textsData) {
+                const textData = textsData[id];
+                let textEl = document.getElementById(id);
+               
+                if (!textEl) {
+                    textEl = createTextElement(textData);
+                    container.appendChild(textEl);
+                } else {
+                    updateTextContent(textEl, textData);
+                    updateTextLockState(textEl, textData);
+                    updateTextDisplayState(textEl, textData);
+                }
+               
+                if (textData.opacity !== undefined) {
+                    textEl.style.opacity = textData.opacity;
+                }
+               
+                if (textData.fontFamily) {
+                    textEl.style.fontFamily = textData.fontFamily;
+                }
+               
+                if (textData.isNew) {
+                    deselectAllElements();
+                    textEl.classList.add('selected');
+                    selectedTextId = id;
+                    document.getElementById('text-controls').style.display = 'flex';
+                   
+                    const lockBtn = document.getElementById('lock-text-btn');
+                    lockBtn.textContent = textData.locked ? 'Открепить' : 'Закрепить';
+                   
+                    textsRef.child(id).update({ isNew: null });
+                }
+            }
+        }
+       
+        function createImageElement(imgData) {
+            const imgWrapper = document.createElement('div');
+            imgWrapper.id = imgData.id;
+            imgWrapper.className = 'draggable-image';
+            imgWrapper.style.left = imgData.x + 'px';
+            imgWrapper.style.top = imgData.y + 'px';
+            imgWrapper.style.width = imgData.width + 'px';
+            imgWrapper.style.height = imgData.height + 'px';
+            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
+            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 100}%)`;
+           
+            // Сохраняем данные трансформации
+            if (imgData.rotation !== undefined) {
+                imgWrapper.dataset.rotation = imgData.rotation;
+            }
+            if (imgData.flipHorizontal !== undefined) {
+                imgWrapper.dataset.flipH = imgData.flipHorizontal.toString();
+            }
+            if (imgData.flipVertical !== undefined) {
+                imgWrapper.dataset.flipV = imgData.flipVertical.toString();
+            }
+           
+            // Применяем трансформации
+            applyTransformations(imgWrapper);
+           
+            if (imgData.locked) {
+                imgWrapper.classList.add('locked');
+            }
+           
+            if (imgData.display === 'none') {
+                imgWrapper.style.display = 'none';
+            } else {
+                imgWrapper.style.display = 'block';
+            }
+           
+            const img = document.createElement('img');
+            img.src = imgData.src;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.draggable = false;
+            imgWrapper.appendChild(img);
+           
+            addResizeHandles(imgWrapper);
+            addRotateHandle(imgWrapper);
+           
+            imgWrapper.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle')) return;
+                startSelect(e);
+            });
+            imgWrapper.addEventListener('touchstart', (e) => {
+                if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle')) return;
+                startSelect(e);
+            }, { passive: false });
+           
+            return imgWrapper;
+        }
+       
+        function createTextElement(textData) {
+            const textEl = document.createElement('div');
+            textEl.id = textData.id;
+            textEl.className = 'draggable-text';
+            textEl.style.left = textData.x + 'px';
+            textEl.style.top = textData.y + 'px';
+            textEl.textContent = textData.text || '';
+            textEl.style.fontSize = (textData.fontSize || 16) + 'px';
+            textEl.style.color = textData.color || '#000000';
+           
+            if (textData.fontFamily) {
+                textEl.style.fontFamily = textData.fontFamily;
+            } else {
+                textEl.style.fontFamily = "'Comic Sans MS', cursive";
+            }
+           
+            if (textData.opacity !== undefined) {
+                textEl.style.opacity = textData.opacity;
+            } else {
+                textEl.style.opacity = 1;
+            }
+           
+            if (textData.locked) {
+                textEl.classList.add('locked');
+            }
+           
+            if (textData.display === 'none') {
+                textEl.style.display = 'none';
+            } else {
+                textEl.style.display = 'block';
+            }
+           
+            textEl.style.width = 'auto';
+            textEl.style.height = 'auto';
+           
+            addResizeHandles(textEl);
+           
+            textEl.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('resize-handle')) return;
+                startTextSelect(e);
+            });
+            textEl.addEventListener('touchstart', (e) => {
+                if (e.target.classList.contains('resize-handle')) return;
+                startTextSelect(e);
+            }, { passive: false });
+           
+            textEl.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                editSelectedText();
+            });
+           
+            return textEl;
+        }
+       
+        function addResizeHandles(element) {
+            element.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
+           
+            const directions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+           
+            directions.forEach(dir => {
+                const handle = document.createElement('div');
+                handle.className = `resize-handle resize-${dir}`;
+                element.appendChild(handle);
+               
+                handle.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startResize(e, dir);
+                });
+               
+                handle.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startResize(e, dir);
+                }, { passive: false });
+            });
+        }
+       
+        function addRotateHandle(element) {
+            element.querySelectorAll('.rotate-handle').forEach(handle => handle.remove());
+           
+            const handle = document.createElement('div');
+            handle.className = 'rotate-handle';
+            handle.title = 'Повернуть';
+            element.appendChild(handle);
+           
+            // Индикатор угла
+            const indicator = document.createElement('div');
+            indicator.className = 'rotate-indicator';
+            indicator.textContent = '0°';
+            element.appendChild(indicator);
+           
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startRotate(e);
+            });
+           
+            handle.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startRotate(e);
+            }, { passive: false });
+        }
+       
+        function updateImageTransformations(img, imgData) {
+            if (imgData.rotation !== undefined) {
+                img.dataset.rotation = imgData.rotation;
+            }
+            if (imgData.flipHorizontal !== undefined) {
+                img.dataset.flipH = imgData.flipHorizontal.toString();
+            }
+            if (imgData.flipVertical !== undefined) {
+                img.dataset.flipV = imgData.flipVertical.toString();
+            }
+            applyTransformations(img);
+            
+            // Обновляем индикатор угла
+            const indicator = img.querySelector('.rotate-indicator');
+            if (indicator) {
+                const rotation = imgData.rotation || 0;
+                indicator.textContent = rotation + '°';
+            }
+        }
+       
+        function startRotate(e) {
+            e.preventDefault();
+            e.stopPropagation();
+           
+            activeInteraction = 'rotate';
+            activeElement = e.currentTarget.parentElement;
+           
+            const rect = activeElement.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+           
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+           
+            // Начальный угол
+            startRotation = parseFloat(activeElement.dataset.rotation) || 0;
+        }
+       
+        function startSelect(e) {
+            e.preventDefault();
+            e.stopPropagation();
+           
+            const imgElement = e.currentTarget;
+            const isLocked = imgElement.classList.contains('locked');
+           
+            deselectAllElements();
+           
+            imgElement.classList.add('selected');
+            selectedImageId = imgElement.id;
+            document.getElementById('image-controls').style.display = 'flex';
+           
+            const lockBtn = document.getElementById('lock-btn');
+            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+           
+            // Обновляем слайдер поворота
+            const rotation = imgElement.dataset.rotation || 0;
+            document.getElementById('rotate-slider').value = rotation;
+            document.getElementById('rotate-value').textContent = rotation + '°';
+           
+            if (!isLocked) {
+                activeInteraction = 'select';
+                activeElement = imgElement;
+               
+                const currentX = parseInt(imgElement.style.left) || 0;
+                const currentY = parseInt(imgElement.style.top) || 0;
+               
+                if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX - currentX;
+                    startY = e.touches[0].clientY - currentY;
+                } else {
+                    startX = e.clientX - currentX;
+                    startY = e.clientY - currentY;
+                }
+            }
+        }
+       
+        function startTextSelect(e) {
+            e.preventDefault();
+            e.stopPropagation();
+           
+            const textElement = e.currentTarget;
+            const isLocked = textElement.classList.contains('locked');
+           
+            deselectAllElements();
+           
+            textElement.classList.add('selected');
+            selectedTextId = textElement.id;
+            document.getElementById('text-controls').style.display = 'flex';
+           
+            const lockBtn = document.getElementById('lock-text-btn');
+            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+           
+            if (!isLocked) {
+                activeInteraction = 'select';
+                activeElement = textElement;
+               
+                const currentX = parseInt(textElement.style.left) || 0;
+                const currentY = parseInt(textElement.style.top) || 0;
+               
+                if (e.type === 'touchstart') {
+                    startX = e.touches[0].clientX - currentX;
+                    startY = e.touches[0].clientY - currentY;
+                } else {
+                    startX = e.clientX - currentX;
+                    startY = e.clientY - currentY;
+                }
+            }
+        }
+       
+        function updateImagePositionAndSize(img, imgData) {
+            if (activeElement !== img) {
+                img.style.left = imgData.x + 'px';
+                img.style.top = imgData.y + 'px';
+                img.style.width = imgData.width + 'px';
+                img.style.height = imgData.height + 'px';
+            }
+        }
+       
+        function updateTextContent(textEl, textData) {
+            textEl.textContent = textData.text || '';
+            textEl.style.fontSize = (textData.fontSize || 16) + 'px';
+            textEl.style.color = textData.color || '#000000';
+            if (textData.fontFamily) {
+                textEl.style.fontFamily = textData.fontFamily;
+            }
+        }
+       
+        function updateImageOpacity(img, imgData) {
+            img.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
+        }
+       
+        function updateImageBrightness(img, imgData) {
+            if (imgData.brightness !== undefined) {
+                img.style.filter = `brightness(${imgData.brightness}%)`;
+            } else {
+                img.style.filter = 'brightness(100%)';
+            }
+        }
+       
+        function updateImageLockState(img, imgData) {
+            if (imgData.locked) {
+                img.classList.add('locked');
+                img.style.cursor = 'default';
+            } else {
+                img.classList.remove('locked');
+                img.style.cursor = 'move';
+            }
+        }
+       
+        function updateImageDisplayState(img, imgData) {
+            if (imgData.display === 'none') {
+                img.style.display = 'none';
+            } else {
+                img.style.display = 'block';
+            }
+        }
+       
+        function updateTextDisplayState(textEl, textData) {
+            if (textData.display === 'none') {
+                textEl.style.display = 'none';
+            } else {
+                textEl.style.display = 'block';
+            }
+        }
+       
+        function updateTextLockState(textEl, textData) {
+            if (textData.locked) {
+                textEl.classList.add('locked');
+                textEl.style.cursor = 'default';
+            } else {
+                textEl.classList.remove('locked');
+                textEl.style.cursor = 'move';
+            }
+        }
+       
+        function clearCanvas() {
+            if (confirm("Очистить холст для всех пользователей?")) {
+                imagesRef.remove();
+                textsRef.remove();
+                soundsRef.remove();
+                deselectAllElements();
+                saveStateToHistory();
+            }
+        }
+       
+        function startResize(e, direction) {
+            if (e.currentTarget.parentElement.classList.contains('locked')) return;
+           
+            e.preventDefault();
+            e.stopPropagation();
+           
+            activeInteraction = 'resize';
+            activeElement = e.currentTarget.parentElement;
+            resizeDirection = direction;
+           
+            const rect = activeElement.getBoundingClientRect();
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+           
+            startWidth = parseFloat(activeElement.style.width) || activeElement.offsetWidth;
+            startHeight = parseFloat(activeElement.style.height) || activeElement.offsetHeight;
+            startLeft = parseFloat(activeElement.style.left) || 0;
+            startTop = parseFloat(activeElement.style.top) || 0;
+        }
+       
+        function handleMove(e) {
             if (!activeInteraction || !activeElement) return;
             if (activeElement.classList.contains('locked')) return;
            
@@ -1680,179 +2556,59 @@
                     });
                 }
             }
+            else if (activeInteraction === 'rotate') {
+                const rect = activeElement.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+               
+                // Вычисляем угол между начальной точкой и текущей позицией
+                const angle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
+                const startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
+               
+                let deltaAngle = angle - startAngle;
+               
+                // Ограничиваем угол для плавного вращения
+                if (deltaAngle > 180) deltaAngle -= 360;
+                if (deltaAngle < -180) deltaAngle += 360;
+               
+                const newRotation = startRotation + deltaAngle;
+               
+                // Обновляем угол
+                activeElement.dataset.rotation = Math.round(newRotation);
+                applyTransformations(activeElement);
+               
+                // Обновляем индикатор
+                const indicator = activeElement.querySelector('.rotate-indicator');
+                if (indicator) {
+                    indicator.textContent = Math.round(newRotation) + '°';
+                }
+               
+                // Обновляем слайдер
+                if (selectedImageId === activeElement.id) {
+                    document.getElementById('rotate-slider').value = Math.round(newRotation);
+                    document.getElementById('rotate-value').textContent = Math.round(newRotation) + '°';
+                }
+               
+                // Сохраняем в Firebase
+                if (activeElement.classList.contains('draggable-image')) {
+                    imagesRef.child(activeElement.id).update({
+                        rotation: Math.round(newRotation)
+                    });
+                }
+            }
         }
-        
+       
         function endInteraction() {
-            endRotation();
-            
-            if (activeInteraction && activeInteraction !== 'rotate') {
+            if (activeInteraction) {
                 saveStateToHistory();
             }
             activeInteraction = null;
             activeElement = null;
             resizeDirection = null;
         }
-        
-        function createImageElement(imgData) {
-            const imgWrapper = document.createElement('div');
-            imgWrapper.id = imgData.id;
-            imgWrapper.className = 'draggable-image';
-            imgWrapper.style.left = imgData.x + 'px';
-            imgWrapper.style.top = imgData.y + 'px';
-            imgWrapper.style.width = imgData.width + 'px';
-            imgWrapper.style.height = imgData.height + 'px';
-            imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
-            imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 100}%)`;
-           
-            if (imgData.transform) {
-                imgWrapper.style.transform = imgData.transform;
-            }
-           
-            if (imgData.locked) {
-                imgWrapper.classList.add('locked');
-            }
-           
-            if (imgData.display === 'none') {
-                imgWrapper.style.display = 'none';
-            } else {
-                imgWrapper.style.display = 'block';
-            }
-           
-            const img = document.createElement('img');
-            img.src = imgData.src;
-            img.style.width = '100%';
-            img.style.height = '100%';
-            img.style.objectFit = 'fill';
-            img.draggable = false;
-            imgWrapper.appendChild(img);
-           
-            addResizeHandles(imgWrapper);
-           
-            const rotateHandle = document.createElement('div');
-            rotateHandle.className = 'rotate-handle';
-            imgWrapper.appendChild(rotateHandle);
-           
-            rotateHandle.addEventListener('mousedown', (e) => {
-                if (e.target.classList.contains('rotate-handle')) {
-                    startRotation(e);
-                }
-            });
-            rotateHandle.addEventListener('touchstart', (e) => {
-                if (e.target.classList.contains('rotate-handle')) {
-                    startRotation(e);
-                }
-            }, { passive: false });
-           
-            imgWrapper.addEventListener('mousedown', (e) => {
-                if (e.target.classList.contains('resize-handle') || 
-                    e.target.classList.contains('rotate-handle')) return;
-                startSelect(e);
-            });
-            imgWrapper.addEventListener('touchstart', (e) => {
-                if (e.target.classList.contains('resize-handle') ||
-                    e.target.classList.contains('rotate-handle')) return;
-                startSelect(e);
-            }, { passive: false });
-           
-            return imgWrapper;
-        }
-        
-        function addResizeHandles(element) {
-            element.querySelectorAll('.resize-handle').forEach(handle => handle.remove());
-           
-            const directions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
-           
-            directions.forEach(dir => {
-                const handle = document.createElement('div');
-                handle.className = `resize-handle resize-${dir}`;
-                element.appendChild(handle);
-               
-                handle.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    startResize(e, dir);
-                });
-               
-                handle.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    startResize(e, dir);
-                }, { passive: false });
-            });
-        }
-        
-        function startResize(e, direction) {
-            if (e.currentTarget.parentElement.classList.contains('locked')) return;
-           
-            e.preventDefault();
-            e.stopPropagation();
-           
-            activeInteraction = 'resize';
-            activeElement = e.currentTarget.parentElement;
-            resizeDirection = direction;
-           
-            const rect = activeElement.getBoundingClientRect();
-            if (e.type === 'touchstart') {
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-            } else {
-                startX = e.clientX;
-                startY = e.clientY;
-            }
-           
-            startWidth = parseFloat(activeElement.style.width) || activeElement.offsetWidth;
-            startHeight = parseFloat(activeElement.style.height) || activeElement.offsetHeight;
-            startLeft = parseFloat(activeElement.style.left) || 0;
-            startTop = parseFloat(activeElement.style.top) || 0;
-        }
-        
-        function startSelect(e) {
-            e.preventDefault();
-            e.stopPropagation();
-           
-            const imgElement = e.currentTarget;
-            const isLocked = imgElement.classList.contains('locked');
-           
-            deselectAllElements();
-           
-            imgElement.classList.add('selected');
-            selectedImageId = imgElement.id;
-            document.getElementById('image-controls').style.display = 'flex';
-           
-            const lockBtn = document.getElementById('lock-btn');
-            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
-           
-            if (!isLocked) {
-                activeInteraction = 'select';
-                activeElement = imgElement;
-               
-                const currentX = parseInt(imgElement.style.left) || 0;
-                const currentY = parseInt(imgElement.style.top) || 0;
-               
-                if (e.type === 'touchstart') {
-                    startX = e.touches[0].clientX - currentX;
-                    startY = e.touches[0].clientY - currentY;
-                } else {
-                    startX = e.clientX - currentX;
-                    startY = e.clientY - currentY;
-                }
-            }
-        }
-        
-        // ... [другие функции остаются такими же] ...
-        
+       
         window.addEventListener('DOMContentLoaded', initApp);
         window.addEventListener('resize', setupViewport);
-        
-        function setupViewport() {
-            const appContainer = document.getElementById('app-container');
-            const scale = Math.min(
-                window.innerWidth / 2560,
-                window.innerHeight / 1212
-            );
-            appContainer.style.transform = `scale(${scale})`;
-            appContainer.style.transformOrigin = 'top left';
-        }
     </script>
 </body>
 </html>

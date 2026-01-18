@@ -232,10 +232,10 @@
             transition: opacity 0.2s;
             cursor: pointer;
         }
-        .rotate-handle {
+        .rotate-corner {
             position: absolute;
-            width: 16px;
-            height: 16px;
+            width: 20px;
+            height: 20px;
             background-color: #4caf50;
             border: 2px solid white;
             border-radius: 50%;
@@ -243,9 +243,8 @@
             opacity: 0;
             transition: opacity 0.2s;
             cursor: grab;
-            top: -30px;
-            left: 50%;
-            margin-left: -8px;
+            top: -25px;
+            right: -25px;
         }
         .resize-n {
             top: -5px;
@@ -292,7 +291,7 @@
             cursor: nw-resize;
         }
         .selected:not(.locked) .resize-handle,
-        .selected:not(.locked) .rotate-handle {
+        .selected:not(.locked) .rotate-corner {
             opacity: 1;
         }
         button {
@@ -521,8 +520,6 @@
                 <button id="lock-btn">Закрепить</button>
                 <button id="flip-h-btn">Отразить по гориз.</button>
                 <button id="flip-v-btn">Отразить по верт.</button>
-                <input type="range" id="rotate-slider" min="-180" max="180" value="0" style="width: 100px;">
-                <span id="rotate-value">0°</span>
             </div>
            
             <div id="text-controls">
@@ -706,15 +703,7 @@
             document.getElementById('delete-sound-btn').addEventListener('click', deleteSound);
             document.getElementById('volume-slider').addEventListener('input', updateVolume);
            
-            // Новые обработчики для поворота и отражения
-            document.getElementById('rotate-slider').addEventListener('input', function() {
-                const value = this.value;
-                document.getElementById('rotate-value').textContent = value + '°';
-                if (selectedImageId) {
-                    rotateImage(selectedImageId, value);
-                }
-            });
-           
+            // Обработчики для отражения
             document.getElementById('flip-h-btn').addEventListener('click', () => {
                 if (selectedImageId) {
                     flipImageHorizontal(selectedImageId);
@@ -1114,37 +1103,26 @@
             }
         }
         
-        // Функции для поворота и отражения
-        function rotateImage(imageId, angle) {
+        // Функции для вращения самой фотографии
+        function rotateImageByDragging(imageId, angle) {
             const imgElement = document.getElementById(imageId);
             if (!imgElement) return;
             
-            const currentTransform = imgElement.style.transform || '';
-            let transform = currentTransform;
+            // Обновляем угол вращения
+            imgElement.dataset.rotation = Math.round(angle);
             
-            // Удаляем старый поворот
-            transform = transform.replace(/rotate\([^)]+\)\s*/g, '');
+            // Применяем трансформацию
+            applyTransformations(imgElement);
             
-            // Добавляем новый поворот
-            transform = `rotate(${angle}deg) ${transform}`.trim();
-            
-            // Удаляем старые отражения
-            transform = transform.replace(/scaleX\([^)]+\)\s*/g, '');
-            transform = transform.replace(/scaleY\([^)]+\)\s*/g, '');
-            
-            // Добавляем отражения если они есть
-            if (imgElement.dataset.flipH === 'true') {
-                transform += ' scaleX(-1)';
-            }
-            if (imgElement.dataset.flipV === 'true') {
-                transform += ' scaleY(-1)';
+            // Обновляем индикатор
+            const indicator = imgElement.querySelector('.rotate-indicator');
+            if (indicator) {
+                indicator.textContent = Math.round(angle) + '°';
             }
             
-            imgElement.style.transform = transform;
-            
-            // Сохраняем угол поворота
+            // Сохраняем в Firebase
             imagesRef.child(imageId).update({
-                rotation: parseInt(angle)
+                rotation: Math.round(angle)
             });
             
             saveStateToHistory();
@@ -1633,11 +1611,6 @@
                 const lockBtn = document.getElementById('lock-btn');
                 lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
                
-                // Обновляем слайдер поворота
-                const rotation = imgElement.dataset.rotation || 0;
-                document.getElementById('rotate-slider').value = rotation;
-                document.getElementById('rotate-value').textContent = rotation + '°';
-               
                 const thumbnail = document.getElementById('thumb_' + imageId);
                 if (thumbnail) {
                     thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -2010,11 +1983,6 @@
                     const lockBtn = document.getElementById('lock-btn');
                     lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
                    
-                    // Обновляем слайдер поворота
-                    const rotation = imgData.rotation || 0;
-                    document.getElementById('rotate-slider').value = rotation;
-                    document.getElementById('rotate-value').textContent = rotation + '°';
-                   
                     imagesRef.child(id).update({ isNew: null });
                 }
             }
@@ -2114,11 +2082,32 @@
             addRotateHandle(imgWrapper);
            
             imgWrapper.addEventListener('mousedown', (e) => {
-                if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle')) return;
-                startSelect(e);
+                // Если клик на ручку вращения - начинаем вращение
+                if (e.target.classList.contains('rotate-corner')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startRotate(e);
+                    return;
+                }
+                // Если клик на ручку изменения размера - игнорируем для обработки в отдельной функции
+                if (e.target.classList.contains('resize-handle')) {
+                    return;
+                }
+                // Если клик на саму фотографию - начинаем перетаскивание или вращение
+                if (e.shiftKey || e.altKey) {
+                    // Если зажата Shift или Alt - начинаем вращение самой фотографии
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startRotateImage(e);
+                } else {
+                    // Обычное перетаскивание
+                    startSelect(e);
+                }
             });
+           
             imgWrapper.addEventListener('touchstart', (e) => {
-                if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-handle')) return;
+                if (e.target.classList.contains('rotate-corner') || 
+                    e.target.classList.contains('resize-handle')) return;
                 startSelect(e);
             }, { passive: false });
            
@@ -2205,11 +2194,11 @@
         }
        
         function addRotateHandle(element) {
-            element.querySelectorAll('.rotate-handle').forEach(handle => handle.remove());
+            element.querySelectorAll('.rotate-corner').forEach(handle => handle.remove());
            
             const handle = document.createElement('div');
-            handle.className = 'rotate-handle';
-            handle.title = 'Повернуть';
+            handle.className = 'rotate-corner';
+            handle.title = 'Вращать (Alt + перетаскивание фотографии)';
             element.appendChild(handle);
            
             // Индикатор угла
@@ -2274,6 +2263,52 @@
             startRotation = parseFloat(activeElement.dataset.rotation) || 0;
         }
        
+        function startRotateImage(e) {
+            e.preventDefault();
+            e.stopPropagation();
+           
+            const imgElement = e.currentTarget;
+            const isLocked = imgElement.classList.contains('locked');
+           
+            if (isLocked) return;
+           
+            deselectAllElements();
+           
+            imgElement.classList.add('selected');
+            selectedImageId = imgElement.id;
+            document.getElementById('image-controls').style.display = 'flex';
+           
+            const lockBtn = document.getElementById('lock-btn');
+            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+           
+            // Начинаем вращение
+            activeInteraction = 'rotateImage';
+            activeElement = imgElement;
+           
+            const rect = imgElement.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+           
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+           
+            // Вычисляем начальный угол
+            const dx = startX - centerX;
+            const dy = startY - centerY;
+            startRotation = Math.atan2(dy, dx) * 180 / Math.PI;
+           
+            // Текущий угол изображения
+            const currentImgRotation = parseFloat(imgElement.dataset.rotation) || 0;
+           
+            // Сохраняем начальный угол относительно текущего вращения
+            startRotation -= currentImgRotation;
+        }
+       
         function startSelect(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -2289,11 +2324,6 @@
            
             const lockBtn = document.getElementById('lock-btn');
             lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
-           
-            // Обновляем слайдер поворота
-            const rotation = imgElement.dataset.rotation || 0;
-            document.getElementById('rotate-slider').value = rotation;
-            document.getElementById('rotate-value').textContent = rotation + '°';
            
             if (!isLocked) {
                 activeInteraction = 'select';
@@ -2556,43 +2586,49 @@
                     });
                 }
             }
-            else if (activeInteraction === 'rotate') {
+            else if (activeInteraction === 'rotate' || activeInteraction === 'rotateImage') {
                 const rect = activeElement.getBoundingClientRect();
                 const centerX = rect.left + rect.width / 2;
                 const centerY = rect.top + rect.height / 2;
                
-                // Вычисляем угол между начальной точкой и текущей позицией
-                const angle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
-                const startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
+                // Вычисляем текущий угол
+                const dx = clientX - centerX;
+                const dy = clientY - centerY;
+                let currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
                
-                let deltaAngle = angle - startAngle;
+                if (activeInteraction === 'rotateImage') {
+                    // Для вращения самой фотографии используем относительный угол
+                    currentAngle = currentAngle - startRotation;
+                } else {
+                    // Для вращения ручкой используем дельту от начального угла
+                    const startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
+                    let deltaAngle = currentAngle - startAngle;
+                   
+                    // Ограничиваем угол для плавного вращения
+                    if (deltaAngle > 180) deltaAngle -= 360;
+                    if (deltaAngle < -180) deltaAngle += 360;
+                   
+                    currentAngle = startRotation + deltaAngle;
+                }
                
-                // Ограничиваем угол для плавного вращения
-                if (deltaAngle > 180) deltaAngle -= 360;
-                if (deltaAngle < -180) deltaAngle += 360;
-               
-                const newRotation = startRotation + deltaAngle;
+                // Нормализуем угол
+                currentAngle = (currentAngle + 180) % 360 - 180;
                
                 // Обновляем угол
-                activeElement.dataset.rotation = Math.round(newRotation);
+                const newRotation = Math.round(currentAngle);
+                activeElement.dataset.rotation = newRotation;
                 applyTransformations(activeElement);
                
                 // Обновляем индикатор
                 const indicator = activeElement.querySelector('.rotate-indicator');
                 if (indicator) {
-                    indicator.textContent = Math.round(newRotation) + '°';
-                }
-               
-                // Обновляем слайдер
-                if (selectedImageId === activeElement.id) {
-                    document.getElementById('rotate-slider').value = Math.round(newRotation);
-                    document.getElementById('rotate-value').textContent = Math.round(newRotation) + '°';
+                    indicator.textContent = newRotation + '°';
                 }
                
                 // Сохраняем в Firebase
                 if (activeElement.classList.contains('draggable-image')) {
                     imagesRef.child(activeElement.id).update({
-                        rotation: Math.round(newRotation)
+                        rotation: newRotation
                     });
                 }
             }

@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройка таймера</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .timer-section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title i {
+            color: #4285f4;
+        }
+        
+        .time-inputs {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .time-input {
+            text-align: center;
+        }
+        
+        .time-input label {
+            display: block;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .time-input input {
+            width: 100%;
+            padding: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        
+        .time-input input:focus {
+            border-color: #4285f4;
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+        }
+        
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .preset-btn {
+            padding: 12px;
+            background: #f5f5f5;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .preset-btn:hover {
+            background: #4285f4;
+            color: white;
+            border-color: #4285f4;
+            transform: translateY(-2px);
+        }
+        
+        .timer-preview {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 3px solid #e9ecef;
+            text-align: center;
+        }
+        
+        .preview-label {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        #timer-display {
+            font-family: 'Courier New', monospace;
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .display-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .option-group {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .option-group h4 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .option-row {
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .option-row label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .color-picker {
+            width: 40px;
+            height: 30px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        select, input[type="range"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        input[type="range"] {
+            width: 120px;
+        }
+        
+        .control-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .control-btn {
+            padding: 18px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        #start-btn {
+            background: linear-gradient(135deg, #34a853 0%, #2e8b47 100%);
+            color: white;
+        }
+        
+        #start-btn:hover {
+            background: linear-gradient(135deg, #2e8b47 0%, #276a37 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 168, 83, 0.4);
+        }
+        
+        #pause-btn {
+            background: linear-gradient(135deg, #fbbc05 0%, #f9ab00 100%);
+            color: white;
+        }
+        
+        #pause-btn:hover {
+            background: linear-gradient(135deg, #f9ab00 0%, #e09900 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(251, 188, 5, 0.4);
+        }
+        
+        #reset-btn {
+            background: linear-gradient(135deg, #ea4335 0%, #d23b2e 100%);
+            color: white;
+        }
+        
+        #reset-btn:hover {
+            background: linear-gradient(135deg, #d23b2e 0%, #b83227 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(234, 67, 53, 0.4);
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status.active {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .status.paused {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            display: block;
+        }
+        
+        .status.finished {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .time-inputs {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .preset-buttons {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .display-options {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            #timer-display {
+                font-size: 36px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .time-inputs {
+                grid-template-columns: 1fr;
+            }
+            
+            .preset-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            #timer-display {
+                font-size: 28px;
+            }
+        }
+        
+        .animation-demo {
+            width: 100%;
+            height: 60px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .animation-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #4285f4, #34a853);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .sound-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .sound-toggle {
+            width: 50px;
+            height: 26px;
+            background: #ddd;
+            border-radius: 13px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .sound-toggle.active {
+            background: #34a853;
+        }
+        
+        .sound-toggle::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+        
+        .sound-toggle.active::after {
+            transform: translateX(24px);
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-clock"></i> Управление таймером</h1>
+            <p>Настройте и запустите таймер для отображения в основном приложении</p>
+        </div>
+        
+        <div class="content">
+            <!-- Секция настройки времени -->
+            <div class="timer-section">
+                <div class="section-title">
+                    <i class="fas fa-cog"></i> Настройка времени
+                </div>
+                
+                <div class="time-inputs">
+                    <div class="time-input">
+                        <label>Часы</label>
+                        <input type="number" id="hours-input" min="0" max="99" value="0">
+                    </div>
+                    <div class="time-input">
+                        <label>Минуты</label>
+                        <input type="number" id="minutes-input" min="0" max="59" value="5">
+                    </div>
+                    <div class="time-input">
+                        <label>Секунды</label>
+                        <input type="number" id="seconds-input" min="0" max="59" value="0">
+                    </div>
+                    <div class="time-input">
+                        <label>Общее время (сек)</label>
+                        <input type="number" id="total-seconds" readonly value="300">
+                    </div>
+                </div>
+                
+                <div class="preset-buttons">
+                    <button class="preset-btn" data-minutes="1">1 мин</button>
+                    <button class="preset-btn" data-minutes="5">5 мин</button>
+                    <button class="preset-btn" data-minutes="10">10 мин</button>
+                    <button class="preset-btn" data-minutes="15">15 мин</button>
+                    <button class="preset-btn" data-minutes="30">30 мин</button>
+                </div>
+            </div>
+            
+            <!-- Предпросмотр таймера -->
+            <div class="timer-preview">
+                <div class="preview-label">Предпросмотр отображения</div>
+                <div id="timer-display">05:00</div>
+                <div class="preview-label" id="timer-label">Таймер обратного отсчета</div>
+                
+                <div class="animation-demo">
+                    <div class="animation-progress" id="progress-bar"></div>
+                </div>
+            </div>
+            
+            <!-- Настройки отображения -->
+            <div class="display-options">
+                <div class="option-group">
+                    <h4><i class="fas fa-palette"></i> Внешний вид</h4>
+                    
+                    <div class="option-row">
+                        <label>Цвет текста:</label>
+                        <input type="color" id="color-picker" value="#ffffff" class="color-picker">
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>Цвет фона:</label>
+                        <input type="color" id="bg-color-picker" value="#4285f4" class="color-picker">
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>Размер шрифта:</label>
+                        <select id="font-size-select">
+                            <option value="24">Малый (24px)</option>
+                            <option value="36" selected>Средний (36px)</option>
+                            <option value="48">Большой (48px)</option>
+                            <option value="64">Очень большой (64px)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>Прозрачность:</label>
+                        <input type="range" id="opacity-slider" min="20" max="100" value="100">
+                        <span id="opacity-value">100%</span>
+                    </div>
+                </div>
+                
+                <div class="option-group">
+                    <h4><i class="fas fa-bell"></i> Уведомления</h4>
+                    
+                    <div class="option-row">
+                        <label>Звуковое оповещение:</label>
+                        <div class="sound-control">
+                            <div class="sound-toggle" id="sound-toggle"></div>
+                            <span id="sound-status">Вкл</span>
+                        </div>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>Показывать прогресс:</label>
+                        <div class="sound-control">
+                            <div class="sound-toggle" id="progress-toggle"></div>
+                            <span id="progress-status">Вкл</span>
+                        </div>
+                    </div>
+                    
+                    <div class="option-row">
+                        <label>Позиция на экране:</label>
+                        <select id="position-select">
+                            <option value="top-left">Сверху слева</option>
+                            <option value="top-center">Сверху по центру</option>
+                            <option value="top-right">Сверху справа</option>
+                            <option value="center" selected>По центру</option>
+                            <option value="bottom-left">Снизу слева</option>
+                            <option value="bottom-center">Снизу по центру</option>
+                            <option value="bottom-right">Снизу справа</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Кнопки управления -->
+            <div class="control-buttons">
+                <button class="control-btn" id="start-btn">
+                    <i class="fas fa-play"></i> Запустить таймер
+                </button>
+                <button class="control-btn" id="pause-btn">
+                    <i class="fas fa-pause"></i> Пауза
+                </button>
+                <button class="control-btn" id="reset-btn">
+                    <i class="fas fa-redo"></i> Сбросить
+                </button>
+            </div>
+            
+            <!-- Статус таймера -->
+            <div class="status" id="timer-status"></div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    
+    <script>
+        // Инициализация Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
+            authDomain: "greenbackgroundapp.firebaseapp.com",
+            databaseURL: "https://greenbackgroundapp-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "greenbackgroundapp",
+            storageBucket: "greenbackgroundapp.appspot.com",
+            messagingSenderId: "857271333291",
+            appId: "1:857271333291:web:e754824268f37341c7e2ee",
+            measurementId: "G-S5HL7Q45NE"
+        };
+        
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (error) {
+            console.log("Firebase уже инициализирован");
+        }
+        
+        const database = firebase.database();
+        const timerRef = database.ref('timer');
+        
+        let timerInterval = null;
+        let totalSeconds = 300; // 5 минут по умолчанию
+        let remainingSeconds = totalSeconds;
+        let isRunning = false;
+        let isPaused = false;
+        let timerData = {
+            hours: 0,
+            minutes: 5,
+            seconds: 0,
+            totalSeconds: 300,
+            remainingSeconds: 300,
+            isRunning: false,
+            isPaused: false,
+            display: {
+                color: "#ffffff",
+                backgroundColor: "#4285f4",
+                fontSize: "36px",
+                opacity: 1,
+                showProgress: true,
+                position: "center",
+                showSound: true
+            }
+        };
+        
+        // Элементы DOM
+        const hoursInput = document.getElementById('hours-input');
+        const minutesInput = document.getElementById('minutes-input');
+        const secondsInput = document.getElementById('seconds-input');
+        const totalSecondsInput = document.getElementById('total-seconds');
+        const timerDisplay = document.getElementById('timer-display');
+        const startBtn = document.getElementById('start-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const timerStatus = document.getElementById('timer-status');
+        const colorPicker = document.getElementById('color-picker');
+        const bgColorPicker = document.getElementById('bg-color-picker');
+        const fontSizeSelect = document.getElementById('font-size-select');
+        const opacitySlider = document.getElementById('opacity-slider');
+        const opacityValue = document.getElementById('opacity-value');
+        const positionSelect = document.getElementById('position-select');
+        const soundToggle = document.getElementById('sound-toggle');
+        const progressToggle = document.getElementById('progress-toggle');
+        const soundStatus = document.getElementById('sound-status');
+        const progressStatus = document.getElementById('progress-status');
+        const progressBar = document.getElementById('progress-bar');
+        
+        // Инициализация
+        function init() {
+            loadTimerFromFirebase();
+            setupEventListeners();
+            updateTimerDisplay();
+            updatePreview();
+        }
+        
+        // Загрузка данных таймера из Firebase
+        function loadTimerFromFirebase() {
+            timerRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    timerData = data;
+                    updateUIFromTimerData();
+                }
+            });
+        }
+        
+        // Обновление UI из данных таймера
+        function updateUIFromTimerData() {
+            hoursInput.value = timerData.hours;
+            minutesInput.value = timerData.minutes;
+            secondsInput.value = timerData.seconds;
+            totalSeconds = timerData.totalSeconds;
+            remainingSeconds = timerData.remainingSeconds;
+            isRunning = timerData.isRunning;
+            isPaused = timerData.isPaused;
+            
+            totalSecondsInput.value = totalSeconds;
+            
+            // Настройки отображения
+            colorPicker.value = timerData.display.color;
+            bgColorPicker.value = timerData.display.backgroundColor;
+            fontSizeSelect.value = timerData.display.fontSize.replace('px', '');
+            opacitySlider.value = timerData.display.opacity * 100;
+            opacityValue.textContent = Math.round(timerData.display.opacity * 100) + '%';
+            positionSelect.value = timerData.display.position;
+            
+            if (timerData.display.showSound) {
+                soundToggle.classList.add('active');
+                soundStatus.textContent = 'Вкл';
+            } else {
+                soundToggle.classList.remove('active');
+                soundStatus.textContent = 'Выкл';
+            }
+            
+            if (timerData.display.showProgress) {
+                progressToggle.classList.add('active');
+                progressStatus.textContent = 'Вкл';
+            } else {
+                progressToggle.classList.remove('active');
+                progressStatus.textContent = 'Выкл';
+            }
+            
+            updateTimerDisplay();
+            updatePreview();
+            updateStatus();
+            
+            // Если таймер запущен, обновляем интервал
+            if (isRunning && !isPaused) {
+                startTimerInterval();
+            } else {
+                clearInterval(timerInterval);
+            }
+        }
+        
+        // Настройка обработчиков событий
+        function setupEventListeners() {
+            // Обработчики ввода времени
+            hoursInput.addEventListener('input', updateTotalSeconds);
+            minutesInput.addEventListener('input', updateTotalSeconds);
+            secondsInput.addEventListener('input', updateTotalSeconds);
+            
+            // Предустановки времени
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const minutes = parseInt(btn.dataset.minutes);
+                    hoursInput.value = 0;
+                    minutesInput.value = minutes;
+                    secondsInput.value = 0;
+                    updateTotalSeconds();
+                });
+            });
+            
+            // Кнопки управления
+            startBtn.addEventListener('click', startTimer);
+            pauseBtn.addEventListener('click', pauseTimer);
+            resetBtn.addEventListener('click', resetTimer);
+            
+            // Настройки отображения
+            colorPicker.addEventListener('input', updateDisplaySettings);
+            bgColorPicker.addEventListener('input', updateDisplaySettings);
+            fontSizeSelect.addEventListener('change', updateDisplaySettings);
+            opacitySlider.addEventListener('input', updateDisplaySettings);
+            positionSelect.addEventListener('change', updateDisplaySettings);
+            
+            // Переключатели
+            soundToggle.addEventListener('click', toggleSound);
+            progressToggle.addEventListener('click', toggleProgress);
+            
+            // Обновление непрозрачности
+            opacitySlider.addEventListener('input', () => {
+                opacityValue.textContent = opacitySlider.value + '%';
+                updateDisplaySettings();
+            });
+        }
+        
+        // Обновление общего количества секунд
+        function updateTotalSeconds() {
+            const hours = parseInt(hoursInput.value) || 0;
+            const minutes = parseInt(minutesInput.value) || 0;
+            const seconds = parseInt(secondsInput.value) || 0;
+            
+            totalSeconds = hours * 3600 + minutes * 60 + seconds;
+            remainingSeconds = totalSeconds;
+            
+            totalSecondsInput.value = totalSeconds;
+            
+            timerData.hours = hours;
+            timerData.minutes = minutes;
+            timerData.seconds = seconds;
+            timerData.totalSeconds = totalSeconds;
+            timerData.remainingSeconds = remainingSeconds;
+            
+            updateTimerDisplay();
+            updatePreview();
+            saveTimerData();
+        }
+        
+        // Обновление отображения таймера
+        function updateTimerDisplay() {
+            const hours = Math.floor(remainingSeconds / 3600);
+            const minutes = Math.floor((remainingSeconds % 3600) / 60);
+            const seconds = remainingSeconds % 60;
+            
+            let displayText = '';
+            
+            if (hours > 0) {
+                displayText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                displayText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            timerDisplay.textContent = displayText;
+            
+            // Обновление прогресс-бара
+            const progress = totalSeconds > 0 ? ((totalSeconds - remainingSeconds) / totalSeconds) * 100 : 0;
+            progressBar.style.width = `${progress}%`;
+            
+            // Изменение цвета при малом времени
+            if (remainingSeconds <= 60) {
+                timerDisplay.style.color = '#ff4444';
+                progressBar.style.background = 'linear-gradient(90deg, #ff4444, #ff8800)';
+            } else if (remainingSeconds <= 300) {
+                timerDisplay.style.color = '#ffaa00';
+                progressBar.style.background = 'linear-gradient(90deg, #ffaa00, #ffcc00)';
+            } else {
+                timerDisplay.style.color = colorPicker.value;
+                progressBar.style.background = 'linear-gradient(90deg, #4285f4, #34a853)';
+            }
+        }
+        
+        // Обновление предпросмотра
+        function updatePreview() {
+            timerDisplay.style.color = colorPicker.value;
+            timerDisplay.style.backgroundColor = bgColorPicker.value;
+            timerDisplay.style.fontSize = fontSizeSelect.value + 'px';
+            timerDisplay.style.opacity = opacitySlider.value / 100;
+            timerDisplay.style.padding = '15px';
+            timerDisplay.style.borderRadius = '10px';
+            timerDisplay.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+        }
+        
+        // Обновление настроек отображения
+        function updateDisplaySettings() {
+            timerData.display.color = colorPicker.value;
+            timerData.display.backgroundColor = bgColorPicker.value;
+            timerData.display.fontSize = fontSizeSelect.value + 'px';
+            timerData.display.opacity = opacitySlider.value / 100;
+            timerData.display.position = positionSelect.value;
+            
+            updatePreview();
+            saveTimerData();
+        }
+        
+        // Переключение звука
+        function toggleSound() {
+            timerData.display.showSound = !timerData.display.showSound;
+            soundToggle.classList.toggle('active');
+            soundStatus.textContent = timerData.display.showSound ? 'Вкл' : 'Выкл';
+            saveTimerData();
+        }
+        
+        // Переключение прогресс-бара
+        function toggleProgress() {
+            timerData.display.showProgress = !timerData.display.showProgress;
+            progressToggle.classList.toggle('active');
+            progressStatus.textContent = timerData.display.showProgress ? 'Вкл' : 'Выкл';
+            saveTimerData();
+        }
+        
+        // Запуск таймера
+        function startTimer() {
+            if (totalSeconds <= 0) {
+                alert('Установите время для таймера');
+                return;
+            }
+            
+            if (isPaused) {
+                // Продолжение после паузы
+                isPaused = false;
+            } else {
+                // Новый запуск
+                remainingSeconds = totalSeconds;
+                timerData.remainingSeconds = remainingSeconds;
+            }
+            
+            isRunning = true;
+            timerData.isRunning = true;
+            timerData.isPaused = false;
+            
+            startTimerInterval();
+            updateStatus();
+            saveTimerData();
+        }
+        
+        // Пауза таймера
+        function pauseTimer() {
+            if (!isRunning) return;
+            
+            isPaused = !isPaused;
+            timerData.isPaused = isPaused;
+            
+            if (isPaused) {
+                clearInterval(timerInterval);
+            } else {
+                startTimerInterval();
+            }
+            
+            updateStatus();
+            saveTimerData();
+        }
+        
+        // Сброс таймера
+        function resetTimer() {
+            clearInterval(timerInterval);
+            
+            isRunning = false;
+            isPaused = false;
+            remainingSeconds = totalSeconds;
+            
+            timerData.isRunning = false;
+            timerData.isPaused = false;
+            timerData.remainingSeconds = remainingSeconds;
+            
+            updateTimerDisplay();
+            updateStatus();
+            saveTimerData();
+        }
+        
+        // Запуск интервала таймера
+        function startTimerInterval() {
+            clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                if (remainingSeconds > 0) {
+                    remainingSeconds--;
+                    timerData.remainingSeconds = remainingSeconds;
+                    
+                    updateTimerDisplay();
+                    saveTimerData();
+                    
+                    // Звуковое оповещение при 10, 5, 3, 2, 1 секундах
+                    if (timerData.display.showSound && remainingSeconds <= 10 && remainingSeconds > 0) {
+                        playBeep();
+                    }
+                    
+                    // Завершение таймера
+                    if (remainingSeconds === 0) {
+                        timerFinished();
+                    }
+                } else {
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+        }
+        
+        // Завершение таймера
+        function timerFinished() {
+            clearInterval(timerInterval);
+            
+            isRunning = false;
+            isPaused = false;
+            
+            timerData.isRunning = false;
+            timerData.isPaused = false;
+            
+            // Воспроизведение завершающего звука
+            if (timerData.display.showSound) {
+                playFinishSound();
+            }
+            
+            updateStatus();
+            saveTimerData();
+            
+            alert('Таймер завершен!');
+        }
+        
+        // Воспроизведение звукового сигнала
+        function playBeep() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } catch (error) {
+                console.log("Аудио не поддерживается");
+            }
+        }
+        
+        // Воспроизведение завершающего звука
+        function playFinishSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Создаем более сложный звук завершения
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        oscillator.frequency.value = 600 - (i * 100);
+                        oscillator.type = 'sine';
+                        
+                        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                        
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.3);
+                    }, i * 300);
+                }
+            } catch (error) {
+                console.log("Аудио не поддерживается");
+            }
+        }
+        
+        // Обновление статуса
+        function updateStatus() {
+            timerStatus.className = 'status';
+            timerStatus.textContent = '';
+            
+            if (isRunning) {
+                if (isPaused) {
+                    timerStatus.className = 'status paused';
+                    timerStatus.textContent = 'Таймер на паузе';
+                } else {
+                    timerStatus.className = 'status active';
+                    timerStatus.textContent = 'Таймер запущен';
+                }
+            } else if (remainingSeconds === 0 && totalSeconds > 0) {
+                timerStatus.className = 'status finished';
+                timerStatus.textContent = 'Таймер завершен';
+            }
+        }
+        
+        // Сохранение данных таймера в Firebase
+        function saveTimerData() {
+            timerRef.set(timerData).catch(error => {
+                console.error("Ошибка сохранения таймера:", error);
+            });
+        }
+        
+        // Инициализация при загрузке
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

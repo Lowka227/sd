@@ -913,60 +913,9 @@
                     createTextFromSimpleInput();
                 }
             });
-           
-            const audioElement = document.getElementById('audio-element');
-            audioElement.addEventListener('timeupdate', updateSoundProgress);
-            audioElement.addEventListener('ended', soundEnded);
 
-            // Добавьте после других слушателей Firebase
-            const timerRef = database.ref('timer');
-            timerRef.on('value', (snapshot) => {
-                const timerData = snapshot.val();
-                if (timerData) {
-                    updateTimerDisplay(timerData);
-                }
-            });
             
-            function updateTimerDisplay(timerData) {
-                const overlay = document.getElementById('timer-overlay');
-                if (!overlay) return;
-                
-                if (!timerData.isRunning || timerData.totalSeconds === 0) {
-                    overlay.innerHTML = '';
-                    return;
-                }
-                
-                const hours = Math.floor(timerData.remainingSeconds / 3600);
-                const minutes = Math.floor((timerData.remainingSeconds % 3600) / 60);
-                const seconds = timerData.remainingSeconds % 60;
-                
-                let displayText = '';
-                if (hours > 0) {
-                    displayText = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                } else {
-                    displayText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                }
-                
-                // Создаем элемент таймера
-                overlay.innerHTML = `
-                    <div id="timer-display-main" style="
-                        color: ${timerData.display.color};
-                        background: ${timerData.display.backgroundColor};
-                        font-size: ${timerData.display.fontSize};
-                        opacity: ${timerData.display.opacity};
-                        padding: 15px 25px;
-                        border-radius: 15px;
-                        box-shadow: 0 5px 25px rgba(0,0,0,0.3);
-                        font-family: 'Courier New', monospace;
-                        font-weight: bold;
-                        text-align: center;
-                        white-space: nowrap;
-                        ${getPositionStyle(timerData.display.position)}
-                    ">
-                        ${displayText}
-                    </div>
-                `;
-            }
+            
 
 function getPositionStyle(position) {
     const canvas = document.getElementById('canvas-wrapper

@@ -914,12 +914,6 @@
                 }
             });
 
-            
-            
-
-function getPositionStyle(position) {
-    const canvas = document.getElementById('canvas-wrapper
-           
             setupViewport();
            
             console.log("Приложение инициализировано");
@@ -1323,9 +1317,9 @@ function getPositionStyle(position) {
         function stopTTS() {
             speechSynthesis.cancel();
             document.getElementById('tts-play-btn').disabled = false;
-                document.getElementById('tts-pause-btn').disabled = true;
-                document.getElementById('tts-stop-btn').disabled = true;
-            }
+            document.getElementById('tts-pause-btn').disabled = true;
+            document.getElementById('tts-stop-btn').disabled = true;
+        }
        
         function updateTTSVoice() {
             if (speechUtterance && speechSynthesis.speaking) {

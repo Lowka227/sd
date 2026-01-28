@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-минутный таймер</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: transparent;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        .timer-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            color: white;
+            width: 300px;
+        }
+        
+        .timer-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .timer-display {
+            font-size: 72px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            color: white;
+            margin: 20px 0;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 2px solid #4CAF50;
+        }
+        
+        .timer-progress {
+            width: 100%;
+            height: 10px;
+            background: #333;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            width: 100%;
+            transition: width 1s linear;
+        }
+        
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .timer-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-width: 120px;
+        }
+        
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .start-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .pause-btn {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .pause-btn:hover {
+            background: #f57c00;
+            transform: translateY(-2px);
+        }
+        
+        .reset-btn {
+            background: #f44336;
+            color: white;
+        }
+        
+        .reset-btn:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+        }
+        
+        .timer-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .timer-status {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #aaa;
+        }
+        
+        .timer-alert {
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .time-up {
+            color: #ff4444 !important;
+            text-shadow: 0 0 15px #ff4444 !important;
+            animation: pulse 0.5s infinite !important;
+        }
+        
+        /* Стиль для компактного режима */
+        .compact-mode .timer-container {
+            padding: 10px;
+            width: 200px;
+        }
+        
+        .compact-mode .timer-title {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .compact-mode .timer-display {
+            font-size: 36px;
+            margin: 10px 0;
+        }
+        
+        .compact-mode .timer-btn {
+            padding: 8px 12px;
+            font-size: 12px;
+            min-width: 80px;
+        }
+        
+        /* Стиль для минималистичного режима */
+        .minimal-mode {
+            background: transparent !important;
+            box-shadow: none !important;
+            width: auto !important;
+            padding: 0 !important;
+        }
+        
+        .minimal-mode .timer-display {
+            font-size: 48px;
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        .minimal-mode .timer-title,
+        .minimal-mode .timer-progress,
+        .minimal-mode .timer-controls,
+        .minimal-mode .timer-status {
+            display: none !important;
+        }
+        
+        /* Индикатор времени */
+        .time-indicator {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="timer-container">
+        <div class="timer-title">3-минутный таймер</div>
+        
+        <div class="timer-display" id="timerDisplay">03:00</div>
+        
+        <div class="timer-progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div class="time-indicator">
+            <span>0:00</span>
+            <span>1:30</span>
+            <span>3:00</span>
+        </div>
+        
+        <div class="timer-controls">
+            <button class="timer-btn start-btn" id="startBtn">Старт</button>
+            <button class="timer-btn pause-btn" id="pauseBtn" disabled>Пауза</button>
+            <button class="timer-btn reset-btn" id="resetBtn">Сброс</button>
+        </div>
+        
+        <div class="timer-status" id="timerStatus">Готов к запуску</div>
+    </div>
+
+    <script>
+        // Конфигурация таймера
+        const TOTAL_TIME = 3 * 60; // 3 минуты в секундах
+        let timeLeft = TOTAL_TIME;
+        let timerInterval = null;
+        let isRunning = false;
+        
+        // Элементы DOM
+        const timerDisplay = document.getElementById('timerDisplay');
+        const progressBar = document.getElementById('progressBar');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const timerStatus = document.getElementById('timerStatus');
+        const timerContainer = document.querySelector('.timer-container');
+        
+        // Форматирование времени (MM:SS)
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // Обновление отображения таймера
+        function updateTimerDisplay() {
+            timerDisplay.textContent = formatTime(timeLeft);
+            
+            // Обновление прогресс-бара
+            const progressPercent = (timeLeft / TOTAL_TIME) * 100;
+            progressBar.style.width = `${progressPercent}%`;
+            
+            // Изменение цвета при низком времени
+            if (timeLeft <= 30) { // Последние 30 секунд
+                timerDisplay.classList.add('timer-alert');
+                if (timeLeft <= 10) { // Последние 10 секунд
+                    progressBar.style.background = 'linear-gradient(90deg, #ff4444, #ff8800)';
+                } else {
+                    progressBar.style.background = 'linear-gradient(90deg, #ff9800, #ffcc00)';
+                }
+            } else {
+                timerDisplay.classList.remove('timer-alert');
+                progressBar.style.background = 'linear-gradient(90deg, #4CAF50, #8BC34A)';
+            }
+            
+            // Время вышло
+            if (timeLeft <= 0) {
+                timerDisplay.textContent = '00:00';
+                timerDisplay.classList.add('time-up');
+                timerStatus.textContent = 'Время вышло!';
+                clearInterval(timerInterval);
+                isRunning = false;
+                
+                // Звуковое оповещение (если разрешено)
+                playAlertSound();
+                
+                // Мигание
+                let blinkCount = 0;
+                const blinkInterval = setInterval(() => {
+                    timerDisplay.style.visibility = timerDisplay.style.visibility === 'hidden' ? 'visible' : 'hidden';
+                    blinkCount++;
+                    if (blinkCount >= 10) {
+                        clearInterval(blinkInterval);
+                        timerDisplay.style.visibility = 'visible';
+                    }
+                }, 500);
+            }
+        }
+        
+        // Воспроизведение звукового оповещения
+        function playAlertSound() {
+            try {
+                // Создаем звук с помощью Web Audio API
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 1);
+            } catch (e) {
+                console.log("Звуковое оповещение недоступно");
+            }
+        }
+        
+        // Запуск таймера
+        function startTimer() {
+            if (isRunning || timeLeft <= 0) return;
+            
+            isRunning = true;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    updateButtons();
+                }
+            }, 1000);
+            
+            updateButtons();
+            timerStatus.textContent = 'Таймер запущен';
+        }
+        
+        // Пауза таймера
+        function pauseTimer() {
+            if (!isRunning) return;
+            
+            clearInterval(timerInterval);
+            isRunning = false;
+            updateButtons();
+            timerStatus.textContent = 'Таймер на паузе';
+        }
+        
+        // Сброс таймера
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timeLeft = TOTAL_TIME;
+            isRunning = false;
+            updateTimerDisplay();
+            updateButtons();
+            timerDisplay.classList.remove('timer-alert', 'time-up');
+            progressBar.style.background = 'linear-gradient(90deg, #4CAF50, #8BC34A)';
+            timerStatus.textContent = 'Готов к запуску';
+        }
+        
+        // Обновление состояния кнопок
+        function updateButtons() {
+            startBtn.disabled = isRunning || timeLeft <= 0;
+            pauseBtn.disabled = !isRunning;
+            resetBtn.disabled = false;
+            
+            startBtn.textContent = timeLeft <= 0 ? 'Перезапуск' : 'Старт';
+        }
+        
+        // Обработчики событий
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        resetBtn.addEventListener('click', resetTimer);
+        
+        // Управление с клавиатуры
+        document.addEventListener('keydown', (e) => {
+            // Пробел - старт/пауза
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (isRunning) {
+                    pauseTimer();
+                } else {
+                    startTimer();
+                }
+            }
+            // R - сброс
+            else if (e.code === 'KeyR') {
+                resetTimer();
+            }
+            // 1,2,3 - выбор режима отображения
+            else if (e.code === 'Digit1') {
+                timerContainer.className = 'timer-container';
+            }
+            else if (e.code === 'Digit2') {
+                timerContainer.className = 'timer-container compact-mode';
+            }
+            else if (e.code === 'Digit3') {
+                timerContainer.className = 'timer-container minimal-mode';
+            }
+        });
+        
+        // Инициализация
+        updateTimerDisplay();
+        updateButtons();
+        
+        // Сохранение состояния при перезагрузке страницы
+        window.addEventListener('beforeunload', () => {
+            if (isRunning) {
+                localStorage.setItem('timerRunning', 'true');
+                localStorage.setItem('timerStartTime', Date.now());
+                localStorage.setItem('timerTimeLeft', timeLeft);
+            } else {
+                localStorage.removeItem('timerRunning');
+                localStorage.removeItem('timerStartTime');
+                localStorage.removeItem('timerTimeLeft');
+            }
+        });
+        
+        // Восстановление состояния при загрузке страницы
+        window.addEventListener('load', () => {
+            const wasRunning = localStorage.getItem('timerRunning') === 'true';
+            const savedTimeLeft = localStorage.getItem('timerTimeLeft');
+            const savedStartTime = localStorage.getItem('timerStartTime');
+            
+            if (wasRunning && savedTimeLeft && savedStartTime) {
+                const elapsedSeconds = Math.floor((Date.now() - parseInt(savedStartTime)) / 1000);
+                timeLeft = Math.max(0, parseInt(savedTimeLeft) - elapsedSeconds);
+                
+                if (timeLeft > 0) {
+                    startTimer();
+                } else {
+                    timeLeft = 0;
+                    updateTimerDisplay();
+                    updateButtons();
+                }
+                
+                localStorage.removeItem('timerRunning');
+                localStorage.removeItem('timerStartTime');
+                localStorage.removeItem('timerTimeLeft');
+            }
+        });
+        
+        // Управление с помощью параметров URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode');
+        
+        if (mode === 'compact') {
+            timerContainer.className = 'timer-container compact-mode';
+        } else if (mode === 'minimal') {
+            timerContainer.className = 'timer-container minimal-mode';
+        }
+        
+        // Автозапуск по параметру URL
+        if (urlParams.get('autostart') === 'true') {
+            setTimeout(startTimer, 1000);
+        }
+    </script>
+</body>
+</html>

@@ -13,40 +13,24 @@
             touch-action: none;
             background: #f0f0f0;
         }
-        
-        /* Исправленная панель управления - всегда видима */
-        #controls {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
-            height: 70px !important;
-            background: #f0f0f0 !important;
-            border-bottom: 3px solid #4285f4 !important;
-            display: flex !important;
-            gap: 10px !important;
-            padding: 10px !important;
-            box-sizing: border-box !important;
-            align-items: center !important;
-            z-index: 999999 !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            pointer-events: auto !important;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
-        }
-        
-        /* Контейнер с отступом сверху для панели */
         #app-container {
             display: flex;
             flex-direction: column;
             width: 2560px;
             height: 1212px;
             position: relative;
-            margin-top: 70px !important; /* Отступ под фиксированную панель */
         }
-        
-        /* Остальные стили (без изменений) */
+        #controls {
+            background: #f0f0f0;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            height: 60px;
+            box-sizing: border-box;
+            z-index: 100;
+            position: relative;
+        }
         #thumbnails-container {
             display: flex;
             align-items: center;
@@ -155,13 +139,31 @@
         .thumbnail-button.show {
             background: #4caf50;
         }
-        #image-controls, #text-controls, #sound-controls, #widget-controls {
+        #image-controls {
             display: flex;
             gap: 10px;
             margin-left: 20px;
-            background: rgba(255,255,255,0.5);
-            padding: 5px;
-            border-radius: 5px;
+            display: none;
+        }
+        #text-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+            display: none;
+        }
+        #sound-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+            display: none;
+            align-items: center;
+        }
+        #widget-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+            display: none;
+            align-items: center;
         }
        
         #canvas-wrapper {
@@ -358,7 +360,6 @@
             color: white;
             font-size: 14px;
             cursor: pointer;
-            min-width: 80px;
         }
         #file-input {
             display: none;
@@ -748,7 +749,7 @@
                 <div id="thumbnails"></div>
             </div>
            
-            <div id="image-controls" style="display: none;">
+            <div id="image-controls">
                 <button id="hide-btn">Скрыть/Показать</button>
                 <button id="delete-btn">Удалить</button>
                 <button id="settings-btn">Настройки</button>
@@ -757,14 +758,14 @@
                 <button id="flip-v-btn">Отразить по верт.</button>
             </div>
            
-            <div id="text-controls" style="display: none;">
+            <div id="text-controls">
                 <button id="hide-text-btn">Скрыть/Показать</button>
                 <button id="edit-text-btn">Редактировать</button>
                 <button id="delete-text-btn">Удалить</button>
                 <button id="lock-text-btn">Закрепить</button>
             </div>
            
-            <div id="sound-controls" style="display: none;">
+            <div id="sound-controls">
                 <button id="play-btn">▶</button>
                 <button id="pause-btn">⏸</button>
                 <div class="sound-visualization">
@@ -777,7 +778,7 @@
                 <button id="delete-sound-btn">Удалить звук</button>
             </div>
            
-            <div id="widget-controls" style="display: none;">
+            <div id="widget-controls">
                 <button id="hide-widget-btn">Скрыть/Показать</button>
                 <button id="delete-widget-btn">Удалить</button>
                 <button id="lock-widget-btn">Закрепить</button>
@@ -920,42 +921,11 @@
             appId: "1:857271333291:web:e754824268f37341c7e2ee",
             measurementId: "G-S5HL7Q45NE"
         };
-        
-        // Принудительная инициализация и проверка видимости панели
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM загружен, проверяем панель управления');
-            
-            // Принудительно показываем панель
-            const controls = document.getElementById('controls');
-            if (controls) {
-                controls.style.display = 'flex';
-                controls.style.visibility = 'visible';
-                controls.style.opacity = '1';
-                console.log('Панель управления принудительно отображена');
-            }
-            
-            // Добавляем защиту от скрытия
-            setInterval(function() {
-                const controls = document.getElementById('controls');
-                if (controls) {
-                    const computedStyle = window.getComputedStyle(controls);
-                    if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden' || computedStyle.opacity === '0') {
-                        console.log('Обнаружено скрытие панели, восстанавливаем...');
-                        controls.style.display = 'flex';
-                        controls.style.visibility = 'visible';
-                        controls.style.opacity = '1';
-                    }
-                }
-            }, 1000); // Проверяем каждую секунду
-            
-            // Инициализация Firebase
-            try {
-                firebase.initializeApp(firebaseConfig);
-                console.log('Firebase инициализирован');
-            } catch (error) {
-                console.log("Firebase уже инициализирован или ошибка:", error);
-            }
-        });
+        try {
+            firebase.initializeApp(firebaseConfig);
+        } catch (error) {
+            console.log("Firebase уже инициализирован");
+        }
        
         const database = firebase.database();
         const imagesRef = database.ref('images');
@@ -3556,22 +3526,7 @@
             resizeDirection = null;
         }
        
-        // Запускаем приложение
-        window.addEventListener('load', function() {
-            initApp();
-            
-            // Дополнительная проверка панели через 0.5 секунды
-            setTimeout(function() {
-                const controls = document.getElementById('controls');
-                if (controls) {
-                    controls.style.display = 'flex';
-                    controls.style.visibility = 'visible';
-                    controls.style.opacity = '1';
-                    console.log('Панель управления проверена и отображена');
-                }
-            }, 500);
-        });
-        
+        window.addEventListener('DOMContentLoaded', initApp);
         window.addEventListener('resize', setupViewport);
     </script>
 </body>

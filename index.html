@@ -291,6 +291,37 @@
             transition: opacity 0.2s;
             cursor: pointer;
         }
+        .crop-handle {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: #ff9800;
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: crosshair;
+        }
+        .crop-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 15;
+            display: none;
+            pointer-events: none;
+        }
+        .crop-area {
+            position: absolute;
+            border: 2px dashed #ff9800;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 16;
+            display: none;
+            pointer-events: none;
+        }
         .rotate-corner {
             position: absolute;
             width: 20px;
@@ -349,8 +380,29 @@
             left: -5px;
             cursor: nw-resize;
         }
+        .crop-nw {
+            top: -10px;
+            left: -10px;
+            cursor: nw-resize;
+        }
+        .crop-ne {
+            top: -10px;
+            right: -10px;
+            cursor: ne-resize;
+        }
+        .crop-sw {
+            bottom: -10px;
+            left: -10px;
+            cursor: sw-resize;
+        }
+        .crop-se {
+            bottom: -10px;
+            right: -10px;
+            cursor: se-resize;
+        }
         .selected:not(.locked) .resize-handle,
-        .selected:not(.locked) .rotate-corner {
+        .selected:not(.locked) .rotate-corner,
+        .selected:not(.locked) .crop-handle {
             opacity: 1;
         }
         button {
@@ -735,6 +787,95 @@
             background: #f44336;
             color: white;
         }
+
+        /* Панель обрезки */
+        #crop-panel {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 200;
+            display: none;
+            width: 400px;
+        }
+        
+        .crop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .crop-header h3 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .crop-preview {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #ddd;
+            margin-bottom: 15px;
+            overflow: hidden;
+            position: relative;
+            background: #f5f5f5;
+        }
+        
+        .crop-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .crop-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .crop-control {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .crop-control label {
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        
+        .crop-control input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .crop-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .crop-buttons button {
+            flex: 1;
+        }
+        
+        #apply-crop-btn {
+            background: #4caf50;
+        }
+        
+        #cancel-crop-btn {
+            background: #f44336;
+        }
+        
+        /* Кнопка обрезки в панелях управления */
+        .crop-btn {
+            background: #ff9800 !important;
+        }
     </style>
 </head>
 <body>
@@ -758,6 +899,7 @@
                 <button id="lock-btn">Закрепить</button>
                 <button id="flip-h-btn">Отразить по гориз.</button>
                 <button id="flip-v-btn">Отразить по верт.</button>
+                <button id="crop-image-btn" class="crop-btn">Обрезать</button>
             </div>
            
             <div id="text-controls">
@@ -765,6 +907,7 @@
                 <button id="edit-text-btn">Редактировать</button>
                 <button id="delete-text-btn">Удалить</button>
                 <button id="lock-text-btn">Закрепить</button>
+                <button id="crop-text-btn" class="crop-btn">Обрезать</button>
             </div>
            
             <div id="sound-controls">
@@ -785,6 +928,7 @@
                 <button id="delete-widget-btn">Удалить</button>
                 <button id="lock-widget-btn">Закрепить</button>
                 <button id="reload-widget-btn">Обновить</button>
+                <button id="crop-widget-btn" class="crop-btn">Обрезать</button>
             </div>
            
             <div id="status">Синхронизировано</div>
@@ -904,6 +1048,42 @@
             </div>
         </div>
     </div>
+
+    <!-- Панель обрезки -->
+    <div id="crop-panel">
+        <div class="crop-header">
+            <h3>Обрезка элемента</h3>
+            <button class="close-btn" id="close-crop-btn">×</button>
+        </div>
+        
+        <div class="crop-preview" id="crop-preview">
+            <!-- Превью будет здесь -->
+        </div>
+        
+        <div class="crop-controls">
+            <div class="crop-control">
+                <label>X (px)</label>
+                <input type="number" id="crop-x" value="0" min="0">
+            </div>
+            <div class="crop-control">
+                <label>Y (px)</label>
+                <input type="number" id="crop-y" value="0" min="0">
+            </div>
+            <div class="crop-control">
+                <label>Ширина (px)</label>
+                <input type="number" id="crop-width" value="100" min="10">
+            </div>
+            <div class="crop-control">
+                <label>Высота (px)</label>
+                <input type="number" id="crop-height" value="100" min="10">
+            </div>
+        </div>
+        
+        <div class="crop-buttons">
+            <button id="apply-crop-btn">Применить обрезку</button>
+            <button id="cancel-crop-btn">Отмена</button>
+        </div>
+    </div>
    
     <input type="file" id="file-input" accept="image/*">
     <input type="file" id="sound-input" accept="audio/*">
@@ -959,6 +1139,13 @@
         let soundInterval = null;
         let isRotating = false;
        
+        // Переменные для обрезки
+        let cropMode = false;
+        let cropStartX = 0, cropStartY = 0;
+        let cropElement = null;
+        let cropType = null; // 'image', 'text', 'widget'
+        let cropOriginalData = null;
+       
         let speechSynthesis = window.speechSynthesis;
         let speechUtterance = null;
         let voices = [];
@@ -1008,6 +1195,14 @@
                     flipImageVertical(selectedImageId);
                 }
             });
+           
+            // Обработчики для обрезки
+            document.getElementById('crop-image-btn').addEventListener('click', () => startCrop('image'));
+            document.getElementById('crop-text-btn').addEventListener('click', () => startCrop('text'));
+            document.getElementById('crop-widget-btn').addEventListener('click', () => startCrop('widget'));
+            document.getElementById('close-crop-btn').addEventListener('click', cancelCrop);
+            document.getElementById('apply-crop-btn').addEventListener('click', applyCrop);
+            document.getElementById('cancel-crop-btn').addEventListener('click', cancelCrop);
            
             // Обработчики для виджетов
             document.getElementById('add-widget-btn').addEventListener('click', showWidgetsPanel);
@@ -1260,11 +1455,154 @@
                 if (e.key === 'Escape' && isAddingWidget) {
                     closeWidgetsPanel();
                 }
+                if (e.key === 'Escape' && cropMode) {
+                    cancelCrop();
+                }
             });
 
             setupViewport();
            
             console.log("Приложение инициализировано");
+        }
+
+        // Функции для обрезки
+        function startCrop(type) {
+            let elementId = null;
+            let elementData = null;
+            
+            if (type === 'image' && selectedImageId) {
+                elementId = selectedImageId;
+                elementData = images[selectedImageId];
+            } else if (type === 'text' && selectedTextId) {
+                elementId = selectedTextId;
+                elementData = texts[selectedTextId];
+            } else if (type === 'widget' && selectedWidgetId) {
+                elementId = selectedWidgetId;
+                elementData = widgets[selectedWidgetId];
+            }
+            
+            if (!elementId || !elementData) {
+                alert("Выберите элемент для обрезки");
+                return;
+            }
+            
+            cropMode = true;
+            cropElement = document.getElementById(elementId);
+            cropType = type;
+            cropOriginalData = { ...elementData };
+            
+            // Показываем панель обрезки
+            const panel = document.getElementById('crop-panel');
+            panel.style.display = 'block';
+            
+            // Устанавливаем значения по умолчанию
+            document.getElementById('crop-x').value = 0;
+            document.getElementById('crop-y').value = 0;
+            document.getElementById('crop-width').value = elementData.width || 100;
+            document.getElementById('crop-height').value = elementData.height || 100;
+            
+            // Обновляем превью
+            updateCropPreview();
+        }
+        
+        function updateCropPreview() {
+            const preview = document.getElementById('crop-preview');
+            preview.innerHTML = '';
+            
+            if (!cropElement) return;
+            
+            if (cropType === 'image') {
+                const img = cropElement.querySelector('img');
+                if (img) {
+                    const clone = img.cloneNode();
+                    clone.style.width = '100%';
+                    clone.style.height = '100%';
+                    clone.style.objectFit = 'contain';
+                    preview.appendChild(clone);
+                }
+            } else if (cropType === 'text') {
+                const div = document.createElement('div');
+                div.textContent = cropElement.textContent;
+                div.style.fontSize = cropElement.style.fontSize;
+                div.style.color = cropElement.style.color;
+                div.style.fontFamily = cropElement.style.fontFamily;
+                div.style.padding = '10px';
+                div.style.background = 'rgba(255,255,255,0.9)';
+                preview.appendChild(div);
+            } else if (cropType === 'widget') {
+                const iframe = cropElement.querySelector('iframe');
+                if (iframe) {
+                    const placeholder = document.createElement('div');
+                    placeholder.textContent = 'Виджет: ' + (widgets[cropElement.id]?.name || 'Без названия');
+                    placeholder.style.padding = '20px';
+                    placeholder.style.textAlign = 'center';
+                    placeholder.style.background = '#e8f5e9';
+                    placeholder.style.color = '#2e7d32';
+                    preview.appendChild(placeholder);
+                }
+            }
+        }
+        
+        function applyCrop() {
+            if (!cropMode || !cropElement || !cropType) return;
+            
+            const x = parseInt(document.getElementById('crop-x').value) || 0;
+            const y = parseInt(document.getElementById('crop-y').value) || 0;
+            const width = parseInt(document.getElementById('crop-width').value) || 10;
+            const height = parseInt(document.getElementById('crop-height').value) || 10;
+            
+            // Применяем обрезку
+            if (cropType === 'image') {
+                // Для изображений используем clip-path
+                cropElement.style.clipPath = `inset(${y}px ${cropElement.offsetWidth - x - width}px ${cropElement.offsetHeight - y - height}px ${x}px)`;
+                
+                // Сохраняем данные обрезки в Firebase
+                imagesRef.child(cropElement.id).update({
+                    crop: {
+                        x: x,
+                        y: y,
+                        width: width,
+                        height: height
+                    }
+                });
+            } else if (cropType === 'text') {
+                // Для текста используем обрезку через overflow
+                cropElement.style.overflow = 'hidden';
+                cropElement.style.maxWidth = width + 'px';
+                cropElement.style.maxHeight = height + 'px';
+                
+                textsRef.child(cropElement.id).update({
+                    crop: {
+                        x: x,
+                        y: y,
+                        width: width,
+                        height: height
+                    }
+                });
+            } else if (cropType === 'widget') {
+                // Для виджетов используем clip-path
+                cropElement.style.clipPath = `inset(${y}px ${cropElement.offsetWidth - x - width}px ${cropElement.offsetHeight - y - height}px ${x}px)`;
+                
+                widgetsRef.child(cropElement.id).update({
+                    crop: {
+                        x: x,
+                        y: y,
+                        width: width,
+                        height: height
+                    }
+                });
+            }
+            
+            saveStateToHistory();
+            cancelCrop();
+        }
+        
+        function cancelCrop() {
+            cropMode = false;
+            cropElement = null;
+            cropType = null;
+            cropOriginalData = null;
+            document.getElementById('crop-panel').style.display = 'none';
         }
         
         function showWidgetsPanel() {
@@ -1487,7 +1825,11 @@
                 updateWidgetDisplayState(widget, widgetData);
                 updateWidgetLockState(widget, widgetData);
                 
-                // ИСПРАВЛЕНО: Плавное выделение нового виджета без сброса панели
+                // Применяем обрезку если есть
+                if (widgetData.crop) {
+                    widget.style.clipPath = `inset(${widgetData.crop.y}px ${widget.offsetWidth - widgetData.crop.x - widgetData.crop.width}px ${widget.offsetHeight - widgetData.crop.y - widgetData.crop.height}px ${widgetData.crop.x}px)`;
+                }
+                
                 if (widgetData.isNew) {
                     // Снимаем выделение со всех элементов
                     document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
@@ -1535,6 +1877,11 @@
                 widget.style.display = 'block';
             }
             
+            // Применяем обрезку если есть
+            if (widgetData.crop) {
+                widget.style.clipPath = `inset(${widgetData.crop.y}px ${widgetData.width - widgetData.crop.x - widgetData.crop.width}px ${widgetData.height - widgetData.crop.y - widgetData.crop.height}px ${widgetData.crop.x}px)`;
+            }
+            
             // Создаем iframe
             const iframe = document.createElement('iframe');
             iframe.src = widgetData.url;
@@ -1570,7 +1917,7 @@
             const widgetElement = e.currentTarget;
             const isLocked = widgetElement.classList.contains('locked');
             
-            // ИСПРАВЛЕНО: Снимаем выделение со всех элементов, кроме текущего виджета
+            // Снимаем выделение со всех элементов, кроме текущего виджета
             document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
                 if (el !== widgetElement) {
                     el.classList.remove('selected');
@@ -2466,7 +2813,7 @@
         
         function selectWidgetFromThumbnail(widgetId) {
             if (widgets[widgetId] && (!widgets[widgetId].display || widgets[widgetId].display !== 'none')) {
-                // ИСПРАВЛЕНО: Снимаем выделение со всех элементов, кроме текущего виджета
+                // Снимаем выделение со всех элементов, кроме текущего виджета
                 document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
                     if (el.id !== widgetId) {
                         el.classList.remove('selected');
@@ -2565,6 +2912,7 @@
             document.getElementById('widget-controls').style.display = 'none';
             document.getElementById('properties-panel').style.display = 'none';
             document.getElementById('simple-text-input').style.display = 'none';
+            document.getElementById('crop-panel').style.display = 'none';
            
             document.querySelectorAll('.thumbnail').forEach(thumb => {
                 thumb.classList.remove('selected');
@@ -2575,6 +2923,7 @@
             selectedSoundId = null;
             selectedWidgetId = null;
             isAddingText = false;
+            cropMode = false;
         }
        
         function saveStateToHistory() {
@@ -2885,6 +3234,11 @@
                 updateImageLockState(img, imgData);
                 updateImageDisplayState(img, imgData);
                 updateImageTransformations(img, imgData);
+                
+                // Применяем обрезку если есть
+                if (imgData.crop) {
+                    img.style.clipPath = `inset(${imgData.crop.y}px ${img.offsetWidth - imgData.crop.x - imgData.crop.width}px ${img.offsetHeight - imgData.crop.y - imgData.crop.height}px ${imgData.crop.x}px)`;
+                }
                
                 if (imgData.isNew) {
                     deselectAllElements();
@@ -2931,6 +3285,13 @@
                
                 if (textData.fontFamily) {
                     textEl.style.fontFamily = textData.fontFamily;
+                }
+                
+                // Применяем обрезку если есть
+                if (textData.crop) {
+                    textEl.style.overflow = 'hidden';
+                    textEl.style.maxWidth = textData.crop.width + 'px';
+                    textEl.style.maxHeight = textData.crop.height + 'px';
                 }
                
                 if (textData.isNew) {
@@ -2980,6 +3341,11 @@
                 imgWrapper.style.display = 'none';
             } else {
                 imgWrapper.style.display = 'block';
+            }
+            
+            // Применяем обрезку если есть
+            if (imgData.crop) {
+                imgWrapper.style.clipPath = `inset(${imgData.crop.y}px ${imgData.width - imgData.crop.x - imgData.crop.width}px ${imgData.height - imgData.crop.y - imgData.crop.height}px ${imgData.crop.x}px)`;
             }
            
             const img = document.createElement('img');
@@ -3056,6 +3422,13 @@
                 textEl.style.display = 'none';
             } else {
                 textEl.style.display = 'block';
+            }
+            
+            // Применяем обрезку если есть
+            if (textData.crop) {
+                textEl.style.overflow = 'hidden';
+                textEl.style.maxWidth = textData.crop.width + 'px';
+                textEl.style.maxHeight = textData.crop.height + 'px';
             }
            
             textEl.style.width = 'auto';

@@ -26,10 +26,24 @@
             display: flex;
             gap: 10px;
             align-items: center;
-            height: 60px;
+            height: auto;
+            min-height: 60px;
             box-sizing: border-box;
             z-index: 100;
             position: relative;
+            flex-wrap: wrap;
+        }
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        #main-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
             flex-wrap: wrap;
         }
         #thumbnails-container {
@@ -41,7 +55,8 @@
             background: #e0e0e0;
             border-radius: 4px;
             padding: 0 10px;
-            flex-grow: 1;
+            flex: 1;
+            min-width: 200px;
         }
         #thumbnails {
             display: flex;
@@ -140,32 +155,19 @@
         .thumbnail-button.show {
             background: #4caf50;
         }
-        #image-controls {
+        #image-controls, #text-controls, #sound-controls, #widget-controls {
             display: flex;
             gap: 10px;
             margin-left: 20px;
-            display: none;
-        }
-        #text-controls {
-            display: flex;
-            gap: 10px;
-            margin-left: 20px;
-            display: none;
-        }
-        #sound-controls {
-            display: flex;
-            gap: 10px;
-            margin-left: 20px;
-            display: none;
             align-items: center;
+            background: #e0e0e0;
+            padding: 5px 10px;
+            border-radius: 4px;
         }
-        #widget-controls {
-            display: flex;
-            gap: 10px;
-            margin-left: 20px;
-            display: none;
-            align-items: center;
-        }
+        #image-controls { display: none; }
+        #text-controls { display: none; }
+        #sound-controls { display: none; }
+        #widget-controls { display: none; }
        
         #canvas-wrapper {
             width: 2560px;
@@ -415,10 +417,7 @@
             cursor: pointer;
             white-space: nowrap;
         }
-        #file-input {
-            display: none;
-        }
-        #sound-input {
+        #file-input, #sound-input {
             display: none;
         }
         #status {
@@ -611,7 +610,6 @@
             display: block;
         }
         
-        /* Панель виджетов */
         #widgets-panel {
             position: absolute;
             top: 80px;
@@ -788,7 +786,6 @@
             color: white;
         }
 
-        /* Панель обрезки */
         #crop-panel {
             position: absolute;
             top: 80px;
@@ -823,11 +820,14 @@
             overflow: hidden;
             position: relative;
             background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
-        .crop-preview img {
-            width: 100%;
-            height: 100%;
+        .crop-preview img, .crop-preview div {
+            max-width: 100%;
+            max-height: 100%;
             object-fit: contain;
         }
         
@@ -872,45 +872,60 @@
             background: #f44336;
         }
         
-        /* Кнопка обрезки в панелях управления */
         .crop-btn {
             background: #ff9800 !important;
+        }
+
+        .panel-divider {
+            width: 2px;
+            height: 30px;
+            background: #ccc;
+            margin: 0 10px;
         }
     </style>
 </head>
 <body>
     <div id="app-container">
         <div id="controls">
-            <button onclick="document.getElementById('file-input').click()">Добавить изображение</button>
-            <button id="add-text-btn">Добавить текст</button>
-            <button id="add-sound-btn">Добавить звук</button>
-            <button id="add-widget-btn">Добавить виджет</button>
-            <button id="speak-text-btn">Озвучить текст</button>
-            <button id="clear-btn">Очистить</button>
-           
-            <div id="thumbnails-container">
-                <div id="thumbnails"></div>
+            <div class="controls-row">
+                <div id="main-controls">
+                    <button onclick="document.getElementById('file-input').click()">➕ Изображение</button>
+                    <button id="add-text-btn">📝 Текст</button>
+                    <button id="add-sound-btn">🔊 Звук</button>
+                    <button id="add-widget-btn">🧩 Виджет</button>
+                    <button id="speak-text-btn">🗣 Озвучить</button>
+                    <button id="clear-btn">🗑 Очистить</button>
+                </div>
+               
+                <div id="thumbnails-container">
+                    <div id="thumbnails"></div>
+                </div>
+               
+                <div id="status">✅ Синхронизировано</div>
             </div>
            
-            <div id="image-controls">
-                <button id="hide-btn">Скрыть/Показать</button>
-                <button id="delete-btn">Удалить</button>
-                <button id="settings-btn">Настройки</button>
-                <button id="lock-btn">Закрепить</button>
-                <button id="flip-h-btn">Отразить по гориз.</button>
-                <button id="flip-v-btn">Отразить по верт.</button>
-                <button id="crop-image-btn" class="crop-btn">Обрезать</button>
+            <div id="image-controls" class="controls-row">
+                <span style="font-weight: bold; color: #4285f4;">🖼 Изображение:</span>
+                <button id="hide-btn">👁 Скрыть</button>
+                <button id="delete-btn">🗑 Удалить</button>
+                <button id="settings-btn">⚙ Настройки</button>
+                <button id="lock-btn">🔒 Закрепить</button>
+                <button id="flip-h-btn">↔ Отразить</button>
+                <button id="flip-v-btn">↕ Отразить</button>
+                <button id="crop-image-btn" class="crop-btn">✂ Обрезать</button>
             </div>
            
-            <div id="text-controls">
-                <button id="hide-text-btn">Скрыть/Показать</button>
-                <button id="edit-text-btn">Редактировать</button>
-                <button id="delete-text-btn">Удалить</button>
-                <button id="lock-text-btn">Закрепить</button>
-                <button id="crop-text-btn" class="crop-btn">Обрезать</button>
+            <div id="text-controls" class="controls-row">
+                <span style="font-weight: bold; color: #4285f4;">📝 Текст:</span>
+                <button id="hide-text-btn">👁 Скрыть</button>
+                <button id="edit-text-btn">✏ Редактировать</button>
+                <button id="delete-text-btn">🗑 Удалить</button>
+                <button id="lock-text-btn">🔒 Закрепить</button>
+                <button id="crop-text-btn" class="crop-btn">✂ Обрезать</button>
             </div>
            
-            <div id="sound-controls">
+            <div id="sound-controls" class="controls-row">
+                <span style="font-weight: bold; color: #4285f4;">🔊 Звук:</span>
                 <button id="play-btn">▶</button>
                 <button id="pause-btn">⏸</button>
                 <div class="sound-visualization">
@@ -920,18 +935,17 @@
                     <span>🔊</span>
                     <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
                 </div>
-                <button id="delete-sound-btn">Удалить звук</button>
+                <button id="delete-sound-btn">🗑 Удалить</button>
             </div>
            
-            <div id="widget-controls">
-                <button id="hide-widget-btn">Скрыть/Показать</button>
-                <button id="delete-widget-btn">Удалить</button>
-                <button id="lock-widget-btn">Закрепить</button>
-                <button id="reload-widget-btn">Обновить</button>
-                <button id="crop-widget-btn" class="crop-btn">Обрезать</button>
+            <div id="widget-controls" class="controls-row">
+                <span style="font-weight: bold; color: #4285f4;">🧩 Виджет:</span>
+                <button id="hide-widget-btn">👁 Скрыть</button>
+                <button id="delete-widget-btn">🗑 Удалить</button>
+                <button id="lock-widget-btn">🔒 Закрепить</button>
+                <button id="reload-widget-btn">🔄 Обновить</button>
+                <button id="crop-widget-btn" class="crop-btn">✂ Обрезать</button>
             </div>
-           
-            <div id="status">Синхронизировано</div>
         </div>
        
         <div id="canvas-wrapper">
@@ -941,7 +955,6 @@
         </div>
     </div>
     
-    <!-- Упрощенная панель добавления текста -->
     <div id="simple-text-input">
         <textarea id="text-input-area" placeholder="Введите текст..."></textarea>
         <div class="text-toolbar">
@@ -953,13 +966,13 @@
             </select>
             <input type="range" id="font-size-slider" min="12" max="72" value="16" title="Размер шрифта">
             <input type="color" id="text-color-picker" value="#000000" title="Цвет текста">
-            <button id="apply-text-simple">Готово</button>
-            <button id="cancel-text-simple" style="background: #f44336;">Отмена</button>
+            <button id="apply-text-simple">✅ Готово</button>
+            <button id="cancel-text-simple" style="background: #f44336;">❌ Отмена</button>
         </div>
     </div>
    
     <div class="properties-panel" id="properties-panel">
-        <h3>Свойства изображения</h3>
+        <h3>⚙ Свойства изображения</h3>
         <label>
             Прозрачность:
             <input type="range" id="opacity-slider" min="0" max="100" value="100">
@@ -968,11 +981,11 @@
             Яркость:
             <input type="range" id="brightness-slider" min="0" max="200" value="100">
         </label>
-        <button id="close-properties">Закрыть</button>
+        <button id="close-properties">❌ Закрыть</button>
     </div>
    
     <div id="tts-panel">
-        <h3>Озвучивание текста</h3>
+        <h3>🗣 Озвучивание текста</h3>
         <textarea id="tts-text-input" placeholder="Введите текст для озвучивания..."></textarea>
        
         <div class="tts-controls-row">
@@ -1005,24 +1018,23 @@
             <button id="tts-stop-btn">■ Стоп</button>
         </div>
        
-        <button id="tts-close-btn" style="margin-top: 10px; width: 100%; background: #666;">Закрыть</button>
+        <button id="tts-close-btn" style="margin-top: 10px; width: 100%; background: #666;">❌ Закрыть</button>
     </div>
    
-    <!-- Панель виджетов -->
     <div id="widgets-panel">
         <div class="widgets-header">
-            <h3>Управление виджетами</h3>
+            <h3>🧩 Управление виджетами</h3>
             <button class="close-btn" id="close-widgets-btn">×</button>
         </div>
         
         <div class="widgets-tabs">
-            <button class="widgets-tab active" data-tab="add-widget">Добавить виджет</button>
-            <button class="widgets-tab" data-tab="saved-widgets">Сохраненные</button>
+            <button class="widgets-tab active" data-tab="add-widget">➕ Добавить</button>
+            <button class="widgets-tab" data-tab="saved-widgets">📦 Сохраненные</button>
         </div>
         
         <div id="add-widget-content" class="widgets-content active">
             <input type="url" class="widget-url-input" id="widget-url-input" 
-                   placeholder="Введите URL виджета (например: https://example.com/widget)">
+                   placeholder="Введите URL виджета">
             
             <div class="widget-size-controls">
                 <div class="widget-size-control">
@@ -1036,29 +1048,24 @@
             </div>
             
             <input type="text" class="widget-name-input" id="widget-name-input" 
-                   placeholder="Название виджета (необязательно)">
+                   placeholder="Название виджета">
             
-            <button class="widget-button" id="save-widget-btn">Сохранить виджет</button>
-            <button class="widget-button" id="add-widget-direct-btn" style="background: #4285f4;">Добавить на холст</button>
+            <button class="widget-button" id="save-widget-btn">📥 Сохранить виджет</button>
+            <button class="widget-button" id="add-widget-direct-btn" style="background: #4285f4;">📌 Добавить на холст</button>
         </div>
         
         <div id="saved-widgets-content" class="widgets-content">
-            <div class="saved-widgets-list" id="saved-widgets-list">
-                <!-- Список сохраненных виджетов будет здесь -->
-            </div>
+            <div class="saved-widgets-list" id="saved-widgets-list"></div>
         </div>
     </div>
 
-    <!-- Панель обрезки -->
     <div id="crop-panel">
         <div class="crop-header">
-            <h3>Обрезка элемента</h3>
+            <h3>✂ Обрезка элемента</h3>
             <button class="close-btn" id="close-crop-btn">×</button>
         </div>
         
-        <div class="crop-preview" id="crop-preview">
-            <!-- Превью будет здесь -->
-        </div>
+        <div class="crop-preview" id="crop-preview"></div>
         
         <div class="crop-controls">
             <div class="crop-control">
@@ -1080,8 +1087,8 @@
         </div>
         
         <div class="crop-buttons">
-            <button id="apply-crop-btn">Применить обрезку</button>
-            <button id="cancel-crop-btn">Отмена</button>
+            <button id="apply-crop-btn">✅ Применить</button>
+            <button id="cancel-crop-btn">❌ Отмена</button>
         </div>
     </div>
    
@@ -1139,11 +1146,10 @@
         let soundInterval = null;
         let isRotating = false;
        
-        // Переменные для обрезки
         let cropMode = false;
         let cropStartX = 0, cropStartY = 0;
         let cropElement = null;
-        let cropType = null; // 'image', 'text', 'widget'
+        let cropType = null;
         let cropOriginalData = null;
        
         let speechSynthesis = window.speechSynthesis;
@@ -1161,12 +1167,10 @@
                 document.getElementById('properties-panel').style.display = 'none';
             });
            
-            // Упрощенное добавление текста
             document.getElementById('add-text-btn').addEventListener('click', showSimpleTextInput);
             document.getElementById('apply-text-simple').addEventListener('click', createTextFromSimpleInput);
             document.getElementById('cancel-text-simple').addEventListener('click', cancelSimpleTextInput);
             
-            // События для текстовых элементов
             document.getElementById('edit-text-btn').addEventListener('click', editSelectedText);
             document.getElementById('delete-text-btn').addEventListener('click', deleteSelectedText);
             document.getElementById('lock-text-btn').addEventListener('click', toggleTextLock);
@@ -1183,7 +1187,6 @@
             document.getElementById('delete-sound-btn').addEventListener('click', deleteSound);
             document.getElementById('volume-slider').addEventListener('input', updateVolume);
            
-            // Обработчики для отражения
             document.getElementById('flip-h-btn').addEventListener('click', () => {
                 if (selectedImageId) {
                     flipImageHorizontal(selectedImageId);
@@ -1196,7 +1199,6 @@
                 }
             });
            
-            // Обработчики для обрезки
             document.getElementById('crop-image-btn').addEventListener('click', () => startCrop('image'));
             document.getElementById('crop-text-btn').addEventListener('click', () => startCrop('text'));
             document.getElementById('crop-widget-btn').addEventListener('click', () => startCrop('widget'));
@@ -1204,13 +1206,11 @@
             document.getElementById('apply-crop-btn').addEventListener('click', applyCrop);
             document.getElementById('cancel-crop-btn').addEventListener('click', cancelCrop);
            
-            // Обработчики для виджетов
             document.getElementById('add-widget-btn').addEventListener('click', showWidgetsPanel);
             document.getElementById('close-widgets-btn').addEventListener('click', closeWidgetsPanel);
             document.getElementById('save-widget-btn').addEventListener('click', saveWidgetFromInput);
             document.getElementById('add-widget-direct-btn').addEventListener('click', addWidgetDirectly);
             
-            // Обработчики для вкладок виджетов
             document.querySelectorAll('.widgets-tab').forEach(tab => {
                 tab.addEventListener('click', function() {
                     document.querySelectorAll('.widgets-tab').forEach(t => t.classList.remove('active'));
@@ -1221,7 +1221,6 @@
                 });
             });
             
-            // Обработчики для управления виджетами
             document.getElementById('hide-widget-btn').addEventListener('click', toggleWidgetVisibility);
             document.getElementById('delete-widget-btn').addEventListener('click', deleteSelectedWidget);
             document.getElementById('lock-widget-btn').addEventListener('click', toggleWidgetLock);
@@ -1250,7 +1249,6 @@
                 updateTTSVolume.call(this);
             });
            
-            // Настройки текста в упрощенной панели
             document.getElementById('font-size-slider').addEventListener('input', updateTextPreview);
             document.getElementById('text-color-picker').addEventListener('input', updateTextPreview);
             document.getElementById('font-family-select').addEventListener('change', updateTextPreview);
@@ -1356,10 +1354,10 @@
                    
                     if (isLocked) {
                         imgElement.classList.remove('locked');
-                        document.getElementById('lock-btn').textContent = 'Закрепить';
+                        document.getElementById('lock-btn').textContent = '🔓 Открепить';
                     } else {
                         imgElement.classList.add('locked');
-                        document.getElementById('lock-btn').textContent = 'Открепить';
+                        document.getElementById('lock-btn').textContent = '🔒 Закрепить';
                     }
                    
                     imagesRef.child(selectedImageId).update({
@@ -1465,7 +1463,6 @@
             console.log("Приложение инициализировано");
         }
 
-        // Функции для обрезки
         function startCrop(type) {
             let elementId = null;
             let elementData = null;
@@ -1491,17 +1488,13 @@
             cropType = type;
             cropOriginalData = { ...elementData };
             
-            // Показываем панель обрезки
-            const panel = document.getElementById('crop-panel');
-            panel.style.display = 'block';
+            document.getElementById('crop-panel').style.display = 'block';
             
-            // Устанавливаем значения по умолчанию
             document.getElementById('crop-x').value = 0;
             document.getElementById('crop-y').value = 0;
             document.getElementById('crop-width').value = elementData.width || 100;
             document.getElementById('crop-height').value = elementData.height || 100;
             
-            // Обновляем превью
             updateCropPreview();
         }
         
@@ -1515,9 +1508,8 @@
                 const img = cropElement.querySelector('img');
                 if (img) {
                     const clone = img.cloneNode();
-                    clone.style.width = '100%';
-                    clone.style.height = '100%';
-                    clone.style.objectFit = 'contain';
+                    clone.style.maxWidth = '100%';
+                    clone.style.maxHeight = '100%';
                     preview.appendChild(clone);
                 }
             } else if (cropType === 'text') {
@@ -1530,16 +1522,13 @@
                 div.style.background = 'rgba(255,255,255,0.9)';
                 preview.appendChild(div);
             } else if (cropType === 'widget') {
-                const iframe = cropElement.querySelector('iframe');
-                if (iframe) {
-                    const placeholder = document.createElement('div');
-                    placeholder.textContent = 'Виджет: ' + (widgets[cropElement.id]?.name || 'Без названия');
-                    placeholder.style.padding = '20px';
-                    placeholder.style.textAlign = 'center';
-                    placeholder.style.background = '#e8f5e9';
-                    placeholder.style.color = '#2e7d32';
-                    preview.appendChild(placeholder);
-                }
+                const placeholder = document.createElement('div');
+                placeholder.textContent = '🧩 ' + (widgets[cropElement.id]?.name || 'Виджет');
+                placeholder.style.padding = '20px';
+                placeholder.style.textAlign = 'center';
+                placeholder.style.background = '#e8f5e9';
+                placeholder.style.color = '#2e7d32';
+                preview.appendChild(placeholder);
             }
         }
         
@@ -1551,45 +1540,25 @@
             const width = parseInt(document.getElementById('crop-width').value) || 10;
             const height = parseInt(document.getElementById('crop-height').value) || 10;
             
-            // Применяем обрезку
             if (cropType === 'image') {
-                // Для изображений используем clip-path
                 cropElement.style.clipPath = `inset(${y}px ${cropElement.offsetWidth - x - width}px ${cropElement.offsetHeight - y - height}px ${x}px)`;
                 
-                // Сохраняем данные обрезки в Firebase
                 imagesRef.child(cropElement.id).update({
-                    crop: {
-                        x: x,
-                        y: y,
-                        width: width,
-                        height: height
-                    }
+                    crop: { x, y, width, height }
                 });
             } else if (cropType === 'text') {
-                // Для текста используем обрезку через overflow
                 cropElement.style.overflow = 'hidden';
                 cropElement.style.maxWidth = width + 'px';
                 cropElement.style.maxHeight = height + 'px';
                 
                 textsRef.child(cropElement.id).update({
-                    crop: {
-                        x: x,
-                        y: y,
-                        width: width,
-                        height: height
-                    }
+                    crop: { x, y, width, height }
                 });
             } else if (cropType === 'widget') {
-                // Для виджетов используем clip-path
                 cropElement.style.clipPath = `inset(${y}px ${cropElement.offsetWidth - x - width}px ${cropElement.offsetHeight - y - height}px ${x}px)`;
                 
                 widgetsRef.child(cropElement.id).update({
-                    crop: {
-                        x: x,
-                        y: y,
-                        width: width,
-                        height: height
-                    }
+                    crop: { x, y, width, height }
                 });
             }
             
@@ -1610,20 +1579,17 @@
             panel.style.display = 'block';
             isAddingWidget = true;
             
-            // Сбрасываем форму
             document.getElementById('widget-url-input').value = '';
             document.getElementById('widget-width-input').value = 400;
             document.getElementById('widget-height-input').value = 300;
             document.getElementById('widget-name-input').value = '';
             
-            // Показываем вкладку добавления
             document.querySelectorAll('.widgets-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.widgets-content').forEach(c => c.classList.remove('active'));
             
             document.querySelector('[data-tab="add-widget"]').classList.add('active');
             document.getElementById('add-widget-content').classList.add('active');
             
-            // Обновляем список сохраненных виджетов
             updateSavedWidgetsList();
         }
         
@@ -1643,7 +1609,6 @@
                 return;
             }
             
-            // Проверяем, что URL корректный
             try {
                 new URL(url);
             } catch (e) {
@@ -1651,7 +1616,6 @@
                 return;
             }
             
-            // Сохраняем виджет в список сохраненных
             const widgetId = 'saved_widget_' + Date.now();
             
             savedWidgetsRef.child(widgetId).set({
@@ -1681,7 +1645,6 @@
                 return;
             }
             
-            // Проверяем, что URL корректный
             try {
                 new URL(url);
             } catch (e) {
@@ -1689,7 +1652,6 @@
                 return;
             }
             
-            // Создаем виджет на холсте
             createWidgetOnCanvas({ url, width, height, name });
             closeWidgetsPanel();
         }
@@ -1729,7 +1691,6 @@
                 return;
             }
             
-            // Сортируем по времени добавления (новые сверху)
             const sortedWidgets = Object.values(savedWidgets).sort((a, b) => 
                 (b.timestamp || 0) - (a.timestamp || 0)
             );
@@ -1801,17 +1762,15 @@
             
             const widgetsLayer = document.getElementById('widgets-layer');
             
-            // Удаляем виджеты, которых больше нет в данных
             document.querySelectorAll('.draggable-widget').forEach(widget => {
                 if (!widgetsData[widget.id]) {
                     widget.remove();
                     if (selectedWidgetId === widget.id) {
-                        deselectAllElements();
+                        selectedWidgetId = null;
                     }
                 }
             });
             
-            // Создаем или обновляем виджеты
             for (const id in widgetsData) {
                 const widgetData = widgetsData[id];
                 let widget = document.getElementById(id);
@@ -1825,32 +1784,31 @@
                 updateWidgetDisplayState(widget, widgetData);
                 updateWidgetLockState(widget, widgetData);
                 
-                // Применяем обрезку если есть
                 if (widgetData.crop) {
                     widget.style.clipPath = `inset(${widgetData.crop.y}px ${widget.offsetWidth - widgetData.crop.x - widgetData.crop.width}px ${widget.offsetHeight - widgetData.crop.y - widgetData.crop.height}px ${widgetData.crop.x}px)`;
                 }
                 
                 if (widgetData.isNew) {
-                    // Снимаем выделение со всех элементов
                     document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
                         el.classList.remove('selected');
                     });
                     
-                    // Выделяем новый виджет
                     widget.classList.add('selected');
                     selectedWidgetId = id;
+                    selectedImageId = null;
+                    selectedTextId = null;
+                    selectedSoundId = null;
                     
-                    // Показываем панель управления виджетами
+                    document.getElementById('image-controls').style.display = 'none';
+                    document.getElementById('text-controls').style.display = 'none';
+                    document.getElementById('sound-controls').style.display = 'none';
                     document.getElementById('widget-controls').style.display = 'flex';
                     
-                    // Обновляем текст кнопки блокировки
                     const lockBtn = document.getElementById('lock-widget-btn');
-                    lockBtn.textContent = widgetData.locked ? 'Открепить' : 'Закрепить';
+                    lockBtn.textContent = widgetData.locked ? '🔓 Открепить' : '🔒 Закрепить';
                     
-                    // Обновляем миниатюры
                     updateThumbnails();
                     
-                    // Убираем флаг isNew
                     widgetsRef.child(id).update({ isNew: null });
                 }
             }
@@ -1877,12 +1835,10 @@
                 widget.style.display = 'block';
             }
             
-            // Применяем обрезку если есть
             if (widgetData.crop) {
                 widget.style.clipPath = `inset(${widgetData.crop.y}px ${widgetData.width - widgetData.crop.x - widgetData.crop.width}px ${widgetData.height - widgetData.crop.y - widgetData.crop.height}px ${widgetData.crop.x}px)`;
             }
             
-            // Создаем iframe
             const iframe = document.createElement('iframe');
             iframe.src = widgetData.url;
             iframe.style.width = '100%';
@@ -1893,10 +1849,8 @@
             
             widget.appendChild(iframe);
             
-            // Добавляем ручки для изменения размера
             addResizeHandles(widget);
             
-            // Обработчики событий
             widget.addEventListener('mousedown', (e) => {
                 if (e.target.classList.contains('resize-handle')) return;
                 startWidgetSelect(e);
@@ -1917,7 +1871,6 @@
             const widgetElement = e.currentTarget;
             const isLocked = widgetElement.classList.contains('locked');
             
-            // Снимаем выделение со всех элементов, кроме текущего виджета
             document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
                 if (el !== widgetElement) {
                     el.classList.remove('selected');
@@ -1930,14 +1883,13 @@
             selectedTextId = null;
             selectedSoundId = null;
             
-            // Показываем панель управления виджетами
             document.getElementById('image-controls').style.display = 'none';
             document.getElementById('text-controls').style.display = 'none';
             document.getElementById('sound-controls').style.display = 'none';
             document.getElementById('widget-controls').style.display = 'flex';
             
             const lockBtn = document.getElementById('lock-widget-btn');
-            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+            lockBtn.textContent = isLocked ? '🔓 Открепить' : '🔒 Закрепить';
             
             if (!isLocked) {
                 activeInteraction = 'select';
@@ -1963,7 +1915,6 @@
                 widget.style.width = widgetData.width + 'px';
                 widget.style.height = widgetData.height + 'px';
                 
-                // Обновляем iframe если нужно
                 const iframe = widget.querySelector('iframe');
                 if (iframe && iframe.src !== widgetData.url) {
                     iframe.src = widgetData.url;
@@ -2030,10 +1981,10 @@
                 
                 if (isLocked) {
                     widgetElement.classList.remove('locked');
-                    document.getElementById('lock-widget-btn').textContent = 'Закрепить';
+                    document.getElementById('lock-widget-btn').textContent = '🔒 Закрепить';
                 } else {
                     widgetElement.classList.add('locked');
-                    document.getElementById('lock-widget-btn').textContent = 'Открепить';
+                    document.getElementById('lock-widget-btn').textContent = '🔓 Открепить';
                 }
                 
                 widgetsRef.child(selectedWidgetId).update({
@@ -2049,7 +2000,7 @@
                 if (widgetElement) {
                     const iframe = widgetElement.querySelector('iframe');
                     if (iframe) {
-                        iframe.src = iframe.src; // Перезагружаем iframe
+                        iframe.src = iframe.src;
                     }
                 }
             }
@@ -2235,24 +2186,19 @@
             }
         }
         
-        // Функции для вращения самой фотографии
         function rotateImageByDragging(imageId, angle) {
             const imgElement = document.getElementById(imageId);
             if (!imgElement) return;
             
-            // Обновляем угол вращения
             imgElement.dataset.rotation = Math.round(angle);
             
-            // Применяем трансформацию
             applyTransformations(imgElement);
             
-            // Обновляем индикатор
             const indicator = imgElement.querySelector('.rotate-indicator');
             if (indicator) {
                 indicator.textContent = Math.round(angle) + '°';
             }
             
-            // Сохраняем в Firebase
             imagesRef.child(imageId).update({
                 rotation: Math.round(angle)
             });
@@ -2269,7 +2215,6 @@
             
             imgElement.dataset.flipH = newFlipState.toString();
             
-            // Применяем трансформацию
             applyTransformations(imgElement);
             
             imagesRef.child(imageId).update({
@@ -2288,7 +2233,6 @@
             
             imgElement.dataset.flipV = newFlipState.toString();
             
-            // Применяем трансформацию
             applyTransformations(imgElement);
             
             imagesRef.child(imageId).update({
@@ -2301,13 +2245,11 @@
         function applyTransformations(element) {
             let transform = '';
             
-            // Добавляем поворот
             const rotation = element.dataset.rotation || 0;
             if (rotation && rotation !== '0') {
                 transform += `rotate(${rotation}deg) `;
             }
             
-            // Добавляем отражения
             if (element.dataset.flipH === 'true') {
                 transform += 'scaleX(-1) ';
             }
@@ -2813,7 +2755,6 @@
         
         function selectWidgetFromThumbnail(widgetId) {
             if (widgets[widgetId] && (!widgets[widgetId].display || widgets[widgetId].display !== 'none')) {
-                // Снимаем выделение со всех элементов, кроме текущего виджета
                 document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
                     if (el.id !== widgetId) {
                         el.classList.remove('selected');
@@ -2828,7 +2769,6 @@
                     selectedTextId = null;
                     selectedSoundId = null;
                     
-                    // Показываем панель управления виджетами
                     document.getElementById('image-controls').style.display = 'none';
                     document.getElementById('text-controls').style.display = 'none';
                     document.getElementById('sound-controls').style.display = 'none';
@@ -2836,7 +2776,7 @@
                     
                     const isLocked = widgetElement.classList.contains('locked');
                     const lockBtn = document.getElementById('lock-widget-btn');
-                    lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+                    lockBtn.textContent = isLocked ? '🔓 Открепить' : '🔒 Закрепить';
                 }
                 
                 const thumbnail = document.getElementById('thumb_' + widgetId);
@@ -2850,17 +2790,26 @@
         function selectImageFromThumbnail(imageId) {
             const imgElement = document.getElementById(imageId);
             if (imgElement && imgElement.style.display !== 'none') {
-                deselectAllElements();
+                document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => el.classList.remove('selected'));
+                
                 imgElement.classList.add('selected');
                 selectedImageId = imageId;
+                selectedTextId = null;
+                selectedSoundId = null;
+                selectedWidgetId = null;
+                
+                document.getElementById('text-controls').style.display = 'none';
+                document.getElementById('sound-controls').style.display = 'none';
+                document.getElementById('widget-controls').style.display = 'none';
                 document.getElementById('image-controls').style.display = 'flex';
                
                 const isLocked = imgElement.classList.contains('locked');
                 const lockBtn = document.getElementById('lock-btn');
-                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+                lockBtn.textContent = isLocked ? '🔓 Открепить' : '🔒 Закрепить';
                
                 const thumbnail = document.getElementById('thumb_' + imageId);
                 if (thumbnail) {
+                    thumbnail.classList.add('selected');
                     thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }
             }
@@ -2869,17 +2818,26 @@
         function selectTextFromThumbnail(textId) {
             const textElement = document.getElementById(textId);
             if (textElement && textElement.style.display !== 'none') {
-                deselectAllElements();
+                document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => el.classList.remove('selected'));
+                
                 textElement.classList.add('selected');
                 selectedTextId = textId;
+                selectedImageId = null;
+                selectedSoundId = null;
+                selectedWidgetId = null;
+                
+                document.getElementById('image-controls').style.display = 'none';
+                document.getElementById('sound-controls').style.display = 'none';
+                document.getElementById('widget-controls').style.display = 'none';
                 document.getElementById('text-controls').style.display = 'flex';
                
                 const isLocked = textElement.classList.contains('locked');
                 const lockBtn = document.getElementById('lock-text-btn');
-                lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+                lockBtn.textContent = isLocked ? '🔓 Открепить' : '🔒 Закрепить';
                
                 const thumbnail = document.getElementById('thumb_' + textId);
                 if (thumbnail) {
+                    thumbnail.classList.add('selected');
                     thumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 }
             }
@@ -2887,8 +2845,16 @@
        
         function selectSoundFromThumbnail(soundId) {
             if (sounds[soundId] && (!sounds[soundId].display || sounds[soundId].display !== 'none')) {
-                deselectAllElements();
+                document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => el.classList.remove('selected'));
+                
                 selectedSoundId = soundId;
+                selectedImageId = null;
+                selectedTextId = null;
+                selectedWidgetId = null;
+                
+                document.getElementById('image-controls').style.display = 'none';
+                document.getElementById('text-controls').style.display = 'none';
+                document.getElementById('widget-controls').style.display = 'none';
                 document.getElementById('sound-controls').style.display = 'flex';
                
                 updateSoundControls(sounds[soundId]);
@@ -3194,10 +3160,10 @@
                
                 if (isLocked) {
                     textElement.classList.remove('locked');
-                    document.getElementById('lock-text-btn').textContent = 'Закрепить';
+                    document.getElementById('lock-text-btn').textContent = '🔒 Закрепить';
                 } else {
                     textElement.classList.add('locked');
-                    document.getElementById('lock-text-btn').textContent = 'Открепить';
+                    document.getElementById('lock-text-btn').textContent = '🔓 Открепить';
                 }
                
                 textsRef.child(selectedTextId).update({
@@ -3214,7 +3180,7 @@
                 if (!imagesData[img.id]) {
                     img.remove();
                     if (selectedImageId === img.id) {
-                        deselectAllElements();
+                        selectedImageId = null;
                     }
                 }
             });
@@ -3235,19 +3201,26 @@
                 updateImageDisplayState(img, imgData);
                 updateImageTransformations(img, imgData);
                 
-                // Применяем обрезку если есть
                 if (imgData.crop) {
                     img.style.clipPath = `inset(${imgData.crop.y}px ${img.offsetWidth - imgData.crop.x - imgData.crop.width}px ${img.offsetHeight - imgData.crop.y - imgData.crop.height}px ${imgData.crop.x}px)`;
                 }
                
                 if (imgData.isNew) {
-                    deselectAllElements();
+                    document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => el.classList.remove('selected'));
+                    
                     img.classList.add('selected');
                     selectedImageId = id;
+                    selectedTextId = null;
+                    selectedSoundId = null;
+                    selectedWidgetId = null;
+                    
+                    document.getElementById('text-controls').style.display = 'none';
+                    document.getElementById('sound-controls').style.display = 'none';
+                    document.getElementById('widget-controls').style.display = 'none';
                     document.getElementById('image-controls').style.display = 'flex';
                    
                     const lockBtn = document.getElementById('lock-btn');
-                    lockBtn.textContent = imgData.locked ? 'Открепить' : 'Закрепить';
+                    lockBtn.textContent = imgData.locked ? '🔓 Открепить' : '🔒 Закрепить';
                    
                     imagesRef.child(id).update({ isNew: null });
                 }
@@ -3261,7 +3234,7 @@
                 if (!textsData[textEl.id]) {
                     textEl.remove();
                     if (selectedTextId === textEl.id) {
-                        deselectAllElements();
+                        selectedTextId = null;
                     }
                 }
             });
@@ -3287,7 +3260,6 @@
                     textEl.style.fontFamily = textData.fontFamily;
                 }
                 
-                // Применяем обрезку если есть
                 if (textData.crop) {
                     textEl.style.overflow = 'hidden';
                     textEl.style.maxWidth = textData.crop.width + 'px';
@@ -3295,13 +3267,21 @@
                 }
                
                 if (textData.isNew) {
-                    deselectAllElements();
+                    document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => el.classList.remove('selected'));
+                    
                     textEl.classList.add('selected');
                     selectedTextId = id;
+                    selectedImageId = null;
+                    selectedSoundId = null;
+                    selectedWidgetId = null;
+                    
+                    document.getElementById('image-controls').style.display = 'none';
+                    document.getElementById('sound-controls').style.display = 'none';
+                    document.getElementById('widget-controls').style.display = 'none';
                     document.getElementById('text-controls').style.display = 'flex';
                    
                     const lockBtn = document.getElementById('lock-text-btn');
-                    lockBtn.textContent = textData.locked ? 'Открепить' : 'Закрепить';
+                    lockBtn.textContent = textData.locked ? '🔓 Открепить' : '🔒 Закрепить';
                    
                     textsRef.child(id).update({ isNew: null });
                 }
@@ -3319,7 +3299,6 @@
             imgWrapper.style.opacity = imgData.opacity !== undefined ? imgData.opacity : 1;
             imgWrapper.style.filter = `brightness(${imgData.brightness !== undefined ? imgData.brightness : 100}%)`;
            
-            // Сохраняем данные трансформации
             if (imgData.rotation !== undefined) {
                 imgWrapper.dataset.rotation = imgData.rotation;
             }
@@ -3330,7 +3309,6 @@
                 imgWrapper.dataset.flipV = imgData.flipVertical.toString();
             }
            
-            // Применяем трансформации
             applyTransformations(imgWrapper);
            
             if (imgData.locked) {
@@ -3343,7 +3321,6 @@
                 imgWrapper.style.display = 'block';
             }
             
-            // Применяем обрезку если есть
             if (imgData.crop) {
                 imgWrapper.style.clipPath = `inset(${imgData.crop.y}px ${imgData.width - imgData.crop.x - imgData.crop.width}px ${imgData.height - imgData.crop.y - imgData.crop.height}px ${imgData.crop.x}px)`;
             }
@@ -3360,25 +3337,20 @@
             addRotateHandle(imgWrapper);
            
             imgWrapper.addEventListener('mousedown', (e) => {
-                // Если клик на ручку вращения - начинаем вращение
                 if (e.target.classList.contains('rotate-corner')) {
                     e.preventDefault();
                     e.stopPropagation();
                     startRotate(e);
                     return;
                 }
-                // Если клик на ручку изменения размера - игнорируем для обработки в отдельной функции
                 if (e.target.classList.contains('resize-handle')) {
                     return;
                 }
-                // Если клик на саму фотографию - начинаем перетаскивание или вращение
                 if (e.shiftKey || e.altKey) {
-                    // Если зажата Shift или Alt - начинаем вращение самой фотографии
                     e.preventDefault();
                     e.stopPropagation();
                     startRotateImage(e);
                 } else {
-                    // Обычное перетаскивание
                     startSelect(e);
                 }
             });
@@ -3424,7 +3396,6 @@
                 textEl.style.display = 'block';
             }
             
-            // Применяем обрезку если есть
             if (textData.crop) {
                 textEl.style.overflow = 'hidden';
                 textEl.style.maxWidth = textData.crop.width + 'px';
@@ -3486,7 +3457,6 @@
             handle.title = 'Вращать (Alt + перетаскивание фотографии)';
             element.appendChild(handle);
            
-            // Индикатор угла
             const indicator = document.createElement('div');
             indicator.className = 'rotate-indicator';
             indicator.textContent = '0°';
@@ -3517,7 +3487,6 @@
             }
             applyTransformations(img);
             
-            // Обновляем индикатор угла
             const indicator = img.querySelector('.rotate-indicator');
             if (indicator) {
                 const rotation = imgData.rotation || 0;
@@ -3544,7 +3513,6 @@
                 startY = e.clientY;
             }
            
-            // Начальный угол
             startRotation = parseFloat(activeElement.dataset.rotation) || 0;
         }
        
@@ -3557,16 +3525,22 @@
            
             if (isLocked) return;
            
-            deselectAllElements();
+            document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => el.classList.remove('selected'));
            
             imgElement.classList.add('selected');
             selectedImageId = imgElement.id;
+            selectedTextId = null;
+            selectedSoundId = null;
+            selectedWidgetId = null;
+            
+            document.getElementById('text-controls').style.display = 'none';
+            document.getElementById('sound-controls').style.display = 'none';
+            document.getElementById('widget-controls').style.display = 'none';
             document.getElementById('image-controls').style.display = 'flex';
            
             const lockBtn = document.getElementById('lock-btn');
-            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+            lockBtn.textContent = isLocked ? '🔓 Открепить' : '🔒 Закрепить';
            
-            // Начинаем вращение
             activeInteraction = 'rotateImage';
             activeElement = imgElement;
            
@@ -3582,15 +3556,12 @@
                 startY = e.clientY;
             }
            
-            // Вычисляем начальный угол
             const dx = startX - centerX;
             const dy = startY - centerY;
             startRotation = Math.atan2(dy, dx) * 180 / Math.PI;
            
-            // Текущий угол изображения
             const currentImgRotation = parseFloat(imgElement.dataset.rotation) || 0;
            
-            // Сохраняем начальный угол относительно текущего вращения
             startRotation -= currentImgRotation;
         }
        
@@ -3601,14 +3572,21 @@
             const imgElement = e.currentTarget;
             const isLocked = imgElement.classList.contains('locked');
            
-            deselectAllElements();
+            document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => el.classList.remove('selected'));
            
             imgElement.classList.add('selected');
             selectedImageId = imgElement.id;
+            selectedTextId = null;
+            selectedSoundId = null;
+            selectedWidgetId = null;
+            
+            document.getElementById('text-controls').style.display = 'none';
+            document.getElementById('sound-controls').style.display = 'none';
+            document.getElementById('widget-controls').style.display = 'none';
             document.getElementById('image-controls').style.display = 'flex';
            
             const lockBtn = document.getElementById('lock-btn');
-            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+            lockBtn.textContent = isLocked ? '🔓 Открепить' : '🔒 Закрепить';
            
             if (!isLocked) {
                 activeInteraction = 'select';
@@ -3634,14 +3612,21 @@
             const textElement = e.currentTarget;
             const isLocked = textElement.classList.contains('locked');
            
-            deselectAllElements();
+            document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => el.classList.remove('selected'));
            
             textElement.classList.add('selected');
             selectedTextId = textElement.id;
+            selectedImageId = null;
+            selectedSoundId = null;
+            selectedWidgetId = null;
+            
+            document.getElementById('image-controls').style.display = 'none';
+            document.getElementById('sound-controls').style.display = 'none';
+            document.getElementById('widget-controls').style.display = 'none';
             document.getElementById('text-controls').style.display = 'flex';
            
             const lockBtn = document.getElementById('lock-text-btn');
-            lockBtn.textContent = isLocked ? 'Открепить' : 'Закрепить';
+            lockBtn.textContent = isLocked ? '🔓 Открепить' : '🔒 Закрепить';
            
             if (!isLocked) {
                 activeInteraction = 'select';
@@ -3889,41 +3874,33 @@
                 const centerX = rect.left + rect.width / 2;
                 const centerY = rect.top + rect.height / 2;
                
-                // Вычисляем текущий угол
                 const dx = clientX - centerX;
                 const dy = clientY - centerY;
                 let currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
                
                 if (activeInteraction === 'rotateImage') {
-                    // Для вращения самой фотографии используем относительный угол
                     currentAngle = currentAngle - startRotation;
                 } else {
-                    // Для вращения ручкой используем дельту от начального угла
                     const startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
                     let deltaAngle = currentAngle - startAngle;
                    
-                    // Ограничиваем угол для плавного вращения
                     if (deltaAngle > 180) deltaAngle -= 360;
                     if (deltaAngle < -180) deltaAngle += 360;
                    
                     currentAngle = startRotation + deltaAngle;
                 }
                
-                // Нормализуем угол
                 currentAngle = (currentAngle + 180) % 360 - 180;
                
-                // Обновляем угол
                 const newRotation = Math.round(currentAngle);
                 activeElement.dataset.rotation = newRotation;
                 applyTransformations(activeElement);
                
-                // Обновляем индикатор
                 const indicator = activeElement.querySelector('.rotate-indicator');
                 if (indicator) {
                     indicator.textContent = newRotation + '°';
                 }
                
-                // Сохраняем в Firebase
                 if (activeElement.classList.contains('draggable-image')) {
                     imagesRef.child(activeElement.id).update({
                         rotation: newRotation

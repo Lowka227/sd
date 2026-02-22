@@ -30,6 +30,7 @@
             box-sizing: border-box;
             z-index: 100;
             position: relative;
+            flex-wrap: wrap;
         }
         #thumbnails-container {
             display: flex;
@@ -360,6 +361,7 @@
             color: white;
             font-size: 14px;
             cursor: pointer;
+            white-space: nowrap;
         }
         #file-input {
             display: none;
@@ -1375,9 +1377,9 @@
                 locked: false,
                 display: 'block',
                 isNew: true
+            }).then(() => {
+                saveStateToHistory();
             });
-            
-            saveStateToHistory();
         }
         
         function updateSavedWidgetsList() {
@@ -1485,12 +1487,28 @@
                 updateWidgetDisplayState(widget, widgetData);
                 updateWidgetLockState(widget, widgetData);
                 
+                // ИСПРАВЛЕНО: Плавное выделение нового виджета без сброса панели
                 if (widgetData.isNew) {
-                    deselectAllElements();
+                    // Снимаем выделение со всех элементов
+                    document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    
+                    // Выделяем новый виджет
                     widget.classList.add('selected');
                     selectedWidgetId = id;
+                    
+                    // Показываем панель управления виджетами
                     document.getElementById('widget-controls').style.display = 'flex';
                     
+                    // Обновляем текст кнопки блокировки
+                    const lockBtn = document.getElementById('lock-widget-btn');
+                    lockBtn.textContent = widgetData.locked ? 'Открепить' : 'Закрепить';
+                    
+                    // Обновляем миниатюры
+                    updateThumbnails();
+                    
+                    // Убираем флаг isNew
                     widgetsRef.child(id).update({ isNew: null });
                 }
             }
@@ -1552,10 +1570,23 @@
             const widgetElement = e.currentTarget;
             const isLocked = widgetElement.classList.contains('locked');
             
-            deselectAllElements();
+            // ИСПРАВЛЕНО: Снимаем выделение со всех элементов, кроме текущего виджета
+            document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
+                if (el !== widgetElement) {
+                    el.classList.remove('selected');
+                }
+            });
             
             widgetElement.classList.add('selected');
             selectedWidgetId = widgetElement.id;
+            selectedImageId = null;
+            selectedTextId = null;
+            selectedSoundId = null;
+            
+            // Показываем панель управления виджетами
+            document.getElementById('image-controls').style.display = 'none';
+            document.getElementById('text-controls').style.display = 'none';
+            document.getElementById('sound-controls').style.display = 'none';
             document.getElementById('widget-controls').style.display = 'flex';
             
             const lockBtn = document.getElementById('lock-widget-btn');
@@ -2435,13 +2466,26 @@
         
         function selectWidgetFromThumbnail(widgetId) {
             if (widgets[widgetId] && (!widgets[widgetId].display || widgets[widgetId].display !== 'none')) {
-                deselectAllElements();
-                selectedWidgetId = widgetId;
-                document.getElementById('widget-controls').style.display = 'flex';
+                // ИСПРАВЛЕНО: Снимаем выделение со всех элементов, кроме текущего виджета
+                document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
+                    if (el.id !== widgetId) {
+                        el.classList.remove('selected');
+                    }
+                });
                 
                 const widgetElement = document.getElementById(widgetId);
                 if (widgetElement) {
                     widgetElement.classList.add('selected');
+                    selectedWidgetId = widgetId;
+                    selectedImageId = null;
+                    selectedTextId = null;
+                    selectedSoundId = null;
+                    
+                    // Показываем панель управления виджетами
+                    document.getElementById('image-controls').style.display = 'none';
+                    document.getElementById('text-controls').style.display = 'none';
+                    document.getElementById('sound-controls').style.display = 'none';
+                    document.getElementById('widget-controls').style.display = 'flex';
                     
                     const isLocked = widgetElement.classList.contains('locked');
                     const lockBtn = document.getElementById('lock-widget-btn');
@@ -2521,7 +2565,6 @@
             document.getElementById('widget-controls').style.display = 'none';
             document.getElementById('properties-panel').style.display = 'none';
             document.getElementById('simple-text-input').style.display = 'none';
-            document.getElementById('widgets-panel').style.display = 'none';
            
             document.querySelectorAll('.thumbnail').forEach(thumb => {
                 thumb.classList.remove('selected');
@@ -2532,7 +2575,6 @@
             selectedSoundId = null;
             selectedWidgetId = null;
             isAddingText = false;
-            isAddingWidget = false;
         }
        
         function saveStateToHistory() {
@@ -3531,5 +3573,3 @@
     </script>
 </body>
 </html>
-
-когда я добавляю виджет у меня верхняя панель и виджет уходят на верх

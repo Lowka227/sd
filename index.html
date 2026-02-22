@@ -196,16 +196,44 @@
             background: transparent !important;
         }
        
-        #widgets-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 4;
-            pointer-events: none;
-            background: transparent !important;
-        }
+        #controls {
+    background: #f0f0f0;
+    padding: 10px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    height: 60px;
+    box-sizing: border-box;
+    z-index: 1000; /* Увеличиваем z-index панели управления */
+    position: relative;
+}
+
+#widgets-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+    pointer-events: none;
+    background: transparent !important;
+}
+
+.draggable-widget {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+    transition: opacity 0.3s;
+    opacity: 1;
+    box-sizing: border-box;
+    pointer-events: auto;
+    border: 2px solid #4caf50;
+    background: white;
+    border-radius: 5px;
+    overflow: hidden;
+    z-index: 10; /* Устанавливаем z-index для отдельных виджетов */
+}    
        
         .draggable-image {
             position: absolute;
@@ -1331,54 +1359,71 @@
         }
         
         function addWidgetDirectly() {
-            const url = document.getElementById('widget-url-input').value.trim();
-            const width = parseInt(document.getElementById('widget-width-input').value) || 400;
-            const height = parseInt(document.getElementById('widget-height-input').value) || 300;
-            const name = document.getElementById('widget-name-input').value.trim() || 'Виджет';
-            
-            if (!url) {
-                alert("Введите URL виджета");
-                return;
-            }
-            
-            // Проверяем, что URL корректный
-            try {
-                new URL(url);
-            } catch (e) {
-                alert("Введите корректный URL");
-                return;
-            }
-            
-            // Создаем виджет на холсте
-            createWidgetOnCanvas({ url, width, height, name });
-            closeWidgetsPanel();
-        }
+    const url = document.getElementById('widget-url-input').value.trim();
+    const width = parseInt(document.getElementById('widget-width-input').value) || 400;
+    const height = parseInt(document.getElementById('widget-height-input').value) || 300;
+    const name = document.getElementById('widget-name-input').value.trim() || 'Виджет';
+    
+    if (!url) {
+        alert("Введите URL виджета");
+        return;
+    }
+    
+    // Проверяем, что URL корректный
+    try {
+        new URL(url);
+    } catch (e) {
+        alert("Введите корректный URL");
+        return;
+    }
+    
+    // Получаем размеры canvas-wrapper
+    const canvasWrapper = document.getElementById('canvas-wrapper');
+    const controlsHeight = 60; // Высота панели управления
+    
+    // Вычисляем позицию по центру видимой области
+    const x = (canvasWrapper.offsetWidth - width) / 2;
+    const y = controlsHeight + ((canvasWrapper.offsetHeight - controlsHeight) - height) / 2;
+    
+    // Создаем виджет на холсте с учетом позиции
+    createWidgetOnCanvas({ url, width, height, name }, { x, y });
+    closeWidgetsPanel();
+}
         
         function createWidgetOnCanvas(widgetData, customPosition = null) {
-            const id = 'widget_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            
-            const x = customPosition ? customPosition.x : 100;
-            const y = customPosition ? customPosition.y : 100;
-            const width = widgetData.width || 400;
-            const height = widgetData.height || 300;
-            const url = widgetData.url;
-            
-            widgetsRef.child(id).set({
-                id: id,
-                url: url,
-                name: widgetData.name || 'Виджет',
-                x: x,
-                y: y,
-                width: width,
-                height: height,
-                opacity: 1,
-                locked: false,
-                display: 'block',
-                isNew: true
-            });
-            
-            saveStateToHistory();
-        }
+    const id = 'widget_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Получаем размеры canvas-wrapper (область для контента)
+    const canvasWrapper = document.getElementById('canvas-wrapper');
+    const controlsHeight = 60; // Высота панели управления
+    
+    // Устанавливаем начальную позицию с учетом панели управления
+    const x = customPosition ? customPosition.x : 100;
+    const y = customPosition ? customPosition.y : (controlsHeight + 50); // +50 для отступа от панели
+    const width = widgetData.width || 400;
+    const height = widgetData.height || 300;
+    const url = widgetData.url;
+    
+    // Убеждаемся, что виджет не выходит за пределы видимой области
+    const maxY = canvasWrapper.offsetHeight - height;
+    const finalY = Math.min(y, Math.max(controlsHeight, maxY));
+    
+    widgetsRef.child(id).set({
+        id: id,
+        url: url,
+        name: widgetData.name || 'Виджет',
+        x: x,
+        y: finalY,
+        width: width,
+        height: height,
+        opacity: 1,
+        locked: false,
+        display: 'block',
+        isNew: true
+    });
+    
+    saveStateToHistory();
+}
         
         function updateSavedWidgetsList() {
             const savedWidgetsList = document.getElementById('saved-widgets-list');
@@ -1497,53 +1542,56 @@
         }
         
         function createWidgetElement(widgetData) {
-            const widget = document.createElement('div');
-            widget.id = widgetData.id;
-            widget.className = 'draggable-widget';
-            widget.style.left = widgetData.x + 'px';
-            widget.style.top = widgetData.y + 'px';
-            widget.style.width = widgetData.width + 'px';
-            widget.style.height = widgetData.height + 'px';
-            widget.style.opacity = widgetData.opacity !== undefined ? widgetData.opacity : 1;
-            widget.title = widgetData.name || 'Виджет';
-            
-            if (widgetData.locked) {
-                widget.classList.add('locked');
-            }
-            
-            if (widgetData.display === 'none') {
-                widget.style.display = 'none';
-            } else {
-                widget.style.display = 'block';
-            }
-            
-            // Создаем iframe
-            const iframe = document.createElement('iframe');
-            iframe.src = widgetData.url;
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
-            iframe.allowFullscreen = true;
-            
-            widget.appendChild(iframe);
-            
-            // Добавляем ручки для изменения размера
-            addResizeHandles(widget);
-            
-            // Обработчики событий
-            widget.addEventListener('mousedown', (e) => {
-                if (e.target.classList.contains('resize-handle')) return;
-                startWidgetSelect(e);
-            });
-            
-            widget.addEventListener('touchstart', (e) => {
-                if (e.target.classList.contains('resize-handle')) return;
-                startWidgetSelect(e);
-            }, { passive: false });
-            
-            return widget;
-        }
+    const widget = document.createElement('div');
+    widget.id = widgetData.id;
+    widget.className = 'draggable-widget';
+    widget.style.left = widgetData.x + 'px';
+    widget.style.top = widgetData.y + 'px';
+    widget.style.width = widgetData.width + 'px';
+    widget.style.height = widgetData.height + 'px';
+    widget.style.opacity = widgetData.opacity !== undefined ? widgetData.opacity : 1;
+    widget.title = widgetData.name || 'Виджет';
+    
+    // Устанавливаем высокий z-index для виджетов, но ниже чем у панели управления
+    widget.style.zIndex = '10';
+    
+    if (widgetData.locked) {
+        widget.classList.add('locked');
+    }
+    
+    if (widgetData.display === 'none') {
+        widget.style.display = 'none';
+    } else {
+        widget.style.display = 'block';
+    }
+    
+    // Создаем iframe
+    const iframe = document.createElement('iframe');
+    iframe.src = widgetData.url;
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+    iframe.allowFullscreen = true;
+    
+    widget.appendChild(iframe);
+    
+    // Добавляем ручки для изменения размера
+    addResizeHandles(widget);
+    
+    // Обработчики событий
+    widget.addEventListener('mousedown', (e) => {
+        if (e.target.classList.contains('resize-handle')) return;
+        startWidgetSelect(e);
+    });
+    
+    widget.addEventListener('touchstart', (e) => {
+        if (e.target.classList.contains('resize-handle')) return;
+        startWidgetSelect(e);
+    }, { passive: false });
+    
+    return widget;
+}
         
         function startWidgetSelect(e) {
             e.preventDefault();

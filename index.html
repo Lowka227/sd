@@ -21,16 +21,11 @@
         body {
             font-family: Arial, sans-serif;
             background: transparent !important;
+            display: flex;
+            flex-direction: column;
         }
         
-        #app-container {
-            width: 100%;
-            height: 100vh;
-            position: relative;
-            background: transparent !important;
-        }
-        
-        /* ПАНЕЛЬ УПРАВЛЕНИЯ - видна только в браузере */
+        /* ПАНЕЛЬ УПРАВЛЕНИЯ - сверху, фиксированная */
         #controls {
             background: rgba(240, 240, 240, 0.98);
             padding: 8px;
@@ -38,16 +33,12 @@
             flex-direction: column;
             gap: 8px;
             z-index: 10000;
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            width: calc(100% - 20px);
-            border: 3px solid #4285f4;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            width: 100%;
+            border-bottom: 3px solid #4285f4;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             max-height: 200px;
             overflow-y: auto;
+            flex-shrink: 0;
         }
         
         /* Специальный класс для скрытия в OBS */
@@ -237,9 +228,10 @@
             font-size: 14px;
         }
        
+        /* КОНТЕЙНЕР ДЛЯ ХОЛСТА - занимает всё оставшееся место */
         #canvas-wrapper {
+            flex: 1;
             width: 100%;
-            height: 100vh;
             position: relative;
             overflow: auto;
             background: transparent !important;
@@ -714,85 +706,83 @@
     </style>
 </head>
 <body>
-    <div id="app-container">
-        <!-- Кнопка переключения режима OBS -->
-        <button id="obs-toggle" onclick="toggleOBSMode()">🔴 OBS режим</button>
+    <!-- Кнопка переключения режима OBS -->
+    <button id="obs-toggle" onclick="toggleOBSMode()">🔴 OBS режим</button>
+    
+    <div id="controls">
+        <!-- Первая строка - основные кнопки -->
+        <div class="controls-row" style="background: #e3f2fd;">
+            <span style="font-weight: bold; color: #1976d2;">📋 Инструменты:</span>
+            <button onclick="document.getElementById('file-input').click()">🖼 Изображение</button>
+            <button id="add-text-btn">📝 Текст</button>
+            <button id="add-sound-btn">🔊 Звук</button>
+            <button id="add-widget-btn">🧩 Виджет</button>
+            <button id="speak-text-btn">🗣 Озвучить</button>
+            <button id="clear-btn">🗑 Очистить</button>
+            <div id="status">✅ Синхронизировано</div>
+        </div>
         
-        <div id="controls">
-            <!-- Первая строка - основные кнопки -->
-            <div class="controls-row" style="background: #e3f2fd;">
-                <span style="font-weight: bold; color: #1976d2;">📋 Инструменты:</span>
-                <button onclick="document.getElementById('file-input').click()">🖼 Изображение</button>
-                <button id="add-text-btn">📝 Текст</button>
-                <button id="add-sound-btn">🔊 Звук</button>
-                <button id="add-widget-btn">🧩 Виджет</button>
-                <button id="speak-text-btn">🗣 Озвучить</button>
-                <button id="clear-btn">🗑 Очистить</button>
-                <div id="status">✅ Синхронизировано</div>
-            </div>
-            
-            <!-- Вторая строка - миниатюры -->
-            <div class="controls-row">
-                <span style="font-weight: bold; color: #1976d2;">🖼 Элементы:</span>
-                <div id="thumbnails-container">
-                    <div id="thumbnails"></div>
-                </div>
-            </div>
-            
-            <!-- Третья строка - панель изображений -->
-            <div id="image-controls" class="controls-row">
-                <span class="panel-title">🖼 Изображение:</span>
-                <button id="hide-btn">👁 Скрыть</button>
-                <button id="delete-btn">🗑 Удалить</button>
-                <button id="settings-btn">⚙ Настройки</button>
-                <button id="lock-btn">🔒 Закрепить</button>
-                <button id="flip-h-btn">↔ Гориз</button>
-                <button id="flip-v-btn">↕ Вертик</button>
-                <button id="crop-image-btn" class="crop-btn">✂ Обрезать</button>
-            </div>
-            
-            <!-- Четвертая строка - панель текста -->
-            <div id="text-controls" class="controls-row">
-                <span class="panel-title">📝 Текст:</span>
-                <button id="hide-text-btn">👁 Скрыть</button>
-                <button id="edit-text-btn">✏ Редактировать</button>
-                <button id="delete-text-btn">🗑 Удалить</button>
-                <button id="lock-text-btn">🔒 Закрепить</button>
-                <button id="crop-text-btn" class="crop-btn">✂ Обрезать</button>
-            </div>
-            
-            <!-- Пятая строка - панель звука -->
-            <div id="sound-controls" class="controls-row">
-                <span class="panel-title">🔊 Звук:</span>
-                <button id="play-btn">▶</button>
-                <button id="pause-btn">⏸</button>
-                <div class="sound-visualization">
-                    <div class="sound-progress" id="sound-progress"></div>
-                </div>
-                <div class="volume-control">
-                    <span>🔊</span>
-                    <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
-                </div>
-                <button id="delete-sound-btn">🗑 Удалить</button>
-            </div>
-            
-            <!-- Шестая строка - панель виджетов -->
-            <div id="widget-controls" class="controls-row">
-                <span class="panel-title">🧩 Виджет:</span>
-                <button id="hide-widget-btn">👁 Скрыть</button>
-                <button id="delete-widget-btn">🗑 Удалить</button>
-                <button id="lock-widget-btn">🔒 Закрепить</button>
-                <button id="reload-widget-btn">🔄 Обновить</button>
-                <button id="crop-widget-btn" class="crop-btn">✂ Обрезать</button>
+        <!-- Вторая строка - миниатюры -->
+        <div class="controls-row">
+            <span style="font-weight: bold; color: #1976d2;">🖼 Элементы:</span>
+            <div id="thumbnails-container">
+                <div id="thumbnails"></div>
             </div>
         </div>
-       
-        <div id="canvas-wrapper">
-            <div class="canvas-content">
-                <div id="images-layer"></div>
-                <div id="texts-layer"></div>
-                <div id="widgets-layer"></div>
+        
+        <!-- Третья строка - панель изображений -->
+        <div id="image-controls" class="controls-row">
+            <span class="panel-title">🖼 Изображение:</span>
+            <button id="hide-btn">👁 Скрыть</button>
+            <button id="delete-btn">🗑 Удалить</button>
+            <button id="settings-btn">⚙ Настройки</button>
+            <button id="lock-btn">🔒 Закрепить</button>
+            <button id="flip-h-btn">↔ Гориз</button>
+            <button id="flip-v-btn">↕ Вертик</button>
+            <button id="crop-image-btn" class="crop-btn">✂ Обрезать</button>
+        </div>
+        
+        <!-- Четвертая строка - панель текста -->
+        <div id="text-controls" class="controls-row">
+            <span class="panel-title">📝 Текст:</span>
+            <button id="hide-text-btn">👁 Скрыть</button>
+            <button id="edit-text-btn">✏ Редактировать</button>
+            <button id="delete-text-btn">🗑 Удалить</button>
+            <button id="lock-text-btn">🔒 Закрепить</button>
+            <button id="crop-text-btn" class="crop-btn">✂ Обрезать</button>
+        </div>
+        
+        <!-- Пятая строка - панель звука -->
+        <div id="sound-controls" class="controls-row">
+            <span class="panel-title">🔊 Звук:</span>
+            <button id="play-btn">▶</button>
+            <button id="pause-btn">⏸</button>
+            <div class="sound-visualization">
+                <div class="sound-progress" id="sound-progress"></div>
             </div>
+            <div class="volume-control">
+                <span>🔊</span>
+                <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
+            </div>
+            <button id="delete-sound-btn">🗑 Удалить</button>
+        </div>
+        
+        <!-- Шестая строка - панель виджетов -->
+        <div id="widget-controls" class="controls-row">
+            <span class="panel-title">🧩 Виджет:</span>
+            <button id="hide-widget-btn">👁 Скрыть</button>
+            <button id="delete-widget-btn">🗑 Удалить</button>
+            <button id="lock-widget-btn">🔒 Закрепить</button>
+            <button id="reload-widget-btn">🔄 Обновить</button>
+            <button id="crop-widget-btn" class="crop-btn">✂ Обрезать</button>
+        </div>
+    </div>
+   
+    <div id="canvas-wrapper">
+        <div class="canvas-content">
+            <div id="images-layer"></div>
+            <div id="texts-layer"></div>
+            <div id="widgets-layer"></div>
         </div>
     </div>
     

@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Прозрачный холст</title>
     <style>
+        /* СБРОС ВСЕХ СТИЛЕЙ */
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
         
+        /* ПОЛНОСТЬЮ ПРОЗРАЧНЫЙ ФОН */
         html, body {
-            margin: 0;
-            padding: 0;
             width: 100%;
             height: 100%;
             overflow: hidden;
@@ -32,9 +32,9 @@
             background: transparent !important;
         }
         
-        /* Панель управления - полупрозрачная, появляется при наведении */
+        /* ПАНЕЛЬ УПРАВЛЕНИЯ - ВИДНА ТОЛЬКО В РЕЖИМЕ РЕДАКТИРОВАНИЯ */
         #controls {
-            background: rgba(240, 240, 240, 0.9);
+            background: rgba(240, 240, 240, 0.98);
             padding: 8px;
             display: flex;
             flex-direction: column;
@@ -45,22 +45,22 @@
             left: 10px;
             right: 10px;
             width: calc(100% - 20px);
-            border: 2px solid #4285f4;
+            border: 3px solid #ff4444;
             border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             max-height: 200px;
             overflow-y: auto;
-            opacity: 0.15;
-            transition: opacity 0.3s ease;
-            pointer-events: none;
         }
         
-        #controls:hover {
-            opacity: 1;
-            pointer-events: all;
+        /* КЛАСС ДЛЯ ПОЛНОГО СКРЫТИЯ В OBS */
+        #controls.obs-hidden {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
         }
         
-        /* Кнопка принудительного скрытия */
+        /* КНОПКА УПРАВЛЕНИЯ - ТОЖЕ СКРЫВАЕТСЯ */
         #power-btn {
             position: fixed;
             top: 10px;
@@ -75,20 +75,18 @@
             font-weight: bold;
             cursor: pointer;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            opacity: 0.3;
             transition: all 0.3s ease;
         }
         
-        #power-btn:hover {
-            opacity: 1;
-            transform: scale(1.05);
+        #power-btn.obs-hidden {
+            display: none !important;
         }
         
         #power-btn.off {
             background: #4caf50;
         }
         
-        /* Полностью прозрачный холст без квадратиков */
+        /* ПОЛНОСТЬЮ ПРОЗРАЧНЫЙ ХОЛСТ */
         #canvas-wrapper {
             width: 100%;
             height: 100vh;
@@ -567,8 +565,8 @@
 </head>
 <body>
     <div id="app-container">
-        <!-- Кнопка принудительного скрытия/показа -->
-        <button id="power-btn" onclick="togglePanel()">🔴 ВЫКЛ</button>
+        <!-- Кнопка управления - тоже будет скрыта в OBS -->
+        <button id="power-btn" onclick="toggleOBSMode()">🔴 РЕЖИМ OBS</button>
         
         <div id="controls">
             <!-- Первая строка - основные кнопки -->
@@ -859,29 +857,39 @@
         let voices = [];
         let isTTSInitialized = false;
         
-        // Управление панелью
-        let panelVisible = true;
+        // Режим OBS
+        let obsMode = false;
         
-        function togglePanel() {
-            panelVisible = !panelVisible;
+        function toggleOBSMode() {
+            obsMode = !obsMode;
             const controls = document.getElementById('controls');
             const btn = document.getElementById('power-btn');
             
-            if (panelVisible) {
-                controls.style.opacity = '0.15';
-                controls.style.pointerEvents = 'none';
-                btn.innerHTML = '🔴 ВЫКЛ';
-                btn.classList.remove('off');
+            if (obsMode) {
+                controls.classList.add('obs-hidden');
+                btn.classList.add('obs-hidden');
+                btn.innerHTML = '🟢 РЕЖИМ OBS (ВКЛ)';
             } else {
-                controls.style.opacity = '0';
-                controls.style.pointerEvents = 'none';
-                btn.innerHTML = '🟢 ВКЛ';
-                btn.classList.add('off');
+                controls.classList.remove('obs-hidden');
+                btn.classList.remove('obs-hidden');
+                btn.innerHTML = '🔴 РЕЖИМ OBS';
             }
+            
+            // Сохраняем настройку
+            localStorage.setItem('obsMode', obsMode);
         }
         
         function initApp() {
             console.log("Инициализация приложения...");
+            
+            // Проверяем сохраненный режим OBS
+            const savedMode = localStorage.getItem('obsMode') === 'true';
+            if (savedMode) {
+                obsMode = true;
+                document.getElementById('controls').classList.add('obs-hidden');
+                document.getElementById('power-btn').classList.add('obs-hidden');
+                document.getElementById('power-btn').innerHTML = '🟢 РЕЖИМ OBS (ВКЛ)';
+            }
             
             // Показываем все панели для отладки
             document.getElementById('image-controls').style.display = 'flex';

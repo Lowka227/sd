@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Прозрачный холст</title>
     <style>
-        /* СБРОС ВСЕХ СТИЛЕЙ */
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
         }
         
-        /* ПОЛНОСТЬЮ ПРОЗРАЧНЫЙ ФОН */
         html, body {
             width: 100%;
             height: 100%;
@@ -32,7 +30,7 @@
             background: transparent !important;
         }
         
-        /* ПАНЕЛЬ УПРАВЛЕНИЯ - ВИДНА ТОЛЬКО В РЕЖИМЕ РЕДАКТИРОВАНИЯ */
+        /* ПАНЕЛЬ УПРАВЛЕНИЯ - видна в браузере */
         #controls {
             background: rgba(240, 240, 240, 0.98);
             padding: 8px;
@@ -45,22 +43,28 @@
             left: 10px;
             right: 10px;
             width: calc(100% - 20px);
-            border: 3px solid #ff4444;
+            border: 3px solid #4285f4;
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             max-height: 200px;
             overflow-y: auto;
         }
         
-        /* КЛАСС ДЛЯ ПОЛНОГО СКРЫТИЯ В OBS */
-        #controls.obs-hidden {
-            display: none !important;
-            opacity: 0 !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
+        /* СКРЫТИЕ ПАНЕЛИ ДЛЯ OBS - через медиа-запрос для захвата экрана */
+        @media print {
+            #controls, #power-btn {
+                display: none !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+            }
         }
         
-        /* КНОПКА УПРАВЛЕНИЯ - ТОЖЕ СКРЫВАЕТСЯ */
+        /* Альтернативный метод скрытия - через data-атрибут */
+        #controls.obs-hide {
+            display: none !important;
+        }
+        
+        /* КНОПКА УПРАВЛЕНИЯ РЕЖИМОМ */
         #power-btn {
             position: fixed;
             top: 10px;
@@ -78,11 +82,11 @@
             transition: all 0.3s ease;
         }
         
-        #power-btn.obs-hidden {
-            display: none !important;
+        #power-btn:hover {
+            transform: scale(1.05);
         }
         
-        #power-btn.off {
+        #power-btn.obs-mode {
             background: #4caf50;
         }
         
@@ -565,8 +569,8 @@
 </head>
 <body>
     <div id="app-container">
-        <!-- Кнопка управления - тоже будет скрыта в OBS -->
-        <button id="power-btn" onclick="toggleOBSMode()">🔴 РЕЖИМ OBS</button>
+        <!-- Кнопка переключения режима OBS -->
+        <button id="power-btn" onclick="toggleOBSMode()">🔴 OBS режим</button>
         
         <div id="controls">
             <!-- Первая строка - основные кнопки -->
@@ -866,13 +870,13 @@
             const btn = document.getElementById('power-btn');
             
             if (obsMode) {
-                controls.classList.add('obs-hidden');
-                btn.classList.add('obs-hidden');
-                btn.innerHTML = '🟢 РЕЖИМ OBS (ВКЛ)';
+                controls.classList.add('obs-hide');
+                btn.classList.add('obs-mode');
+                btn.innerHTML = '🟢 OBS режим (скрыто)';
             } else {
-                controls.classList.remove('obs-hidden');
-                btn.classList.remove('obs-hidden');
-                btn.innerHTML = '🔴 РЕЖИМ OBS';
+                controls.classList.remove('obs-hide');
+                btn.classList.remove('obs-mode');
+                btn.innerHTML = '🔴 OBS режим';
             }
             
             // Сохраняем настройку
@@ -886,9 +890,9 @@
             const savedMode = localStorage.getItem('obsMode') === 'true';
             if (savedMode) {
                 obsMode = true;
-                document.getElementById('controls').classList.add('obs-hidden');
-                document.getElementById('power-btn').classList.add('obs-hidden');
-                document.getElementById('power-btn').innerHTML = '🟢 РЕЖИМ OBS (ВКЛ)';
+                document.getElementById('controls').classList.add('obs-hide');
+                document.getElementById('power-btn').classList.add('obs-mode');
+                document.getElementById('power-btn').innerHTML = '🟢 OBS режим (скрыто)';
             }
             
             // Показываем все панели для отладки

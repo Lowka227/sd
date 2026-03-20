@@ -326,7 +326,6 @@
             font-weight: bold;
         }
         
-        /* Все модальные окна по умолчанию скрыты */
         .properties-panel, #simple-text-input, #tts-panel, #widgets-panel, #crop-panel {
             display: none;
             position: fixed;
@@ -352,6 +351,7 @@
             font-size: 12px;
             margin: 5px 0;
             width: 100%;
+            box-sizing: border-box;
         }
         
         .sound-visualization {
@@ -386,12 +386,14 @@
         
         .crop-buttons { display: flex; gap: 8px; margin-top: 10px; }
         .widgets-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-        .widgets-tab { background: #444; padding: 5px 12px; cursor: pointer; border-radius: 20px; }
+        .widgets-tab { background: #444; padding: 5px 12px; cursor: pointer; border-radius: 20px; border: none; color: white; }
         .widgets-tab.active { background: #ffd966; color: #1e2b6e; }
         .widgets-content { display: none; }
         .widgets-content.active { display: block; }
-        .saved-widget-item { display: flex; justify-content: space-between; margin: 8px 0; padding: 5px; background: rgba(255,255,255,0.2); border-radius: 8px; }
-        .saved-widget-item button { padding: 2px 10px; }
+        .saved-widget-item { display: flex; justify-content: space-between; margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.2); border-radius: 8px; align-items: center; }
+        .saved-widget-item button { padding: 2px 10px; margin-left: 8px; }
+        .url-input-row { display: flex; gap: 8px; align-items: center; }
+        .quick-url-btn { background: #4caf50; padding: 5px 10px; font-size: 10px; white-space: nowrap; }
         
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
@@ -423,11 +425,44 @@
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
-<!-- Все модальные окна изначально скрыты через CSS display: none -->
-<div id="simple-text-input"><textarea id="text-input-area" placeholder="Введите текст..."></textarea><div class="text-toolbar"><select id="font-family-select"><option value="'Comic Sans MS', cursive">Comic Sans</option><option value="Arial, sans-serif">Arial</option><option value="'Times New Roman', serif">Times New Roman</option></select><input type="range" id="font-size-slider" min="12" max="72" value="24"><input type="color" id="text-color-picker" value="#000000"><button id="apply-text-simple">✅ Готово</button><button id="cancel-text-simple" style="background:#f44336;">❌</button></div></div>
+<div id="simple-text-input"><textarea id="text-input-area" placeholder="Введите текст..."></textarea><div><select id="font-family-select"><option value="'Comic Sans MS', cursive">Comic Sans</option><option value="Arial, sans-serif">Arial</option><option value="'Times New Roman', serif">Times New Roman</option></select><input type="range" id="font-size-slider" min="12" max="72" value="24"><input type="color" id="text-color-picker" value="#000000"></div><div class="crop-buttons"><button id="apply-text-simple">✅ Готово</button><button id="cancel-text-simple" style="background:#f44336;">❌ Отмена</button></div></div>
 <div class="properties-panel" id="properties-panel"><div class="panel-header"><h3>⚙ Свойства</h3><button class="close-btn" id="close-properties">×</button></div><label>Прозрачность: <input type="range" id="opacity-slider" min="0" max="100" value="100"></label><label>Яркость: <input type="range" id="brightness-slider" min="0" max="200" value="100"></label></div>
 <div id="tts-panel"><div class="panel-header"><h3>🗣 Озвучивание</h3><button class="close-btn" id="tts-close-btn">×</button></div><textarea id="tts-text-input" placeholder="Введите текст..."></textarea><select id="tts-voice-select"></select><div><span>Скорость:</span><input type="range" id="tts-rate-slider" min="0.5" max="2" step="0.1" value="1"></div><div><span>Высота:</span><input type="range" id="tts-pitch-slider" min="0.5" max="2" step="0.1" value="1"></div><div class="crop-buttons"><button id="tts-play-btn">▶</button><button id="tts-pause-btn">⏸</button><button id="tts-stop-btn">■</button></div></div>
-<div id="widgets-panel"><div class="panel-header"><h3>🧩 Виджеты</h3><button class="close-btn" id="close-widgets-btn">×</button></div><div class="widgets-tabs"><button class="widgets-tab active" data-tab="add-widget">➕ Добавить</button><button class="widgets-tab" data-tab="saved-widgets">📦 Сохраненные</button></div><div id="add-widget-content" class="widgets-content active"><input type="url" id="widget-url-input" placeholder="https://example.com/widget"><div><input type="number" id="widget-width-input" placeholder="Ширина" value="400"><input type="number" id="widget-height-input" placeholder="Высота" value="300"></div><input type="text" id="widget-name-input" placeholder="Название"><button id="save-widget-btn">💾 Сохранить</button><button id="add-widget-direct-btn">📌 Добавить</button></div><div id="saved-widgets-content" class="widgets-content"><div id="saved-widgets-list"></div></div></div>
+<div id="widgets-panel"><div class="panel-header"><h3>🧩 Виджеты</h3><button class="close-btn" id="close-widgets-btn">×</button></div>
+    <div class="widgets-tabs">
+        <button class="widgets-tab active" data-tab="add-widget">➕ Добавить</button>
+        <button class="widgets-tab" data-tab="saved-widgets">📦 Сохраненные</button>
+        <button class="widgets-tab" data-tab="quick-widgets">⚡ Быстрые</button>
+    </div>
+    <div id="add-widget-content" class="widgets-content active">
+        <input type="url" id="widget-url-input" placeholder="https://example.com/widget или http://localhost:8080/timer">
+        <div style="display: flex; gap: 8px;">
+            <input type="number" id="widget-width-input" placeholder="Ширина" value="400" style="width: 50%;">
+            <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width: 50%;">
+        </div>
+        <input type="text" id="widget-name-input" placeholder="Название (например, Таймер)">
+        <button id="save-widget-btn" style="background: #4caf50;">💾 Сохранить в библиотеку</button>
+        <button id="add-widget-direct-btn" style="background: #2196f3; margin-top: 5px;">📌 Добавить на холст</button>
+    </div>
+    <div id="saved-widgets-content" class="widgets-content">
+        <div id="saved-widgets-list"></div>
+    </div>
+    <div id="quick-widgets-content" class="widgets-content">
+        <div style="margin-bottom: 10px;">
+            <button class="quick-url-btn" data-url="http://localhost:8080/timer" data-name="Таймер" data-w="400" data-h="300">⏱️ Таймер (localhost:8080/timer)</button>
+        </div>
+        <div style="margin-bottom: 10px;">
+            <button class="quick-url-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ" data-name="YouTube" data-w="560" data-h="315">▶️ YouTube Видео</button>
+        </div>
+        <div style="margin-bottom: 10px;">
+            <button class="quick-url-btn" data-url="https://calendar.google.com/calendar/embed" data-name="Календарь" data-w="600" data-h="400">📅 Google Календарь</button>
+        </div>
+        <div>
+            <button class="quick-url-btn" data-url="https://www.zeit.de/index" data-name="Новости" data-w="500" data-h="400">📰 Новости</button>
+        </div>
+        <p style="font-size: 11px; margin-top: 10px; color: #ccc;">💡 Для локального таймера убедитесь, что сервер запущен на http://localhost:8080/timer</p>
+    </div>
+</div>
 <div id="crop-panel"><div class="panel-header"><h3>✂ Обрезка</h3><button class="close-btn" id="close-crop-btn">×</button></div><div class="crop-preview" id="crop-preview"></div><div><input type="number" id="crop-x" placeholder="X"><input type="number" id="crop-y" placeholder="Y"><input type="number" id="crop-width" placeholder="Ширина"><input type="number" id="crop-height" placeholder="Высота"></div><div class="crop-buttons"><button id="apply-crop-btn">✅ Применить</button><button id="cancel-crop-btn">❌ Отмена</button></div></div>
 
 <input type="file" id="file-input" accept="image/*"><input type="file" id="sound-input" accept="audio/*"><audio id="audio-element"></audio>
@@ -462,13 +497,28 @@
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     
-    // Функция для закрытия всех модальных окон
     function closeAllModals() {
         document.getElementById('simple-text-input').style.display = 'none';
         document.getElementById('properties-panel').style.display = 'none';
         document.getElementById('tts-panel').style.display = 'none';
         document.getElementById('widgets-panel').style.display = 'none';
         document.getElementById('crop-panel').style.display = 'none';
+    }
+    
+    function addWidget(url, name, width, height) {
+        if (!url) return alert('Введите URL');
+        let id = createId('widget');
+        widgetsRef.child(id).set({
+            id, url, name: name || 'Виджет',
+            x: 80, y: 80,
+            width: width || 400,
+            height: height || 300,
+            opacity: 1,
+            locked: false,
+            display: 'block',
+            isNew: true
+        });
+        closeAllModals();
     }
     
     function updateCanvasSize() {
@@ -479,10 +529,7 @@
         }
     }
     
-    window.addEventListener('resize', () => {
-        updateCanvasSize();
-        syncElements();
-    });
+    window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
     
     function syncElements() {
         updateCanvasSize();
@@ -550,6 +597,7 @@
                 el.className = 'draggable-widget';
                 let iframe = document.createElement('iframe');
                 iframe.src = data.url;
+                iframe.sandbox = 'allow-same-origin allow-scripts allow-popups allow-forms allow-modals';
                 el.appendChild(iframe);
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
@@ -869,17 +917,18 @@
             Object.values(savedWidgets).forEach(w => {
                 let div = document.createElement('div');
                 div.className = 'saved-widget-item';
-                div.innerHTML = `<span>${w.name || 'Виджет'}</span><button class="add-widget-btn">+</button>`;
+                div.innerHTML = `<span style="flex:1; overflow:hidden;">${w.name || 'Виджет'}</span><button class="add-widget-btn" style="background:#4caf50;">+</button>`;
                 div.querySelector('button').onclick = () => {
-                    let id = createId('widget');
-                    widgetsRef.child(id).set({ id, url: w.url, name: w.name, x: 80, y: 80, width: w.width || 350, height: w.height || 250, display: 'block' });
+                    addWidget(w.url, w.name, w.width || 400, w.height || 300);
                 };
                 list.appendChild(div);
             });
+            if (Object.keys(savedWidgets).length === 0) {
+                list.innerHTML = '<p style="text-align:center;">Нет сохраненных виджетов</p>';
+            }
         }
     }
     
-    // Инициализация обработчиков с закрытием модальных окон
     document.getElementById('add-text-btn').onclick = () => { closeAllModals(); document.getElementById('simple-text-input').style.display = 'block'; };
     document.getElementById('apply-text-simple').onclick = () => {
         let txt = document.getElementById('text-input-area').value.trim();
@@ -895,15 +944,37 @@
     document.getElementById('close-widgets-btn').onclick = () => document.getElementById('widgets-panel').style.display = 'none';
     document.getElementById('add-widget-direct-btn').onclick = () => {
         let url = document.getElementById('widget-url-input').value.trim();
-        if (!url) return alert('Введите URL');
-        let id = createId('widget');
-        widgetsRef.child(id).set({ id, url, name: document.getElementById('widget-name-input').value.trim() || 'Виджет', x: 80, y: 80, width: parseInt(document.getElementById('widget-width-input').value) || 350, height: parseInt(document.getElementById('widget-height-input').value) || 250, display: 'block' });
-        document.getElementById('widgets-panel').style.display = 'none';
+        let name = document.getElementById('widget-name-input').value.trim() || 'Виджет';
+        let width = parseInt(document.getElementById('widget-width-input').value) || 400;
+        let height = parseInt(document.getElementById('widget-height-input').value) || 300;
+        addWidget(url, name, width, height);
     };
     document.getElementById('save-widget-btn').onclick = () => {
         let url = document.getElementById('widget-url-input').value.trim();
-        if (url) savedWidgetsRef.push({ url, name: document.getElementById('widget-name-input').value.trim() || 'Виджет', width: parseInt(document.getElementById('widget-width-input').value) || 350, height: parseInt(document.getElementById('widget-height-input').value) || 250 });
+        if (url) {
+            savedWidgetsRef.push({ 
+                url: url, 
+                name: document.getElementById('widget-name-input').value.trim() || 'Виджет', 
+                width: parseInt(document.getElementById('widget-width-input').value) || 400, 
+                height: parseInt(document.getElementById('widget-height-input').value) || 300 
+            });
+            alert('Виджет сохранен в библиотеку');
+        } else {
+            alert('Введите URL');
+        }
     };
+    
+    // Быстрые виджеты (включая таймер)
+    document.querySelectorAll('.quick-url-btn').forEach(btn => {
+        btn.onclick = () => {
+            let url = btn.dataset.url;
+            let name = btn.dataset.name;
+            let width = parseInt(btn.dataset.w) || 400;
+            let height = parseInt(btn.dataset.h) || 300;
+            addWidget(url, name, width, height);
+        };
+    });
+    
     document.getElementById('file-input').onchange = e => {
         let f = e.target.files[0];
         if (f) {
@@ -963,7 +1034,7 @@
     document.getElementById('close-crop-btn').onclick = () => document.getElementById('crop-panel').style.display = 'none';
     document.getElementById('cancel-crop-btn').onclick = () => document.getElementById('crop-panel').style.display = 'none';
     document.getElementById('apply-crop-btn').onclick = () => {
-        alert('Обрезка применена');
+        alert('Обрезка применена (демо)');
         document.getElementById('crop-panel').style.display = 'none';
     };
     document.getElementById('edit-text-btn').onclick = () => { if (selectedTextId) editTextById(selectedTextId); };
@@ -977,7 +1048,6 @@
         };
     });
     
-    // Закрытие модальных окон по клику вне их области (опционально)
     window.onclick = (e) => {
         if (e.target === document.getElementById('simple-text-input')) document.getElementById('simple-text-input').style.display = 'none';
         if (e.target === document.getElementById('tts-panel')) document.getElementById('tts-panel').style.display = 'none';
@@ -986,9 +1056,8 @@
         if (e.target === document.getElementById('properties-panel')) document.getElementById('properties-panel').style.display = 'none';
     };
     
-    // Инициализация
     updateCanvasSize();
-    closeAllModals(); // Гарантированно закрываем все окна при загрузке
+    closeAllModals();
     setTimeout(() => { updateCanvasSize(); syncElements(); }, 100);
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
 </script>

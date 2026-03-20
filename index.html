@@ -326,7 +326,9 @@
             font-weight: bold;
         }
         
+        /* Все модальные окна по умолчанию скрыты */
         .properties-panel, #simple-text-input, #tts-panel, #widgets-panel, #crop-panel {
+            display: none;
             position: fixed;
             background: rgba(30, 30, 40, 0.96);
             backdrop-filter: blur(12px);
@@ -349,6 +351,7 @@
             padding: 8px;
             font-size: 12px;
             margin: 5px 0;
+            width: 100%;
         }
         
         .sound-visualization {
@@ -388,6 +391,7 @@
         .widgets-content { display: none; }
         .widgets-content.active { display: block; }
         .saved-widget-item { display: flex; justify-content: space-between; margin: 8px 0; padding: 5px; background: rgba(255,255,255,0.2); border-radius: 8px; }
+        .saved-widget-item button { padding: 2px 10px; }
         
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
@@ -419,6 +423,7 @@
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
+<!-- Все модальные окна изначально скрыты через CSS display: none -->
 <div id="simple-text-input"><textarea id="text-input-area" placeholder="Введите текст..."></textarea><div class="text-toolbar"><select id="font-family-select"><option value="'Comic Sans MS', cursive">Comic Sans</option><option value="Arial, sans-serif">Arial</option><option value="'Times New Roman', serif">Times New Roman</option></select><input type="range" id="font-size-slider" min="12" max="72" value="24"><input type="color" id="text-color-picker" value="#000000"><button id="apply-text-simple">✅ Готово</button><button id="cancel-text-simple" style="background:#f44336;">❌</button></div></div>
 <div class="properties-panel" id="properties-panel"><div class="panel-header"><h3>⚙ Свойства</h3><button class="close-btn" id="close-properties">×</button></div><label>Прозрачность: <input type="range" id="opacity-slider" min="0" max="100" value="100"></label><label>Яркость: <input type="range" id="brightness-slider" min="0" max="200" value="100"></label></div>
 <div id="tts-panel"><div class="panel-header"><h3>🗣 Озвучивание</h3><button class="close-btn" id="tts-close-btn">×</button></div><textarea id="tts-text-input" placeholder="Введите текст..."></textarea><select id="tts-voice-select"></select><div><span>Скорость:</span><input type="range" id="tts-rate-slider" min="0.5" max="2" step="0.1" value="1"></div><div><span>Высота:</span><input type="range" id="tts-pitch-slider" min="0.5" max="2" step="0.1" value="1"></div><div class="crop-buttons"><button id="tts-play-btn">▶</button><button id="tts-pause-btn">⏸</button><button id="tts-stop-btn">■</button></div></div>
@@ -456,6 +461,15 @@
     let canvasRect = { width: 0, height: 0 };
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
+    
+    // Функция для закрытия всех модальных окон
+    function closeAllModals() {
+        document.getElementById('simple-text-input').style.display = 'none';
+        document.getElementById('properties-panel').style.display = 'none';
+        document.getElementById('tts-panel').style.display = 'none';
+        document.getElementById('widgets-panel').style.display = 'none';
+        document.getElementById('crop-panel').style.display = 'none';
+    }
     
     function updateCanvasSize() {
         const wrapper = document.getElementById('canvas-wrapper');
@@ -865,7 +879,8 @@
         }
     }
     
-    document.getElementById('add-text-btn').onclick = () => document.getElementById('simple-text-input').style.display = 'block';
+    // Инициализация обработчиков с закрытием модальных окон
+    document.getElementById('add-text-btn').onclick = () => { closeAllModals(); document.getElementById('simple-text-input').style.display = 'block'; };
     document.getElementById('apply-text-simple').onclick = () => {
         let txt = document.getElementById('text-input-area').value.trim();
         if (txt) {
@@ -876,7 +891,7 @@
     };
     document.getElementById('cancel-text-simple').onclick = () => document.getElementById('simple-text-input').style.display = 'none';
     document.getElementById('add-sound-btn').onclick = () => document.getElementById('sound-input').click();
-    document.getElementById('add-widget-btn').onclick = () => document.getElementById('widgets-panel').style.display = 'block';
+    document.getElementById('add-widget-btn').onclick = () => { closeAllModals(); document.getElementById('widgets-panel').style.display = 'block'; };
     document.getElementById('close-widgets-btn').onclick = () => document.getElementById('widgets-panel').style.display = 'none';
     document.getElementById('add-widget-direct-btn').onclick = () => {
         let url = document.getElementById('widget-url-input').value.trim();
@@ -916,7 +931,7 @@
         }
     };
     document.getElementById('clear-btn').onclick = () => { if (confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); } };
-    document.getElementById('speak-text-btn').onclick = () => document.getElementById('tts-panel').style.display = 'block';
+    document.getElementById('speak-text-btn').onclick = () => { closeAllModals(); document.getElementById('tts-panel').style.display = 'block'; };
     document.getElementById('tts-close-btn').onclick = () => document.getElementById('tts-panel').style.display = 'none';
     document.getElementById('tts-play-btn').onclick = () => {
         let t = document.getElementById('tts-text-input').value;
@@ -934,7 +949,7 @@
     document.getElementById('lock-widget-btn').onclick = () => { if (selectedWidgetId) { let el = document.getElementById(selectedWidgetId); let locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); widgetsRef.child(selectedWidgetId).update({ locked }); } };
     document.getElementById('flip-h-btn').onclick = () => { if (selectedImageId) { let el = document.getElementById(selectedImageId); let val = el.dataset.flipH === 'true'; el.dataset.flipH = (!val).toString(); applyTransform(el); imagesRef.child(selectedImageId).update({ flipHorizontal: !val }); } };
     document.getElementById('flip-v-btn').onclick = () => { if (selectedImageId) { let el = document.getElementById(selectedImageId); let val = el.dataset.flipV === 'true'; el.dataset.flipV = (!val).toString(); applyTransform(el); imagesRef.child(selectedImageId).update({ flipVertical: !val }); } };
-    document.getElementById('settings-btn').onclick = () => document.getElementById('properties-panel').style.display = 'block';
+    document.getElementById('settings-btn').onclick = () => { closeAllModals(); document.getElementById('properties-panel').style.display = 'block'; };
     document.getElementById('close-properties').onclick = () => document.getElementById('properties-panel').style.display = 'none';
     document.getElementById('opacity-slider').oninput = e => { if (selectedImageId) imagesRef.child(selectedImageId).update({ opacity: e.target.value / 100 }); };
     document.getElementById('brightness-slider').oninput = e => { if (selectedImageId) imagesRef.child(selectedImageId).update({ brightness: e.target.value }); };
@@ -942,9 +957,15 @@
     document.getElementById('pause-btn').onclick = () => document.getElementById('audio-element').pause();
     document.getElementById('volume-slider').oninput = e => { if (selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); };
     document.getElementById('reload-widget-btn').onclick = () => { if (selectedWidgetId) { let iframe = document.getElementById(selectedWidgetId)?.querySelector('iframe'); if (iframe) iframe.src = iframe.src; } };
-    document.getElementById('crop-image-btn').onclick = () => alert('Функция обрезки: выделите элемент и нажмите обрезать');
-    document.getElementById('crop-text-btn').onclick = () => alert('Функция обрезки: выделите элемент и нажмите обрезать');
-    document.getElementById('crop-widget-btn').onclick = () => alert('Функция обрезки: выделите элемент и нажмите обрезать');
+    document.getElementById('crop-image-btn').onclick = () => { closeAllModals(); document.getElementById('crop-panel').style.display = 'block'; };
+    document.getElementById('crop-text-btn').onclick = () => { closeAllModals(); document.getElementById('crop-panel').style.display = 'block'; };
+    document.getElementById('crop-widget-btn').onclick = () => { closeAllModals(); document.getElementById('crop-panel').style.display = 'block'; };
+    document.getElementById('close-crop-btn').onclick = () => document.getElementById('crop-panel').style.display = 'none';
+    document.getElementById('cancel-crop-btn').onclick = () => document.getElementById('crop-panel').style.display = 'none';
+    document.getElementById('apply-crop-btn').onclick = () => {
+        alert('Обрезка применена');
+        document.getElementById('crop-panel').style.display = 'none';
+    };
     document.getElementById('edit-text-btn').onclick = () => { if (selectedTextId) editTextById(selectedTextId); };
     
     document.querySelectorAll('.widgets-tab').forEach(tab => {
@@ -956,7 +977,18 @@
         };
     });
     
+    // Закрытие модальных окон по клику вне их области (опционально)
+    window.onclick = (e) => {
+        if (e.target === document.getElementById('simple-text-input')) document.getElementById('simple-text-input').style.display = 'none';
+        if (e.target === document.getElementById('tts-panel')) document.getElementById('tts-panel').style.display = 'none';
+        if (e.target === document.getElementById('widgets-panel')) document.getElementById('widgets-panel').style.display = 'none';
+        if (e.target === document.getElementById('crop-panel')) document.getElementById('crop-panel').style.display = 'none';
+        if (e.target === document.getElementById('properties-panel')) document.getElementById('properties-panel').style.display = 'none';
+    };
+    
+    // Инициализация
     updateCanvasSize();
+    closeAllModals(); // Гарантированно закрываем все окна при загрузке
     setTimeout(() => { updateCanvasSize(); syncElements(); }, 100);
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
 </script>

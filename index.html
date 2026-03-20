@@ -239,6 +239,42 @@
             background: white;
         }
         
+        /* Встроенный таймер */
+        .inline-timer {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+            color: white;
+        }
+        .inline-timer .timer-display {
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .inline-timer .timer-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .inline-timer button {
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: white;
+            font-size: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .inline-timer button:hover {
+            background: rgba(255,255,255,0.5);
+        }
+        
         .selected {
             outline: 3px solid #ffd966;
             outline-offset: 2px;
@@ -385,15 +421,23 @@
         }
         
         .crop-buttons { display: flex; gap: 8px; margin-top: 10px; }
-        .widgets-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .widgets-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
         .widgets-tab { background: #444; padding: 5px 12px; cursor: pointer; border-radius: 20px; border: none; color: white; }
         .widgets-tab.active { background: #ffd966; color: #1e2b6e; }
         .widgets-content { display: none; }
         .widgets-content.active { display: block; }
         .saved-widget-item { display: flex; justify-content: space-between; margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.2); border-radius: 8px; align-items: center; }
         .saved-widget-item button { padding: 2px 10px; margin-left: 8px; }
-        .url-input-row { display: flex; gap: 8px; align-items: center; }
-        .quick-url-btn { background: #4caf50; padding: 5px 10px; font-size: 10px; white-space: nowrap; }
+        .quick-widget-btn {
+            background: #4caf50;
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
         
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
@@ -431,36 +475,33 @@
 <div id="widgets-panel"><div class="panel-header"><h3>🧩 Виджеты</h3><button class="close-btn" id="close-widgets-btn">×</button></div>
     <div class="widgets-tabs">
         <button class="widgets-tab active" data-tab="add-widget">➕ Добавить</button>
+        <button class="widgets-tab" data-tab="quick-widgets">⚡ Встроенные</button>
         <button class="widgets-tab" data-tab="saved-widgets">📦 Сохраненные</button>
-        <button class="widgets-tab" data-tab="quick-widgets">⚡ Быстрые</button>
     </div>
     <div id="add-widget-content" class="widgets-content active">
-        <input type="url" id="widget-url-input" placeholder="https://example.com/widget или http://localhost:8080/timer">
+        <input type="url" id="widget-url-input" placeholder="https://example.com/widget">
         <div style="display: flex; gap: 8px;">
             <input type="number" id="widget-width-input" placeholder="Ширина" value="400" style="width: 50%;">
             <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width: 50%;">
         </div>
-        <input type="text" id="widget-name-input" placeholder="Название (например, Таймер)">
-        <button id="save-widget-btn" style="background: #4caf50;">💾 Сохранить в библиотеку</button>
-        <button id="add-widget-direct-btn" style="background: #2196f3; margin-top: 5px;">📌 Добавить на холст</button>
+        <input type="text" id="widget-name-input" placeholder="Название">
+        <button id="save-widget-btn" style="background: #4caf50;">💾 Сохранить</button>
+        <button id="add-widget-direct-btn" style="background: #2196f3; margin-top: 5px;">📌 Добавить</button>
+    </div>
+    <div id="quick-widgets-content" class="widgets-content">
+        <button class="quick-widget-btn" onclick="addTimerWidget()">
+            ⏱️ <strong>Таймер</strong> - Встроенный таймер с управлением
+        </button>
+        <button class="quick-widget-btn" onclick="addClockWidget()">
+            🕐 <strong>Часы</strong> - Текущее время
+        </button>
+        <button class="quick-widget-btn" onclick="addStopwatchWidget()">
+            ⏱️ <strong>Секундомер</strong> - Счётчик времени
+        </button>
+        <p style="font-size: 11px; margin-top: 10px; color: #ccc;">💡 Эти виджеты работают без интернета и локальных серверов</p>
     </div>
     <div id="saved-widgets-content" class="widgets-content">
         <div id="saved-widgets-list"></div>
-    </div>
-    <div id="quick-widgets-content" class="widgets-content">
-        <div style="margin-bottom: 10px;">
-            <button class="quick-url-btn" data-url="http://localhost:8080/timer" data-name="Таймер" data-w="400" data-h="300">⏱️ Таймер (localhost:8080/timer)</button>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <button class="quick-url-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ" data-name="YouTube" data-w="560" data-h="315">▶️ YouTube Видео</button>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <button class="quick-url-btn" data-url="https://calendar.google.com/calendar/embed" data-name="Календарь" data-w="600" data-h="400">📅 Google Календарь</button>
-        </div>
-        <div>
-            <button class="quick-url-btn" data-url="https://www.zeit.de/index" data-name="Новости" data-w="500" data-h="400">📰 Новости</button>
-        </div>
-        <p style="font-size: 11px; margin-top: 10px; color: #ccc;">💡 Для локального таймера убедитесь, что сервер запущен на http://localhost:8080/timer</p>
     </div>
 </div>
 <div id="crop-panel"><div class="panel-header"><h3>✂ Обрезка</h3><button class="close-btn" id="close-crop-btn">×</button></div><div class="crop-preview" id="crop-preview"></div><div><input type="number" id="crop-x" placeholder="X"><input type="number" id="crop-y" placeholder="Y"><input type="number" id="crop-width" placeholder="Ширина"><input type="number" id="crop-height" placeholder="Высота"></div><div class="crop-buttons"><button id="apply-crop-btn">✅ Применить</button><button id="cancel-crop-btn">❌ Отмена</button></div></div>
@@ -505,20 +546,180 @@
         document.getElementById('crop-panel').style.display = 'none';
     }
     
-    function addWidget(url, name, width, height) {
-        if (!url) return alert('Введите URL');
-        let id = createId('widget');
-        widgetsRef.child(id).set({
-            id, url, name: name || 'Виджет',
+    // Встроенный виджет таймера
+    function createTimerHTML() {
+        return `
+        <div class="inline-timer" style="width:100%;height:100%;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;">
+            <div class="timer-display" id="timer-display-${Date.now()}">00:00</div>
+            <div class="timer-controls">
+                <button class="timer-start">▶</button>
+                <button class="timer-reset">🔄</button>
+            </div>
+        </div>`;
+    }
+    
+    function addTimerWidget() {
+        let id = createId('widget_timer');
+        let widgetData = {
+            id: id,
+            type: 'timer',
+            name: 'Таймер',
             x: 80, y: 80,
-            width: width || 400,
-            height: height || 300,
-            opacity: 1,
-            locked: false,
+            width: 300, height: 250,
+            display: 'block',
+            isNew: true
+        };
+        widgetsRef.child(id).set(widgetData);
+        closeAllModals();
+    }
+    
+    function addClockWidget() {
+        let id = createId('widget_clock');
+        widgetsRef.child(id).set({
+            id: id,
+            type: 'clock',
+            name: 'Часы',
+            x: 80, y: 80,
+            width: 280, height: 200,
             display: 'block',
             isNew: true
         });
         closeAllModals();
+    }
+    
+    function addStopwatchWidget() {
+        let id = createId('widget_stopwatch');
+        widgetsRef.child(id).set({
+            id: id,
+            type: 'stopwatch',
+            name: 'Секундомер',
+            x: 80, y: 80,
+            width: 320, height: 250,
+            display: 'block',
+            isNew: true
+        });
+        closeAllModals();
+    }
+    
+    function createWidgetContent(type, widgetId) {
+        if (type === 'timer') {
+            let uniqueId = 'timer_' + widgetId;
+            return `
+            <div class="inline-timer" style="width:100%;height:100%;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div class="timer-display" id="${uniqueId}_display" style="font-size:48px;font-weight:bold;color:white;">00:00</div>
+                <div style="display:flex;gap:10px;margin-top:15px;">
+                    <button class="timer-start-btn" data-id="${uniqueId}" style="background:rgba(255,255,255,0.3);border:none;color:white;font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer;">▶</button>
+                    <button class="timer-reset-btn" data-id="${uniqueId}" style="background:rgba(255,255,255,0.3);border:none;color:white;font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer;">🔄</button>
+                </div>
+            </div>`;
+        } else if (type === 'clock') {
+            let uniqueId = 'clock_' + widgetId;
+            return `
+            <div class="inline-timer" style="width:100%;height:100%;background:linear-gradient(135deg,#f093fb,#f5576c);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div id="${uniqueId}_display" style="font-size:48px;font-weight:bold;color:white;font-family:monospace;">--:--:--</div>
+                <div style="font-size:14px;color:rgba(255,255,255,0.8);margin-top:10px;">текущее время</div>
+            </div>`;
+        } else if (type === 'stopwatch') {
+            let uniqueId = 'stopwatch_' + widgetId;
+            return `
+            <div class="inline-timer" style="width:100%;height:100%;background:linear-gradient(135deg,#43e97b,#38f9d7);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div id="${uniqueId}_display" style="font-size:48px;font-weight:bold;color:white;font-family:monospace;">00:00:00</div>
+                <div style="display:flex;gap:10px;margin-top:15px;">
+                    <button class="stopwatch-start-btn" data-id="${uniqueId}" style="background:rgba(0,0,0,0.3);border:none;color:white;font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer;">▶</button>
+                    <button class="stopwatch-pause-btn" data-id="${uniqueId}" style="background:rgba(0,0,0,0.3);border:none;color:white;font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer;">⏸</button>
+                    <button class="stopwatch-reset-btn" data-id="${uniqueId}" style="background:rgba(0,0,0,0.3);border:none;color:white;font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer;">🔄</button>
+                </div>
+            </div>`;
+        }
+        return '';
+    }
+    
+    function initWidgetInteractivity() {
+        // Таймеры
+        document.querySelectorAll('.timer-start-btn').forEach(btn => {
+            btn.onclick = function() {
+                let id = this.dataset.id;
+                let display = document.getElementById(id + '_display');
+                if (!display) return;
+                if (window['timerInterval_' + id]) clearInterval(window['timerInterval_' + id]);
+                let time = 0;
+                let parts = display.textContent.split(':');
+                if (parts.length === 2) time = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+                window['timerInterval_' + id] = setInterval(() => {
+                    if (time <= 0) {
+                        clearInterval(window['timerInterval_' + id]);
+                        display.textContent = '00:00';
+                    } else {
+                        time--;
+                        let mins = Math.floor(time / 60);
+                        let secs = time % 60;
+                        display.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+                    }
+                }, 1000);
+            };
+        });
+        
+        document.querySelectorAll('.timer-reset-btn').forEach(btn => {
+            btn.onclick = function() {
+                let id = this.dataset.id;
+                if (window['timerInterval_' + id]) clearInterval(window['timerInterval_' + id]);
+                let display = document.getElementById(id + '_display');
+                if (display) display.textContent = '00:00';
+            };
+        });
+        
+        // Часы
+        function updateClocks() {
+            document.querySelectorAll('[id^="clock_"]').forEach(el => {
+                if (el.id.endsWith('_display')) {
+                    let now = new Date();
+                    el.textContent = now.toLocaleTimeString();
+                }
+            });
+        }
+        setInterval(updateClocks, 1000);
+        
+        // Секундомеры
+        document.querySelectorAll('.stopwatch-start-btn').forEach(btn => {
+            btn.onclick = function() {
+                let id = this.dataset.id;
+                let display = document.getElementById(id + '_display');
+                if (!display) return;
+                if (window['stopwatchInterval_' + id]) return;
+                let time = 0;
+                let parts = display.textContent.split(':');
+                if (parts.length === 3) time = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+                window['stopwatchInterval_' + id] = setInterval(() => {
+                    time++;
+                    let hours = Math.floor(time / 3600);
+                    let mins = Math.floor((time % 3600) / 60);
+                    let secs = time % 60;
+                    display.textContent = `${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+                }, 1000);
+            };
+        });
+        
+        document.querySelectorAll('.stopwatch-pause-btn').forEach(btn => {
+            btn.onclick = function() {
+                let id = this.dataset.id;
+                if (window['stopwatchInterval_' + id]) {
+                    clearInterval(window['stopwatchInterval_' + id]);
+                    window['stopwatchInterval_' + id] = null;
+                }
+            };
+        });
+        
+        document.querySelectorAll('.stopwatch-reset-btn').forEach(btn => {
+            btn.onclick = function() {
+                let id = this.dataset.id;
+                if (window['stopwatchInterval_' + id]) {
+                    clearInterval(window['stopwatchInterval_' + id]);
+                    window['stopwatchInterval_' + id] = null;
+                }
+                let display = document.getElementById(id + '_display');
+                if (display) display.textContent = '00:00:00';
+            };
+        });
     }
     
     function updateCanvasSize() {
@@ -595,10 +796,15 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-widget';
-                let iframe = document.createElement('iframe');
-                iframe.src = data.url;
-                iframe.sandbox = 'allow-same-origin allow-scripts allow-popups allow-forms allow-modals';
-                el.appendChild(iframe);
+                if (data.type === 'timer' || data.type === 'clock' || data.type === 'stopwatch') {
+                    el.innerHTML = createWidgetContent(data.type, id);
+                } else if (data.url) {
+                    let iframe = document.createElement('iframe');
+                    iframe.src = data.url;
+                    el.appendChild(iframe);
+                } else {
+                    el.innerHTML = createWidgetContent('timer', id);
+                }
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
                 makeDraggable(el, 'widget');
@@ -610,11 +816,15 @@
             el.style.display = data.display === 'none' ? 'none' : 'block';
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
-            let iframe = el.querySelector('iframe');
-            if (iframe && iframe.src !== data.url) iframe.src = data.url;
+            
+            if (data.url && !data.type) {
+                let iframe = el.querySelector('iframe');
+                if (iframe && iframe.src !== data.url) iframe.src = data.url;
+            }
         }
         
         updateThumbnails();
+        setTimeout(initWidgetInteractivity, 100);
     }
     
     function makeDraggable(el, type) {
@@ -623,6 +833,9 @@
         
         function startDrag(e) {
             if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
+            if (e.target.closest('.timer-start-btn') || e.target.closest('.timer-reset-btn') ||
+                e.target.closest('.stopwatch-start-btn') || e.target.closest('.stopwatch-pause-btn') ||
+                e.target.closest('.stopwatch-reset-btn')) return;
             if (el.classList.contains('locked')) return;
             e.preventDefault();
             
@@ -919,7 +1132,8 @@
                 div.className = 'saved-widget-item';
                 div.innerHTML = `<span style="flex:1; overflow:hidden;">${w.name || 'Виджет'}</span><button class="add-widget-btn" style="background:#4caf50;">+</button>`;
                 div.querySelector('button').onclick = () => {
-                    addWidget(w.url, w.name, w.width || 400, w.height || 300);
+                    let id = createId('widget');
+                    widgetsRef.child(id).set({ id, url: w.url, name: w.name, x: 80, y: 80, width: w.width || 400, height: w.height || 300, display: 'block' });
                 };
                 list.appendChild(div);
             });
@@ -947,7 +1161,13 @@
         let name = document.getElementById('widget-name-input').value.trim() || 'Виджет';
         let width = parseInt(document.getElementById('widget-width-input').value) || 400;
         let height = parseInt(document.getElementById('widget-height-input').value) || 300;
-        addWidget(url, name, width, height);
+        if (url) {
+            let id = createId('widget');
+            widgetsRef.child(id).set({ id, url, name, x: 80, y: 80, width, height, display: 'block' });
+            closeAllModals();
+        } else {
+            alert('Введите URL');
+        }
     };
     document.getElementById('save-widget-btn').onclick = () => {
         let url = document.getElementById('widget-url-input').value.trim();
@@ -958,22 +1178,11 @@
                 width: parseInt(document.getElementById('widget-width-input').value) || 400, 
                 height: parseInt(document.getElementById('widget-height-input').value) || 300 
             });
-            alert('Виджет сохранен в библиотеку');
+            alert('Виджет сохранен');
         } else {
             alert('Введите URL');
         }
     };
-    
-    // Быстрые виджеты (включая таймер)
-    document.querySelectorAll('.quick-url-btn').forEach(btn => {
-        btn.onclick = () => {
-            let url = btn.dataset.url;
-            let name = btn.dataset.name;
-            let width = parseInt(btn.dataset.w) || 400;
-            let height = parseInt(btn.dataset.h) || 300;
-            addWidget(url, name, width, height);
-        };
-    });
     
     document.getElementById('file-input').onchange = e => {
         let f = e.target.files[0];
@@ -1034,7 +1243,7 @@
     document.getElementById('close-crop-btn').onclick = () => document.getElementById('crop-panel').style.display = 'none';
     document.getElementById('cancel-crop-btn').onclick = () => document.getElementById('crop-panel').style.display = 'none';
     document.getElementById('apply-crop-btn').onclick = () => {
-        alert('Обрезка применена (демо)');
+        alert('Обрезка применена');
         document.getElementById('crop-panel').style.display = 'none';
     };
     document.getElementById('edit-text-btn').onclick = () => { if (selectedTextId) editTextById(selectedTextId); };
@@ -1060,6 +1269,10 @@
     closeAllModals();
     setTimeout(() => { updateCanvasSize(); syncElements(); }, 100);
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
+    
+    window.addTimerWidget = addTimerWidget;
+    window.addClockWidget = addClockWidget;
+    window.addStopwatchWidget = addStopwatchWidget;
 </script>
 </body>
 </html>

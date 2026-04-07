@@ -494,6 +494,19 @@
             z-index: 1000;
         }
         
+        .info-hint {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            z-index: 9999;
+            pointer-events: none;
+        }
+        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
@@ -523,6 +536,7 @@
     <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button></div>
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
+<div class="info-hint">💡 Для обрезки изображения: зажмите Shift и тяните за уголок</div>
 
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
@@ -669,11 +683,13 @@
             let dy = clientY - resizeStartY;
             
             if (isCropMode && cropOverlay) {
+                // Режим обрезки - показываем рамку
                 let newW = Math.max(50, resizeStartW + dx);
                 let newH = Math.max(50, resizeStartH + dy);
                 cropOverlay.style.width = newW + 'px';
                 cropOverlay.style.height = newH + 'px';
             } else {
+                // Обычный resize - меняем размер элемента
                 let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
                 switch(resizeDir) {
                     case 'e': newW = Math.max(50, resizeStartW + dx); break;
@@ -697,9 +713,10 @@
     
     document.addEventListener('mouseup', () => {
         if (isCropMode && cropOverlay && resizeElement) {
+            // Завершаем обрезку - реально обрезаем изображение
             let newW = parseFloat(cropOverlay.style.width);
             let newH = parseFloat(cropOverlay.style.height);
-            if (newW > 50 && newH > 50) {
+            if (newW > 50 && newH > 50 && (newW !== resizeStartW || newH !== resizeStartH)) {
                 let img = resizeElement.querySelector('img');
                 let canvas = document.createElement('canvas');
                 let ctx = canvas.getContext('2d');
@@ -708,13 +725,15 @@
                 let tempImg = new Image();
                 tempImg.onload = () => {
                     ctx.drawImage(tempImg, 0, 0, newW, newH);
-                    imagesRef.child(resizeElement.id).update({ src: canvas.toDataURL('image/png'), width: newW, height: newH });
+                    let newSrc = canvas.toDataURL('image/png');
+                    imagesRef.child(resizeElement.id).update({ src: newSrc, width: newW, height: newH });
                 };
                 tempImg.src = images[resizeElement.id].src;
             }
             if (cropOverlay && cropOverlay.remove) cropOverlay.remove();
             cropOverlay = null;
         } else if (resizeActive && resizeElement && !isCropMode) {
+            // Сохраняем новый размер
             const id = resizeElement.id;
             let newL = parseFloat(resizeElement.style.left);
             let newT = parseFloat(resizeElement.style.top);
@@ -824,6 +843,7 @@
         resizeStartL = parseFloat(el.style.left) || 0;
         resizeStartT = parseFloat(el.style.top) || 0;
         
+        // Обрезка только для изображений при зажатом Shift
         if (isShift && el.id.startsWith('img')) {
             isCropMode = true;
             cropOverlay = document.createElement('div');

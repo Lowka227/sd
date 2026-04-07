@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Полнофункциональный редактор</title>
+    <title>Прозрачный холст - Редактор</title>
     <style>
         * {
             margin: 0;
@@ -50,7 +50,6 @@
             width: 100%;
             padding: 4px 10px;
             background: rgba(255, 255, 255, 0.96);
-            border-radius: 12px;
             border-left: 4px solid #ffd966;
         }
         
@@ -60,7 +59,6 @@
             overflow-x: auto;
             height: 48px;
             background: rgba(255, 255, 255, 0.98);
-            border-radius: 12px;
             padding: 4px 8px;
             flex: 1;
             min-width: 160px;
@@ -78,7 +76,6 @@
             flex-shrink: 0;
             border: 2px solid transparent;
             cursor: pointer;
-            border-radius: 8px;
             overflow: hidden;
             background: white;
             transition: all 0.15s ease;
@@ -100,7 +97,6 @@
             align-items: center;
             justify-content: center;
             background: #f0f2f5;
-            border-radius: 6px;
             font-size: 10px;
             font-weight: 500;
             overflow: hidden;
@@ -127,7 +123,6 @@
             right: -4px;
             width: 18px;
             height: 18px;
-            border-radius: 50%;
             background: #4caf50;
             color: white;
             font-size: 10px;
@@ -148,7 +143,6 @@
             right: -4px;
             width: 18px;
             height: 18px;
-            border-radius: 50%;
             background: #f44336;
             color: white;
             font-size: 10px;
@@ -167,7 +161,6 @@
             align-items: center;
             background: rgba(255, 255, 255, 0.98);
             padding: 4px 10px;
-            border-radius: 12px;
             border-left: 4px solid #ffd966;
             flex-wrap: wrap;
         }
@@ -238,7 +231,6 @@
         .draggable-text {
             background: rgba(255, 255, 240, 0.95);
             padding: 6px 10px;
-            border-radius: 12px;
             border: 1px solid rgba(0,0,0,0.15);
             white-space: pre-wrap;
             word-break: break-word;
@@ -253,7 +245,6 @@
         
         .draggable-widget {
             background: #f5f5f5;
-            border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             border: 1px solid #4caf50;
@@ -305,11 +296,10 @@
         
         .resize-handle {
             position: absolute;
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             background: #ffd966;
-            border: 2px solid #1e2b6e;
-            border-radius: 50%;
+            border: 1px solid #1e2b6e;
             z-index: 20;
             opacity: 0;
             transition: opacity 0.15s;
@@ -318,21 +308,20 @@
         
         .rotate-corner {
             position: absolute;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             background: #4caf50;
-            border: 2px solid white;
-            border-radius: 50%;
+            border: 1px solid white;
             z-index: 20;
             opacity: 0;
             cursor: grab;
-            top: -28px;
-            right: -28px;
+            top: -24px;
+            right: -24px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 14px;
+            font-size: 12px;
             pointer-events: auto;
         }
         
@@ -342,14 +331,14 @@
         
         .rotate-corner::after { content: "↻"; }
         
-        .resize-n { top: -6px; left: 50%; margin-left: -6px; cursor: n-resize; }
-        .resize-ne { top: -6px; right: -6px; cursor: ne-resize; }
-        .resize-e { top: 50%; right: -6px; margin-top: -6px; cursor: e-resize; }
-        .resize-se { bottom: -6px; right: -6px; cursor: se-resize; }
-        .resize-s { bottom: -6px; left: 50%; margin-left: -6px; cursor: s-resize; }
-        .resize-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
-        .resize-w { top: 50%; left: -6px; margin-top: -6px; cursor: w-resize; }
-        .resize-nw { top: -6px; left: -6px; cursor: nw-resize; }
+        .resize-n { top: -5px; left: 50%; margin-left: -5px; cursor: n-resize; }
+        .resize-ne { top: -5px; right: -5px; cursor: ne-resize; }
+        .resize-e { top: 50%; right: -5px; margin-top: -5px; cursor: e-resize; }
+        .resize-se { bottom: -5px; right: -5px; cursor: se-resize; }
+        .resize-s { bottom: -5px; left: 50%; margin-left: -5px; cursor: s-resize; }
+        .resize-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .resize-w { top: 50%; left: -5px; margin-top: -5px; cursor: w-resize; }
+        .resize-nw { top: -5px; left: -5px; cursor: nw-resize; }
         
         .selected:not(.locked) .resize-handle,
         .selected:not(.locked) .rotate-corner {
@@ -359,7 +348,6 @@
         button {
             padding: 5px 12px;
             border: none;
-            border-radius: 24px;
             background: linear-gradient(135deg, #2a3f8a, #1e2b6e);
             color: white;
             font-size: 11px;
@@ -380,7 +368,6 @@
             color: #2e7d32;
             background: #e8f5e9;
             padding: 4px 10px;
-            border-radius: 30px;
             font-weight: bold;
         }
         
@@ -392,7 +379,6 @@
             transform: translate(-50%, -50%);
             background: rgba(30, 30, 40, 0.98);
             backdrop-filter: blur(12px);
-            border-radius: 20px;
             padding: 20px;
             box-shadow: 0 20px 35px rgba(0,0,0,0.4);
             z-index: 20000;
@@ -413,7 +399,6 @@
         
         .close-btn {
             background: #f44336;
-            border-radius: 50%;
             width: 28px;
             height: 28px;
             display: inline-flex;
@@ -425,7 +410,6 @@
         
         textarea, input, select {
             background: rgba(255,255,255,0.9);
-            border-radius: 12px;
             border: none;
             padding: 8px;
             font-size: 12px;
@@ -445,7 +429,6 @@
             background: #444;
             padding: 5px 12px;
             cursor: pointer;
-            border-radius: 20px;
             border: none;
             color: white;
         }
@@ -485,7 +468,6 @@
             margin: 8px 0;
             padding: 8px;
             background: rgba(255,255,255,0.2);
-            border-radius: 8px;
             align-items: center;
         }
         
@@ -493,7 +475,6 @@
             width: 100px;
             height: 24px;
             background: #ddd;
-            border-radius: 20px;
             overflow: hidden;
         }
         
@@ -507,11 +488,19 @@
             width: 70px;
         }
         
+        .crop-overlay {
+            position: absolute;
+            border: 2px dashed #ff4444;
+            background: rgba(255, 68, 68, 0.2);
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
             .thumbnail { width: 35px; height: 35px; }
-            .resize-handle { width: 10px; height: 10px; }
+            .resize-handle { width: 8px; height: 8px; }
         }
     </style>
 </head>
@@ -530,10 +519,10 @@
         <span>📦 Элементы:</span>
         <div id="thumbnails-container"><div id="thumbnails"></div></div>
     </div>
-    <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Прозрачность</button></div>
+    <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button></div>
     <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
-    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button></div>
+    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button></div>
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
@@ -561,21 +550,20 @@
         <button class="widgets-tab" data-tab="saved">📦 Сохраненные</button>
     </div>
     <div id="add-widget-content" class="widgets-content active">
-        <input type="text" id="widget-url-input" placeholder="https://example.com или http://localhost:8080" value="https://www.youtube.com/embed/dQw4w9WgXcQ">
+        <input type="text" id="widget-url-input" placeholder="https://example.com" value="https://www.youtube.com/embed/dQw4w9WgXcQ">
         <div style="display: flex; gap: 8px;">
             <input type="number" id="widget-width-input" placeholder="Ширина" value="400" style="width:50%">
             <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width:50%">
         </div>
         <input type="text" id="widget-name-input" placeholder="Название виджета">
         <div class="url-hint">💡 Введите любой URL. Некоторые сайты могут блокировать встраивание.</div>
-        <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить в библиотеку</button>
-        <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить на холст</button>
+        <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить</button>
+        <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
     <div id="quick-widgets-content" class="widgets-content">
         <button class="quick-widget-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ" data-name="YouTube Видео" data-w="560" data-h="315">▶️ YouTube Видео</button>
         <button class="quick-widget-btn" data-url="https://calendar.google.com/calendar/embed" data-name="Google Календарь" data-w="600" data-h="400">📅 Google Календарь</button>
         <button class="quick-widget-btn" data-url="https://www.timeanddate.com/worldclock/" data-name="Мировые часы" data-w="500" data-h="400">🌍 Мировые часы</button>
-        <button class="quick-widget-btn" data-url="https://www.ventusky.com/" data-name="Карта погоды" data-w="800" data-h="500">🌤 Карта погоды</button>
     </div>
     <div id="saved-widgets-content" class="widgets-content">
         <div id="saved-widgets-list"></div>
@@ -588,6 +576,13 @@
     <input type="range" id="opacity-slider" min="0" max="100" value="100">
     <label>Яркость:</label>
     <input type="range" id="brightness-slider" min="0" max="200" value="100">
+</div>
+
+<div id="widget-opacity-modal" class="modal">
+    <div class="modal-header"><h3>🎨 Прозрачность виджета</h3><div class="close-btn" onclick="closeModal('widget-opacity-modal')">×</div></div>
+    <label>Прозрачность:</label>
+    <input type="range" id="widget-opacity-slider" min="0" max="100" value="100">
+    <button id="apply-widget-opacity" style="margin-top:10px;">✅ Применить</button>
 </div>
 
 <div id="edit-url-modal" class="modal">
@@ -624,11 +619,12 @@
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
-    let dragState = { active: false, element: null, startX: 0, startY: 0, startLeft: 0, startTop: 0, type: null };
+    let dragState = { active: false, element: null, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
     let canvasRect = { width: 0, height: 0 };
+    let isCropping = false;
+    let cropStartX, cropStartY, cropElement, cropOriginalSize;
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
-    
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     
     function updateCanvasSize() {
@@ -671,8 +667,7 @@
                 startX: clientX,
                 startY: clientY,
                 startLeft: parseFloat(el.style.left) || 0,
-                startTop: parseFloat(el.style.top) || 0,
-                type: type
+                startTop: parseFloat(el.style.top) || 0
             };
         }
         
@@ -702,7 +697,6 @@
         
         function onDragEnd() {
             dragState.active = false;
-            dragState.element = null;
         }
         
         document.addEventListener('mousemove', onDragMove);
@@ -727,6 +721,8 @@
         e.stopPropagation();
         e.preventDefault();
         
+        const isShiftPressed = e.shiftKey;
+        
         let startX = e.clientX || e.touches[0].clientX;
         let startY = e.clientY || e.touches[0].clientY;
         let startW = el.offsetWidth;
@@ -734,6 +730,72 @@
         let startL = parseFloat(el.style.left) || 0;
         let startT = parseFloat(el.style.top) || 0;
         
+        // Для обрезки (Shift + перетаскивание)
+        if (isShiftPressed && images[el.id]) {
+            isCropping = true;
+            cropElement = el;
+            cropStartX = startX;
+            cropStartY = startY;
+            cropOriginalSize = { w: startW, h: startH, l: startL, t: startT };
+            
+            // Создаем overlay для обрезки
+            let overlay = document.createElement('div');
+            overlay.className = 'crop-overlay';
+            overlay.style.left = startL + 'px';
+            overlay.style.top = startT + 'px';
+            overlay.style.width = startW + 'px';
+            overlay.style.height = startH + 'px';
+            el.parentElement.appendChild(overlay);
+            
+            function onCrop(moveEv) {
+                let currentX = moveEv.clientX || moveEv.touches[0].clientX;
+                let currentY = moveEv.clientY || moveEv.touches[0].clientY;
+                let dx = currentX - startX;
+                let dy = currentY - startY;
+                
+                let newW = Math.max(50, startW + dx);
+                let newH = Math.max(50, startH + dy);
+                
+                overlay.style.width = newW + 'px';
+                overlay.style.height = newH + 'px';
+            }
+            
+            function stopCrop() {
+                let newW = parseFloat(overlay.style.width);
+                let newH = parseFloat(overlay.style.height);
+                
+                if (newW > 50 && newH > 50) {
+                    let img = el.querySelector('img');
+                    let canvas = document.createElement('canvas');
+                    let ctx = canvas.getContext('2d');
+                    canvas.width = newW;
+                    canvas.height = newH;
+                    
+                    let tempImg = new Image();
+                    tempImg.onload = () => {
+                        ctx.drawImage(tempImg, 0, 0, newW, newH);
+                        let newSrc = canvas.toDataURL();
+                        imagesRef.child(el.id).update({ src: newSrc, width: newW, height: newH });
+                    };
+                    tempImg.src = images[el.id].src;
+                }
+                
+                overlay.remove();
+                isCropping = false;
+                document.removeEventListener('mousemove', onCrop);
+                document.removeEventListener('mouseup', stopCrop);
+                document.removeEventListener('touchmove', onCrop);
+                document.removeEventListener('touchend', stopCrop);
+            }
+            
+            document.addEventListener('mousemove', onCrop);
+            document.addEventListener('mouseup', stopCrop);
+            document.addEventListener('touchmove', onCrop, { passive: false });
+            document.addEventListener('touchend', stopCrop);
+            return;
+        }
+        
+        // Обычное изменение размера
         function onResize(moveEv) {
             let currentX = moveEv.clientX || moveEv.touches[0].clientX;
             let currentY = moveEv.clientY || moveEv.touches[0].clientY;
@@ -999,6 +1061,7 @@
             el.style.top = data.y + 'px';
             el.style.width = data.width + 'px';
             el.style.height = data.height + 'px';
+            el.style.opacity = data.opacity || 1;
             el.style.display = data.display === 'none' ? 'none' : 'block';
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
@@ -1156,6 +1219,21 @@
     document.getElementById('settings-btn').onclick = () => document.getElementById('properties-modal').style.display = 'block';
     document.getElementById('opacity-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ opacity: e.target.value / 100 }); };
     document.getElementById('brightness-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ brightness: e.target.value }); };
+    
+    document.getElementById('widget-opacity-btn').onclick = () => {
+        if(selectedWidgetId && widgets[selectedWidgetId]) {
+            document.getElementById('widget-opacity-slider').value = (widgets[selectedWidgetId].opacity || 1) * 100;
+            document.getElementById('widget-opacity-modal').style.display = 'block';
+        }
+    };
+    document.getElementById('apply-widget-opacity').onclick = () => {
+        if(selectedWidgetId) {
+            let opacity = document.getElementById('widget-opacity-slider').value / 100;
+            widgetsRef.child(selectedWidgetId).update({ opacity: opacity });
+            closeModal('widget-opacity-modal');
+        }
+    };
+    
     document.getElementById('play-btn').onclick = () => { if(selectedSoundId && sounds[selectedSoundId]) { let a = document.getElementById('audio-element'); a.src = sounds[selectedSoundId].src; a.volume = (sounds[selectedSoundId].volume || 100) / 100; a.play(); } };
     document.getElementById('pause-btn').onclick = () => document.getElementById('audio-element').pause();
     document.getElementById('volume-slider').oninput = e => { if(selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); };

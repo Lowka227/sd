@@ -216,7 +216,6 @@
         
         .draggable-image {
             background: transparent;
-            border: 1px solid rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
         
@@ -247,7 +246,6 @@
             background: #f5f5f5;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            border: 1px solid #4caf50;
             display: flex;
             flex-direction: column;
             cursor: grab;
@@ -526,7 +524,6 @@
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
-<!-- Модальные окна -->
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
     <textarea id="text-input-area" rows="3" placeholder="Введите текст..."></textarea>
@@ -621,21 +618,10 @@
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
     
-    // Переменные для drag
-    let dragActive = false;
-    let dragElement = null;
-    let dragStartX = 0, dragStartY = 0;
-    let dragStartLeft = 0, dragStartTop = 0;
-    
-    // Переменные для resize/crop
-    let resizeActive = false;
-    let resizeElement = null;
-    let resizeDir = null;
-    let resizeStartX = 0, resizeStartY = 0;
-    let resizeStartW = 0, resizeStartH = 0;
-    let resizeStartL = 0, resizeStartT = 0;
-    let isCropMode = false;
-    let cropOverlay = null;
+    let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
+    let resizeActive = false, resizeElement = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0;
+    let resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0;
+    let isCropMode = false, cropOverlay = null;
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -657,16 +643,14 @@
         el.style.transform = transform.trim();
     }
     
-    // Глобальные обработчики для drag и resize
-    function onGlobalMouseMove(e) {
+    // Глобальные обработчики
+    document.addEventListener('mousemove', (e) => {
         if (dragActive && dragElement) {
             e.preventDefault();
-            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-            let deltaX = clientX - dragStartX;
-            let deltaY = clientY - dragStartY;
-            let newLeft = dragStartLeft + deltaX;
-            let newTop = dragStartTop + deltaY;
+            const clientX = e.clientX;
+            const clientY = e.clientY;
+            let newLeft = dragStartLeft + (clientX - dragStartX);
+            let newTop = dragStartTop + (clientY - dragStartY);
             newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
             newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
             dragElement.style.left = newLeft + 'px';
@@ -679,20 +663,18 @@
         
         if (resizeActive && resizeElement) {
             e.preventDefault();
-            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            const clientX = e.clientX;
+            const clientY = e.clientY;
             let dx = clientX - resizeStartX;
             let dy = clientY - resizeStartY;
-            let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
             
             if (isCropMode && cropOverlay) {
-                // Режим обрезки
-                let newWc = Math.max(50, resizeStartW + dx);
-                let newHc = Math.max(50, resizeStartH + dy);
-                cropOverlay.style.width = newWc + 'px';
-                cropOverlay.style.height = newHc + 'px';
+                let newW = Math.max(50, resizeStartW + dx);
+                let newH = Math.max(50, resizeStartH + dy);
+                cropOverlay.style.width = newW + 'px';
+                cropOverlay.style.height = newH + 'px';
             } else {
-                // Обычный resize
+                let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
                 switch(resizeDir) {
                     case 'e': newW = Math.max(50, resizeStartW + dx); break;
                     case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
@@ -711,11 +693,10 @@
                 resizeElement.style.top = newT + 'px';
             }
         }
-    }
+    });
     
-    function onGlobalMouseUp(e) {
+    document.addEventListener('mouseup', () => {
         if (isCropMode && cropOverlay && resizeElement) {
-            // Завершаем обрезку
             let newW = parseFloat(cropOverlay.style.width);
             let newH = parseFloat(cropOverlay.style.height);
             if (newW > 50 && newH > 50) {
@@ -727,8 +708,7 @@
                 let tempImg = new Image();
                 tempImg.onload = () => {
                     ctx.drawImage(tempImg, 0, 0, newW, newH);
-                    let newSrc = canvas.toDataURL('image/png');
-                    imagesRef.child(resizeElement.id).update({ src: newSrc, width: newW, height: newH });
+                    imagesRef.child(resizeElement.id).update({ src: canvas.toDataURL('image/png'), width: newW, height: newH });
                 };
                 tempImg.src = images[resizeElement.id].src;
             }
@@ -743,41 +723,78 @@
             if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
-        
         dragActive = false;
         dragElement = null;
         resizeActive = false;
         resizeElement = null;
         isCropMode = false;
-    }
+    });
     
-    document.addEventListener('mousemove', onGlobalMouseMove);
-    document.addEventListener('mouseup', onGlobalMouseUp);
-    document.addEventListener('touchmove', onGlobalMouseMove, { passive: false });
-    document.addEventListener('touchend', onGlobalMouseUp);
+    document.addEventListener('touchmove', (e) => {
+        if (dragActive && dragElement) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            let newLeft = dragStartLeft + (touch.clientX - dragStartX);
+            let newTop = dragStartTop + (touch.clientY - dragStartY);
+            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
+            dragElement.style.left = newLeft + 'px';
+            dragElement.style.top = newTop + 'px';
+            const id = dragElement.id;
+            if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
+            else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
+            else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
+        }
+    });
     
-    function makeDraggable(el, type) {
-        el.addEventListener('mousedown', onDragStart);
-        el.addEventListener('touchstart', onDragStart, { passive: false });
-        
-        function onDragStart(e) {
+    document.addEventListener('touchend', () => {
+        dragActive = false;
+        dragElement = null;
+        resizeActive = false;
+        resizeElement = null;
+        isCropMode = false;
+        if (cropOverlay && cropOverlay.remove) cropOverlay.remove();
+        cropOverlay = null;
+    });
+    
+    function makeDraggable(el) {
+        el.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
             if (el.classList.contains('locked')) return;
             if (resizeActive) return;
             e.preventDefault();
             e.stopPropagation();
             
-            if (type === 'image') selectImage(el.id);
-            else if (type === 'text') selectText(el.id);
-            else if (type === 'widget') selectWidget(el.id);
+            if (el.id.startsWith('img')) selectImage(el.id);
+            else if (el.id.startsWith('text')) selectText(el.id);
+            else if (el.id.startsWith('widget')) selectWidget(el.id);
             
             dragActive = true;
             dragElement = el;
-            dragStartX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-            dragStartY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
             dragStartLeft = parseFloat(el.style.left) || 0;
             dragStartTop = parseFloat(el.style.top) || 0;
-        }
+        });
+        
+        el.addEventListener('touchstart', (e) => {
+            if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
+            if (el.classList.contains('locked')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (el.id.startsWith('img')) selectImage(el.id);
+            else if (el.id.startsWith('text')) selectText(el.id);
+            else if (el.id.startsWith('widget')) selectWidget(el.id);
+            
+            dragActive = true;
+            dragElement = el;
+            const touch = e.touches[0];
+            dragStartX = touch.clientX;
+            dragStartY = touch.clientY;
+            dragStartLeft = parseFloat(el.style.left) || 0;
+            dragStartTop = parseFloat(el.style.top) || 0;
+        });
     }
     
     function addResizeHandles(el) {
@@ -807,8 +824,7 @@
         resizeStartL = parseFloat(el.style.left) || 0;
         resizeStartT = parseFloat(el.style.top) || 0;
         
-        // Обрезка только для изображений при зажатом Shift
-        if (isShift && images[el.id]) {
+        if (isShift && el.id.startsWith('img')) {
             isCropMode = true;
             cropOverlay = document.createElement('div');
             cropOverlay.className = 'crop-overlay';
@@ -835,8 +851,8 @@
         e.stopPropagation();
         e.preventDefault();
         
-        let startX = e.clientX || e.touches[0].clientX;
-        let startY = e.clientY || e.touches[0].clientY;
+        let startX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+        let startY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
         let rect = el.getBoundingClientRect();
         let centerX = rect.left + rect.width / 2;
         let centerY = rect.top + rect.height / 2;
@@ -844,16 +860,14 @@
         let currentRot = parseFloat(el.dataset.rotation) || 0;
         
         function onRotate(moveEv) {
-            let currX = moveEv.clientX || moveEv.touches[0].clientX;
-            let currY = moveEv.clientY || moveEv.touches[0].clientY;
+            let currX = moveEv.clientX || (moveEv.touches ? moveEv.touches[0].clientX : 0);
+            let currY = moveEv.clientY || (moveEv.touches ? moveEv.touches[0].clientY : 0);
             let currAngle = Math.atan2(currY - centerY, currX - centerX) * 180 / Math.PI;
             let delta = currAngle - startAngle;
             let newRot = currentRot + delta;
             el.dataset.rotation = newRot;
             applyTransform(el);
-            
-            const id = el.id;
-            if (images[id]) imagesRef.child(id).update({ rotation: newRot });
+            if (el.id.startsWith('img')) imagesRef.child(el.id).update({ rotation: newRot });
         }
         
         function stopRotate() {
@@ -906,7 +920,6 @@
     function createThumbnail(id, type, preview, name) {
         let thumb = document.createElement('div');
         thumb.className = 'thumbnail';
-        
         let data = images[id] || texts[id] || widgets[id] || sounds[id];
         if (data && data.display === 'none') thumb.classList.add('thumbnail-hidden');
         
@@ -939,7 +952,6 @@
             else if (type === 'widget') selectWidget(id);
             else if (type === 'sound') selectSound(id);
         };
-        
         return thumb;
     }
     
@@ -980,7 +992,7 @@
                 document.getElementById('images-layer').appendChild(el);
                 addResizeHandles(el);
                 addRotateHandle(el);
-                makeDraggable(el, 'image');
+                makeDraggable(el);
             }
             el.style.left = data.x + 'px';
             el.style.top = data.y + 'px';
@@ -1007,7 +1019,7 @@
                 el.textContent = data.text;
                 document.getElementById('texts-layer').appendChild(el);
                 addResizeHandles(el);
-                makeDraggable(el, 'text');
+                makeDraggable(el);
                 el.ondblclick = () => editText(id);
             }
             el.textContent = data.text;
@@ -1031,7 +1043,7 @@
                 el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
-                makeDraggable(el, 'widget');
+                makeDraggable(el);
                 el.querySelector('.retry-widget')?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     let iframe = el.querySelector('iframe');
@@ -1048,7 +1060,6 @@
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
-        
         updateThumbnails();
     }
     
@@ -1077,7 +1088,6 @@
         };
     }
     
-    // Firebase listeners
     imagesRef.on('value', s => { images = s.val() || {}; syncElements(); });
     textsRef.on('value', s => { texts = s.val() || {}; syncElements(); });
     widgetsRef.on('value', s => { widgets = s.val() || {}; syncElements(); });
@@ -1098,7 +1108,6 @@
         }
     }
     
-    // Event listeners
     document.getElementById('add-text-btn').onclick = () => {
         document.getElementById('text-input-area').value = '';
         document.getElementById('font-size-slider').value = 24;

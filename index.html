@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Редактор</title>
+    <title>Прозрачный холст - Редактор с CSS для виджетов</title>
     <style>
         * {
             margin: 0;
@@ -382,7 +382,7 @@
             z-index: 20000;
             border: 1px solid #ffd966;
             color: white;
-            width: 400px;
+            width: 450px;
             max-width: 90vw;
             max-height: 85vh;
             overflow-y: auto;
@@ -414,6 +414,11 @@
             margin: 5px 0;
             width: 100%;
             box-sizing: border-box;
+        }
+        
+        textarea {
+            font-family: monospace;
+            resize: vertical;
         }
         
         .widgets-tabs {
@@ -533,7 +538,7 @@
     <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button></div>
     <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
-    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button></div>
+    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button></div>
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 <div class="info-hint">💡 Для обрезки изображения: зажмите Shift и тяните за уголок</div>
@@ -567,7 +572,8 @@
             <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width:50%">
         </div>
         <input type="text" id="widget-name-input" placeholder="Название виджета">
-        <div class="url-hint">💡 Введите любой URL. Некоторые сайты могут блокировать встраивание.</div>
+        <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета (например: border-radius: 10px; background: #fff;)" rows="3"></textarea>
+        <div class="url-hint">💡 Введите любой URL. Можно добавить свои CSS стили.</div>
         <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить</button>
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
@@ -594,6 +600,14 @@
     <label>Прозрачность (0-100%):</label>
     <input type="range" id="widget-opacity-slider" min="0" max="100" value="100" step="1">
     <button id="apply-widget-opacity" style="margin-top:10px;">✅ Применить</button>
+</div>
+
+<div id="widget-css-modal" class="modal">
+    <div class="modal-header"><h3>🎨 CSS стили для виджета</h3><div class="close-btn" onclick="closeModal('widget-css-modal')">×</div></div>
+    <label>Дополнительные CSS стили:</label>
+    <textarea id="widget-css-editor" rows="8" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);&#10;box-shadow: 0 10px 30px rgba(0,0,0,0.3);&#10;border: 2px solid gold;"></textarea>
+    <div class="url-hint">💡 Стили применяются к контейнеру виджета. Можно использовать любые CSS свойства.</div>
+    <button id="apply-widget-css" style="margin-top:10px;">✅ Применить стили</button>
 </div>
 
 <div id="edit-url-modal" class="modal">
@@ -632,10 +646,14 @@
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
     
+    // Переменные для отслеживания активных действий
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
     let resizeActive = false, resizeElement = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0;
     let resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0;
     let isCropMode = false, cropOverlay = null;
+    
+    // Флаги для отслеживания состояния кнопки мыши
+    let isMouseDown = false;
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -657,8 +675,10 @@
         el.style.transform = transform.trim();
     }
     
-    // Глобальные обработчики
-    document.addEventListener('mousemove', (e) => {
+    // Глобальные обработчики с проверкой isMouseDown
+    function onGlobalMouseMove(e) {
+        if (!isMouseDown) return;
+        
         if (dragActive && dragElement) {
             e.preventDefault();
             const clientX = e.clientX;
@@ -683,13 +703,11 @@
             let dy = clientY - resizeStartY;
             
             if (isCropMode && cropOverlay) {
-                // Режим обрезки - показываем рамку
                 let newW = Math.max(50, resizeStartW + dx);
                 let newH = Math.max(50, resizeStartH + dy);
                 cropOverlay.style.width = newW + 'px';
                 cropOverlay.style.height = newH + 'px';
-            } else {
-                // Обычный resize - меняем размер элемента
+            } else if (!isCropMode) {
                 let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
                 switch(resizeDir) {
                     case 'e': newW = Math.max(50, resizeStartW + dx); break;
@@ -709,11 +727,13 @@
                 resizeElement.style.top = newT + 'px';
             }
         }
-    });
+    }
     
-    document.addEventListener('mouseup', () => {
+    function onGlobalMouseUp(e) {
+        if (!isMouseDown) return;
+        isMouseDown = false;
+        
         if (isCropMode && cropOverlay && resizeElement) {
-            // Завершаем обрезку - реально обрезаем изображение
             let newW = parseFloat(cropOverlay.style.width);
             let newH = parseFloat(cropOverlay.style.height);
             if (newW > 50 && newH > 50 && (newW !== resizeStartW || newH !== resizeStartH)) {
@@ -733,7 +753,6 @@
             if (cropOverlay && cropOverlay.remove) cropOverlay.remove();
             cropOverlay = null;
         } else if (resizeActive && resizeElement && !isCropMode) {
-            // Сохраняем новый размер
             const id = resizeElement.id;
             let newL = parseFloat(resizeElement.style.left);
             let newT = parseFloat(resizeElement.style.top);
@@ -742,13 +761,16 @@
             if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
+        
         dragActive = false;
         dragElement = null;
         resizeActive = false;
         resizeElement = null;
         isCropMode = false;
-    });
+    }
     
+    document.addEventListener('mousemove', onGlobalMouseMove);
+    document.addEventListener('mouseup', onGlobalMouseUp);
     document.addEventListener('touchmove', (e) => {
         if (dragActive && dragElement) {
             e.preventDefault();
@@ -765,8 +787,8 @@
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
         }
     });
-    
     document.addEventListener('touchend', () => {
+        isMouseDown = false;
         dragActive = false;
         dragElement = null;
         resizeActive = false;
@@ -783,6 +805,7 @@
             if (resizeActive) return;
             e.preventDefault();
             e.stopPropagation();
+            isMouseDown = true;
             
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
@@ -831,6 +854,7 @@
         if (el.classList.contains('locked')) return;
         e.stopPropagation();
         e.preventDefault();
+        isMouseDown = true;
         
         const isShift = e.shiftKey;
         resizeActive = true;
@@ -843,7 +867,6 @@
         resizeStartL = parseFloat(el.style.left) || 0;
         resizeStartT = parseFloat(el.style.top) || 0;
         
-        // Обрезка только для изображений при зажатом Shift
         if (isShift && el.id.startsWith('img')) {
             isCropMode = true;
             cropOverlay = document.createElement('div');
@@ -870,6 +893,7 @@
         if (el.classList.contains('locked')) return;
         e.stopPropagation();
         e.preventDefault();
+        isMouseDown = true;
         
         let startX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
         let startY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
@@ -880,6 +904,7 @@
         let currentRot = parseFloat(el.dataset.rotation) || 0;
         
         function onRotate(moveEv) {
+            if (!isMouseDown) return;
             let currX = moveEv.clientX || (moveEv.touches ? moveEv.touches[0].clientX : 0);
             let currY = moveEv.clientY || (moveEv.touches ? moveEv.touches[0].clientY : 0);
             let currAngle = Math.atan2(currY - centerY, currX - centerX) * 180 / Math.PI;
@@ -891,6 +916,7 @@
         }
         
         function stopRotate() {
+            isMouseDown = false;
             document.removeEventListener('mousemove', onRotate);
             document.removeEventListener('mouseup', stopRotate);
             document.removeEventListener('touchmove', onRotate);
@@ -984,14 +1010,14 @@
         for (let id in sounds) container.appendChild(createThumbnail(id, 'sound', null, sounds[id].name));
     }
     
-    function addWidgetByUrl(url, name, width, height) {
+    function addWidgetByUrl(url, name, width, height, customCss) {
         if (!url) return alert('Введите URL');
         let finalUrl = url.startsWith('http') ? url : 'https://' + url;
         let id = createId('widget');
         widgetsRef.child(id).set({
             id, url: finalUrl, name: name || 'Виджет',
             x: 50, y: 50, width: width || 400, height: height || 300,
-            opacity: 1, locked: false, display: 'block'
+            opacity: 1, locked: false, display: 'block', customCss: customCss || ''
         });
         closeModal('widget-modal');
     }
@@ -1077,6 +1103,7 @@
             el.style.height = data.height + 'px';
             el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
             el.style.display = data.display === 'none' ? 'none' : 'block';
+            if (data.customCss) el.style.cssText += ';' + data.customCss;
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -1122,7 +1149,7 @@
                 let div = document.createElement('div');
                 div.className = 'saved-widget-item';
                 div.innerHTML = `<span style="flex:1;">${w.name || 'Виджет'}</span><button class="add-saved-widget" style="background:#4caf50;">+</button>`;
-                div.querySelector('button').onclick = () => addWidgetByUrl(w.url, w.name, w.width, w.height);
+                div.querySelector('button').onclick = () => addWidgetByUrl(w.url, w.name, w.width, w.height, w.customCss);
                 list.appendChild(div);
             });
         }
@@ -1149,13 +1176,18 @@
         };
     };
     
-    document.getElementById('add-widget-btn').onclick = () => document.getElementById('widget-modal').style.display = 'block';
+    document.getElementById('add-widget-btn').onclick = () => {
+        document.getElementById('widget-url-input').value = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+        document.getElementById('widget-css-input').value = '';
+        document.getElementById('widget-modal').style.display = 'block';
+    };
     document.getElementById('add-widget-direct-btn').onclick = () => {
         let url = document.getElementById('widget-url-input').value.trim();
         let name = document.getElementById('widget-name-input').value.trim();
         let w = parseInt(document.getElementById('widget-width-input').value) || 400;
         let h = parseInt(document.getElementById('widget-height-input').value) || 300;
-        addWidgetByUrl(url, name, w, h);
+        let css = document.getElementById('widget-css-input').value;
+        addWidgetByUrl(url, name, w, h, css);
     };
     document.getElementById('save-widget-btn').onclick = () => {
         let url = document.getElementById('widget-url-input').value.trim();
@@ -1163,14 +1195,15 @@
             savedWidgetsRef.push({
                 url, name: document.getElementById('widget-name-input').value.trim() || 'Виджет',
                 width: parseInt(document.getElementById('widget-width-input').value) || 400,
-                height: parseInt(document.getElementById('widget-height-input').value) || 300
+                height: parseInt(document.getElementById('widget-height-input').value) || 300,
+                customCss: document.getElementById('widget-css-input').value
             });
             alert('Виджет сохранен!');
         } else alert('Введите URL');
     };
     
     document.querySelectorAll('.quick-widget-btn').forEach(btn => {
-        btn.onclick = () => addWidgetByUrl(btn.dataset.url, btn.dataset.name, parseInt(btn.dataset.w), parseInt(btn.dataset.h));
+        btn.onclick = () => addWidgetByUrl(btn.dataset.url, btn.dataset.name, parseInt(btn.dataset.w), parseInt(btn.dataset.h), '');
     });
     
     document.querySelectorAll('.widgets-tab').forEach(tab => {
@@ -1248,6 +1281,25 @@
             let opacity = document.getElementById('widget-opacity-slider').value / 100;
             widgetsRef.child(selectedWidgetId).update({ opacity: opacity });
             closeModal('widget-opacity-modal');
+        }
+    };
+    
+    document.getElementById('widget-css-btn').onclick = () => {
+        if(selectedWidgetId && widgets[selectedWidgetId]) {
+            document.getElementById('widget-css-editor').value = widgets[selectedWidgetId].customCss || '';
+            document.getElementById('widget-css-modal').style.display = 'block';
+        }
+    };
+    document.getElementById('apply-widget-css').onclick = () => {
+        if(selectedWidgetId) {
+            let css = document.getElementById('widget-css-editor').value;
+            widgetsRef.child(selectedWidgetId).update({ customCss: css });
+            let el = document.getElementById(selectedWidgetId);
+            if (el) {
+                let oldCss = el.style.cssText;
+                el.style.cssText = oldCss + ';' + css;
+            }
+            closeModal('widget-css-modal');
         }
     };
     

@@ -249,6 +249,7 @@
             display: flex;
             flex-direction: column;
             cursor: grab;
+            transition: all 0.2s ease;
         }
         
         .draggable-widget:active {
@@ -499,6 +500,15 @@
             z-index: 1000;
         }
         
+        .css-example {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 5px;
+            padding: 5px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+        }
+        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
@@ -558,8 +568,8 @@
             <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width:50%">
         </div>
         <input type="text" id="widget-name-input" placeholder="Название виджета">
-        <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета (например: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.3);)" rows="4"></textarea>
-        <div class="url-hint">💡 CSS стили применяются к контейнеру виджета. Можно использовать любые свойства.</div>
+        <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета" rows="4"></textarea>
+        <div class="css-example">✨ Примеры CSS: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 2px solid gold;</div>
         <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить</button>
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
@@ -592,8 +602,8 @@
     <div class="modal-header"><h3>🎨 CSS стили для виджета</h3><div class="close-btn" onclick="closeModal('widget-css-modal')">×</div></div>
     <label>Дополнительные CSS стили:</label>
     <textarea id="widget-css-editor" rows="8" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);&#10;box-shadow: 0 10px 30px rgba(0,0,0,0.3);&#10;border: 2px solid gold;"></textarea>
-    <div class="url-hint">💡 Стили применяются к контейнеру виджета. Изменения применяются сразу.</div>
-    <button id="apply-widget-css" style="margin-top:10px;">✅ Применить стили</button>
+    <div class="css-example">💡 Стили применяются к контейнеру виджета. Изменения сохраняются в Firebase.</div>
+    <button id="apply-widget-css" style="margin-top:10px; background:#4caf50;">✅ Применить и сохранить</button>
 </div>
 
 <div id="edit-url-modal" class="modal">
@@ -679,6 +689,7 @@
         let opacity = el.style.opacity;
         let display = el.style.display;
         let transform = el.style.transform;
+        let zIndex = el.style.zIndex;
         
         // Применяем новые CSS стили
         if (css && css.trim()) {
@@ -690,6 +701,7 @@
                 'opacity: ' + opacity + ';' +
                 'display: ' + display + ';' +
                 'transform: ' + transform + ';' +
+                'z-index: ' + zIndex + ';' +
                 'position: absolute; cursor: grab; touch-action: none; pointer-events: auto; box-sizing: border-box; transform-origin: center center;';
         }
     }
@@ -1093,7 +1105,7 @@
             el.style.height = data.height + 'px';
             el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
             el.style.display = data.display === 'none' ? 'none' : 'block';
-            // Применяем CSS стили
+            // ПРИМЕНЯЕМ CSS СТИЛИ ИЗ БАЗЫ ДАННЫХ
             if (data.customCss && data.customCss.trim()) {
                 applyWidgetCss(el, data.customCss);
             }
@@ -1191,7 +1203,7 @@
                 height: parseInt(document.getElementById('widget-height-input').value) || 300,
                 customCss: document.getElementById('widget-css-input').value
             });
-            alert('Виджет сохранен!');
+            alert('Виджет сохранен в библиотеку!');
         } else alert('Введите URL');
     };
     
@@ -1307,7 +1319,7 @@
         if (cropOverlay && cropImageElement) {
             let newW = parseFloat(cropOverlay.style.width);
             let newH = parseFloat(cropOverlay.style.height);
-            if (newW > 50 && newH > 50) {
+            if (newW > 50 && newH > 50 && (newW !== resizeStartW || newH !== resizeStartH)) {
                 let img = cropImageElement.querySelector('img');
                 let canvas = document.createElement('canvas');
                 let ctx = canvas.getContext('2d');
@@ -1321,6 +1333,8 @@
                     alert('Изображение обрезано!');
                 };
                 tempImg.src = images[cropImageElement.id].src;
+            } else {
+                alert('Размер не изменён');
             }
             cropOverlay.remove();
             cropOverlay = null;
@@ -1358,16 +1372,21 @@
         if(selectedWidgetId && widgets[selectedWidgetId]) {
             document.getElementById('widget-css-editor').value = widgets[selectedWidgetId].customCss || '';
             document.getElementById('widget-css-modal').style.display = 'block';
+        } else {
+            alert('Сначала выберите виджет');
         }
     };
     document.getElementById('apply-widget-css').onclick = () => {
         if(selectedWidgetId) {
             let css = document.getElementById('widget-css-editor').value;
+            // Сохраняем в Firebase
             widgetsRef.child(selectedWidgetId).update({ customCss: css });
+            // Применяем к элементу на холсте
             let el = document.getElementById(selectedWidgetId);
             if (el) {
                 applyWidgetCss(el, css);
             }
+            alert('CSS стили применены и сохранены!');
             closeModal('widget-css-modal');
         }
     };

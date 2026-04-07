@@ -619,8 +619,23 @@
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
-    let dragState = { active: false, element: null, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
     let canvasRect = { width: 0, height: 0 };
+    
+    // Переменные для drag
+    let dragActive = false;
+    let dragElement = null;
+    let dragStartX = 0, dragStartY = 0;
+    let dragStartLeft = 0, dragStartTop = 0;
+    
+    // Переменные для resize/crop
+    let resizeActive = false;
+    let resizeElement = null;
+    let resizeDir = null;
+    let resizeStartX = 0, resizeStartY = 0;
+    let resizeStartW = 0, resizeStartH = 0;
+    let resizeStartL = 0, resizeStartT = 0;
+    let isCropMode = false;
+    let cropOverlay = null;
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -642,7 +657,105 @@
         el.style.transform = transform.trim();
     }
     
-    // Перетаскивание
+    // Глобальные обработчики для drag и resize
+    function onGlobalMouseMove(e) {
+        if (dragActive && dragElement) {
+            e.preventDefault();
+            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            let deltaX = clientX - dragStartX;
+            let deltaY = clientY - dragStartY;
+            let newLeft = dragStartLeft + deltaX;
+            let newTop = dragStartTop + deltaY;
+            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
+            dragElement.style.left = newLeft + 'px';
+            dragElement.style.top = newTop + 'px';
+            const id = dragElement.id;
+            if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
+            else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
+            else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
+        }
+        
+        if (resizeActive && resizeElement) {
+            e.preventDefault();
+            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            let dx = clientX - resizeStartX;
+            let dy = clientY - resizeStartY;
+            let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
+            
+            if (isCropMode && cropOverlay) {
+                // Режим обрезки
+                let newWc = Math.max(50, resizeStartW + dx);
+                let newHc = Math.max(50, resizeStartH + dy);
+                cropOverlay.style.width = newWc + 'px';
+                cropOverlay.style.height = newHc + 'px';
+            } else {
+                // Обычный resize
+                switch(resizeDir) {
+                    case 'e': newW = Math.max(50, resizeStartW + dx); break;
+                    case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
+                    case 's': newH = Math.max(50, resizeStartH + dy); break;
+                    case 'n': newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
+                    case 'se': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH + dy); break;
+                    case 'sw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH + dy); newL = resizeStartL + (resizeStartW - newW); break;
+                    case 'ne': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
+                    case 'nw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH - dy); newL = resizeStartL + (resizeStartW - newW); newT = resizeStartT + (resizeStartH - newH); break;
+                }
+                newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
+                newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
+                resizeElement.style.width = newW + 'px';
+                resizeElement.style.height = newH + 'px';
+                resizeElement.style.left = newL + 'px';
+                resizeElement.style.top = newT + 'px';
+            }
+        }
+    }
+    
+    function onGlobalMouseUp(e) {
+        if (isCropMode && cropOverlay && resizeElement) {
+            // Завершаем обрезку
+            let newW = parseFloat(cropOverlay.style.width);
+            let newH = parseFloat(cropOverlay.style.height);
+            if (newW > 50 && newH > 50) {
+                let img = resizeElement.querySelector('img');
+                let canvas = document.createElement('canvas');
+                let ctx = canvas.getContext('2d');
+                canvas.width = newW;
+                canvas.height = newH;
+                let tempImg = new Image();
+                tempImg.onload = () => {
+                    ctx.drawImage(tempImg, 0, 0, newW, newH);
+                    let newSrc = canvas.toDataURL('image/png');
+                    imagesRef.child(resizeElement.id).update({ src: newSrc, width: newW, height: newH });
+                };
+                tempImg.src = images[resizeElement.id].src;
+            }
+            if (cropOverlay && cropOverlay.remove) cropOverlay.remove();
+            cropOverlay = null;
+        } else if (resizeActive && resizeElement && !isCropMode) {
+            const id = resizeElement.id;
+            let newL = parseFloat(resizeElement.style.left);
+            let newT = parseFloat(resizeElement.style.top);
+            let newW = parseFloat(resizeElement.style.width);
+            let newH = parseFloat(resizeElement.style.height);
+            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+        }
+        
+        dragActive = false;
+        dragElement = null;
+        resizeActive = false;
+        resizeElement = null;
+        isCropMode = false;
+    }
+    
+    document.addEventListener('mousemove', onGlobalMouseMove);
+    document.addEventListener('mouseup', onGlobalMouseUp);
+    document.addEventListener('touchmove', onGlobalMouseMove, { passive: false });
+    document.addEventListener('touchend', onGlobalMouseUp);
+    
     function makeDraggable(el, type) {
         el.addEventListener('mousedown', onDragStart);
         el.addEventListener('touchstart', onDragStart, { passive: false });
@@ -650,6 +763,7 @@
         function onDragStart(e) {
             if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
             if (el.classList.contains('locked')) return;
+            if (resizeActive) return;
             e.preventDefault();
             e.stopPropagation();
             
@@ -657,51 +771,13 @@
             else if (type === 'text') selectText(el.id);
             else if (type === 'widget') selectWidget(el.id);
             
-            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-            
-            dragState = {
-                active: true,
-                element: el,
-                startX: clientX,
-                startY: clientY,
-                startLeft: parseFloat(el.style.left) || 0,
-                startTop: parseFloat(el.style.top) || 0
-            };
+            dragActive = true;
+            dragElement = el;
+            dragStartX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            dragStartY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            dragStartLeft = parseFloat(el.style.left) || 0;
+            dragStartTop = parseFloat(el.style.top) || 0;
         }
-        
-        function onDragMove(e) {
-            if (!dragState.active) return;
-            e.preventDefault();
-            
-            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
-            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
-            
-            let deltaX = clientX - dragState.startX;
-            let deltaY = clientY - dragState.startY;
-            let newLeft = dragState.startLeft + deltaX;
-            let newTop = dragState.startTop + deltaY;
-            
-            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragState.element.offsetWidth));
-            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragState.element.offsetHeight));
-            
-            dragState.element.style.left = newLeft + 'px';
-            dragState.element.style.top = newTop + 'px';
-            
-            const id = dragState.element.id;
-            if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
-            else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
-            else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
-        }
-        
-        function onDragEnd() {
-            dragState.active = false;
-        }
-        
-        document.addEventListener('mousemove', onDragMove);
-        document.addEventListener('mouseup', onDragEnd);
-        document.addEventListener('touchmove', onDragMove, { passive: false });
-        document.addEventListener('touchend', onDragEnd);
     }
     
     function addResizeHandles(el) {
@@ -709,125 +785,41 @@
         dirs.forEach(dir => {
             let handle = document.createElement('div');
             handle.className = `resize-handle resize-${dir}`;
-            handle.addEventListener('mousedown', (e) => startResize(e, el, dir));
-            handle.addEventListener('touchstart', (e) => startResize(e, el, dir), { passive: false });
+            handle.addEventListener('mousedown', (e) => onResizeStart(e, el, dir));
+            handle.addEventListener('touchstart', (e) => onResizeStart(e, el, dir), { passive: false });
             el.appendChild(handle);
         });
     }
     
-    function startResize(e, el, dir) {
+    function onResizeStart(e, el, dir) {
         if (el.classList.contains('locked')) return;
         e.stopPropagation();
         e.preventDefault();
         
-        const isShiftPressed = e.shiftKey;
-        let startX = e.clientX || e.touches[0].clientX;
-        let startY = e.clientY || e.touches[0].clientY;
-        let startW = el.offsetWidth;
-        let startH = el.offsetHeight;
-        let startL = parseFloat(el.style.left) || 0;
-        let startT = parseFloat(el.style.top) || 0;
+        const isShift = e.shiftKey;
+        resizeActive = true;
+        resizeElement = el;
+        resizeDir = dir;
+        resizeStartX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+        resizeStartY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+        resizeStartW = el.offsetWidth;
+        resizeStartH = el.offsetHeight;
+        resizeStartL = parseFloat(el.style.left) || 0;
+        resizeStartT = parseFloat(el.style.top) || 0;
         
-        // Обрезка при зажатом Shift (только для изображений)
-        if (isShiftPressed && images[el.id]) {
-            let overlay = document.createElement('div');
-            overlay.className = 'crop-overlay';
-            overlay.style.left = startL + 'px';
-            overlay.style.top = startT + 'px';
-            overlay.style.width = startW + 'px';
-            overlay.style.height = startH + 'px';
-            el.parentElement.appendChild(overlay);
-            
-            let currentW = startW, currentH = startH;
-            
-            function onCrop(moveEv) {
-                let currentX = moveEv.clientX || moveEv.touches[0].clientX;
-                let currentY = moveEv.clientY || moveEv.touches[0].clientY;
-                let dx = currentX - startX;
-                let dy = currentY - startY;
-                
-                let newW = Math.max(50, startW + dx);
-                let newH = Math.max(50, startH + dy);
-                currentW = newW;
-                currentH = newH;
-                
-                overlay.style.width = newW + 'px';
-                overlay.style.height = newH + 'px';
-            }
-            
-            function stopCrop() {
-                if (currentW > 50 && currentH > 50 && (currentW !== startW || currentH !== startH)) {
-                    let img = el.querySelector('img');
-                    let canvas = document.createElement('canvas');
-                    let ctx = canvas.getContext('2d');
-                    canvas.width = currentW;
-                    canvas.height = currentH;
-                    
-                    let tempImg = new Image();
-                    tempImg.onload = () => {
-                        ctx.drawImage(tempImg, 0, 0, currentW, currentH);
-                        let newSrc = canvas.toDataURL('image/png');
-                        imagesRef.child(el.id).update({ src: newSrc, width: currentW, height: currentH });
-                    };
-                    tempImg.src = images[el.id].src;
-                }
-                overlay.remove();
-                document.removeEventListener('mousemove', onCrop);
-                document.removeEventListener('mouseup', stopCrop);
-                document.removeEventListener('touchmove', onCrop);
-                document.removeEventListener('touchend', stopCrop);
-            }
-            
-            document.addEventListener('mousemove', onCrop);
-            document.addEventListener('mouseup', stopCrop);
-            document.addEventListener('touchmove', onCrop, { passive: false });
-            document.addEventListener('touchend', stopCrop);
-            return;
+        // Обрезка только для изображений при зажатом Shift
+        if (isShift && images[el.id]) {
+            isCropMode = true;
+            cropOverlay = document.createElement('div');
+            cropOverlay.className = 'crop-overlay';
+            cropOverlay.style.left = resizeStartL + 'px';
+            cropOverlay.style.top = resizeStartT + 'px';
+            cropOverlay.style.width = resizeStartW + 'px';
+            cropOverlay.style.height = resizeStartH + 'px';
+            el.parentElement.appendChild(cropOverlay);
+        } else {
+            isCropMode = false;
         }
-        
-        // Обычное изменение размера
-        function onResize(moveEv) {
-            let currentX = moveEv.clientX || moveEv.touches[0].clientX;
-            let currentY = moveEv.clientY || moveEv.touches[0].clientY;
-            let dx = currentX - startX;
-            let dy = currentY - startY;
-            let newW = startW, newH = startH, newL = startL, newT = startT;
-            
-            switch(dir) {
-                case 'e': newW = Math.max(50, startW + dx); break;
-                case 'w': newW = Math.max(50, startW - dx); newL = startL + (startW - newW); break;
-                case 's': newH = Math.max(50, startH + dy); break;
-                case 'n': newH = Math.max(50, startH - dy); newT = startT + (startH - newH); break;
-                case 'se': newW = Math.max(50, startW + dx); newH = Math.max(50, startH + dy); break;
-                case 'sw': newW = Math.max(50, startW - dx); newH = Math.max(50, startH + dy); newL = startL + (startW - newW); break;
-                case 'ne': newW = Math.max(50, startW + dx); newH = Math.max(50, startH - dy); newT = startT + (startH - newH); break;
-                case 'nw': newW = Math.max(50, startW - dx); newH = Math.max(50, startH - dy); newL = startL + (startW - newW); newT = startT + (startH - newH); break;
-            }
-            
-            newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
-            newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
-            
-            el.style.width = newW + 'px';
-            el.style.height = newH + 'px';
-            el.style.left = newL + 'px';
-            el.style.top = newT + 'px';
-            
-            const id = el.id;
-            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-        }
-        
-        function stopResize() {
-            document.removeEventListener('mousemove', onResize);
-            document.removeEventListener('mouseup', stopResize);
-            document.removeEventListener('touchmove', onResize);
-            document.removeEventListener('touchend', stopResize);
-        }
-        
-        document.addEventListener('mousemove', onResize);
-        document.addEventListener('mouseup', stopResize);
-        document.addEventListener('touchmove', onResize, { passive: false });
-        document.addEventListener('touchend', stopResize);
     }
     
     function addRotateHandle(el) {

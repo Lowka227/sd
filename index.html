@@ -570,6 +570,7 @@
         <input type="text" id="widget-name-input" placeholder="Название виджета">
         <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета" rows="4"></textarea>
         <div class="css-example">✨ Примеры CSS: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 2px solid gold;</div>
+        <div class="css-example">🎨 Для прозрачного фона: background: transparent; background-color: transparent; box-shadow: none; border: none;</div>
         <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить</button>
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
@@ -600,9 +601,10 @@
 
 <div id="widget-css-modal" class="modal">
     <div class="modal-header"><h3>🎨 CSS стили для виджета</h3><div class="close-btn" onclick="closeModal('widget-css-modal')">×</div></div>
-    <label>Дополнительные CSS стили:</label>
-    <textarea id="widget-css-editor" rows="8" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);&#10;box-shadow: 0 10px 30px rgba(0,0,0,0.3);&#10;border: 2px solid gold;"></textarea>
-    <div class="css-example">💡 Стили применяются к контейнеру виджета. Изменения сохраняются в Firebase.</div>
+    <label>Дополнительные CSS стили (применяются к контейнеру виджета):</label>
+    <textarea id="widget-css-editor" rows="10" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);&#10;box-shadow: 0 10px 30px rgba(0,0,0,0.3);&#10;border: 2px solid gold;&#10;&#10;/* Для прозрачного фона: */&#10;background: transparent;&#10;background-color: transparent;&#10;box-shadow: none;&#10;border: none;"></textarea>
+    <div class="css-example">💡 Стили применяются к контейнеру виджета. Изменения сохраняются в Firebase и применяются мгновенно.</div>
+    <div class="css-example">⚠️ ВНИМАНИЕ: Сам iframe (YouTube, Google) имеет свой собственный фон, который нельзя изменить из-за безопасности браузера!</div>
     <button id="apply-widget-css" style="margin-top:10px; background:#4caf50;">✅ Применить и сохранить</button>
 </div>
 
@@ -678,32 +680,45 @@
         el.style.transform = transform.trim();
     }
     
-    // Функция применения CSS стилей к виджету
+    // Функция применения CSS стилей к виджету (исправленная)
     function applyWidgetCss(el, css) {
         if (!el) return;
-        // Сохраняем основные позиционные стили
-        let left = el.style.left;
-        let top = el.style.top;
-        let width = el.style.width;
-        let height = el.style.height;
-        let opacity = el.style.opacity;
-        let display = el.style.display;
-        let transform = el.style.transform;
-        let zIndex = el.style.zIndex;
         
-        // Применяем новые CSS стили
+        // Сохраняем критически важные позиционные стили
+        const left = el.style.left;
+        const top = el.style.top;
+        const width = el.style.width;
+        const height = el.style.height;
+        const opacity = el.style.opacity;
+        const display = el.style.display;
+        const transform = el.style.transform;
+        const zIndex = el.style.zIndex;
+        
+        // Очищаем все inline стили, но сохраняем позицию
+        el.style.cssText = '';
+        
+        // Применяем пользовательские CSS стили (если есть)
         if (css && css.trim()) {
-            el.style.cssText = css + ';' + 
-                'left: ' + left + ';' +
-                'top: ' + top + ';' +
-                'width: ' + width + ';' +
-                'height: ' + height + ';' +
-                'opacity: ' + opacity + ';' +
-                'display: ' + display + ';' +
-                'transform: ' + transform + ';' +
-                'z-index: ' + zIndex + ';' +
-                'position: absolute; cursor: grab; touch-action: none; pointer-events: auto; box-sizing: border-box; transform-origin: center center;';
+            el.style.cssText = css;
         }
+        
+        // Восстанавливаем позиционные стили (они должны быть поверх)
+        el.style.position = 'absolute';
+        el.style.left = left;
+        el.style.top = top;
+        el.style.width = width;
+        el.style.height = height;
+        el.style.opacity = opacity;
+        el.style.display = display;
+        el.style.transform = transform;
+        el.style.zIndex = zIndex;
+        el.style.cursor = 'grab';
+        el.style.touchAction = 'none';
+        el.style.pointerEvents = 'auto';
+        el.style.boxSizing = 'border-box';
+        el.style.transformOrigin = 'center center';
+        
+        console.log('CSS применён к виджету:', css);
     }
     
     function onGlobalMouseMove(e) {
@@ -1105,10 +1120,12 @@
             el.style.height = data.height + 'px';
             el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
             el.style.display = data.display === 'none' ? 'none' : 'block';
-            // ПРИМЕНЯЕМ CSS СТИЛИ ИЗ БАЗЫ ДАННЫХ
+            
+            // ПРИМЕНЯЕМ CSS СТИЛИ ИЗ БАЗЫ ДАННЫХ (исправлено)
             if (data.customCss && data.customCss.trim()) {
                 applyWidgetCss(el, data.customCss);
             }
+            
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -1376,6 +1393,7 @@
             alert('Сначала выберите виджет');
         }
     };
+    
     document.getElementById('apply-widget-css').onclick = () => {
         if(selectedWidgetId) {
             let css = document.getElementById('widget-css-editor').value;

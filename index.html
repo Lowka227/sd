@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Редактор с обрезкой виджетов</title>
+    <title>Прозрачный холст - Редактор с CSS для виджетов</title>
     <style>
         * {
             margin: 0;
@@ -208,7 +208,6 @@
             pointer-events: auto;
             box-sizing: border-box;
             transform-origin: center center;
-            overflow: hidden;
         }
         
         .draggable-image:active, .draggable-text:active, .draggable-widget:active {
@@ -217,6 +216,7 @@
         
         .draggable-image {
             background: transparent;
+            overflow: hidden;
         }
         
         .draggable-image img {
@@ -247,6 +247,8 @@
             display: flex;
             flex-direction: column;
             cursor: grab;
+            overflow: hidden !important;
+            transition: all 0.2s ease;
         }
         
         .draggable-widget:active {
@@ -536,7 +538,6 @@
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
-<!-- Модальные окна -->
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
     <textarea id="text-input-area" rows="3" placeholder="Введите текст..."></textarea>
@@ -567,7 +568,8 @@
         </div>
         <input type="text" id="widget-name-input" placeholder="Название виджета">
         <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета" rows="4"></textarea>
-        <div class="css-example">✨ Примеры CSS: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.3);</div>
+        <div class="css-example">✨ Примеры CSS: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 2px solid gold;</div>
+        <div class="css-example">🎨 Для прозрачного фона: background: transparent; background-color: transparent; box-shadow: none; border: none;</div>
         <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить</button>
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
@@ -599,8 +601,10 @@
 <div id="widget-css-modal" class="modal">
     <div class="modal-header"><h3>🎨 CSS стили для виджета</h3><div class="close-btn" onclick="closeModal('widget-css-modal')">×</div></div>
     <label>Дополнительные CSS стили (применяются к контейнеру виджета):</label>
-    <textarea id="widget-css-editor" rows="8" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);&#10;box-shadow: 0 10px 30px rgba(0,0,0,0.3);"></textarea>
-    <button id="apply-widget-css" style="margin-top:10px; background:#4caf50;">✅ Применить</button>
+    <textarea id="widget-css-editor" rows="10" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);&#10;box-shadow: 0 10px 30px rgba(0,0,0,0.3);&#10;border: 2px solid gold;&#10;&#10;/* Для прозрачного фона: */&#10;background: transparent;&#10;background-color: transparent;&#10;box-shadow: none;&#10;border: none;"></textarea>
+    <div class="css-example">💡 Стили применяются к контейнеру виджета. Изменения сохраняются в Firebase и применяются мгновенно.</div>
+    <div class="css-example">⚠️ ВНИМАНИЕ: Сам iframe (YouTube, Google) имеет свой собственный фон, который нельзя изменить из-за безопасности браузера!</div>
+    <button id="apply-widget-css" style="margin-top:10px; background:#4caf50;">✅ Применить и сохранить</button>
 </div>
 
 <div id="edit-url-modal" class="modal">
@@ -612,7 +616,7 @@
 <div id="crop-modal" class="modal">
     <div class="modal-header"><h3>✂ Обрезка элемента</h3><div class="close-btn" onclick="closeModal('crop-modal')">×</div></div>
     <p style="margin-bottom:10px;">1. Нажмите "Начать обрезку"</p>
-    <p style="margin-bottom:10px;">2. Потяните за любой уголок элемента, чтобы выбрать область</p>
+    <p style="margin-bottom:10px;">2. Потяните за любой уголок элемента</p>
     <p style="margin-bottom:10px;">3. Нажмите "Применить обрезку"</p>
     <button id="start-crop-btn" style="background:#4caf50;">🔪 Начать обрезку</button>
     <button id="apply-crop-btn" style="background:#2196f3; margin-top:10px;">✅ Применить обрезку</button>
@@ -673,6 +677,59 @@
         if (el.dataset.flipH === 'true') transform += 'scaleX(-1) ';
         if (el.dataset.flipV === 'true') transform += 'scaleY(-1) ';
         el.style.transform = transform.trim();
+    }
+    
+    // Функция применения CSS стилей к виджету (исправленная)
+    function applyWidgetCss(el, css) {
+        if (!el) return;
+        if (!css || !css.trim()) return;
+        
+        console.log('Применяем CSS к виджету:', css);
+        
+        // Сохраняем критически важные позиционные стили
+        const left = el.style.left;
+        const top = el.style.top;
+        const width = el.style.width;
+        const height = el.style.height;
+        const opacity = el.style.opacity;
+        const display = el.style.display;
+        const zIndex = el.style.zIndex;
+        
+        // Разбираем CSS на отдельные свойства и применяем их
+        const cssLines = css.split(';');
+        for (let line of cssLines) {
+            line = line.trim();
+            if (line) {
+                const colonIndex = line.indexOf(':');
+                if (colonIndex > 0) {
+                    const property = line.substring(0, colonIndex).trim();
+                    const value = line.substring(colonIndex + 1).trim();
+                    if (property && value) {
+                        try {
+                            el.style[property] = value;
+                        } catch(e) { console.warn('Ошибка CSS:', property, value); }
+                    }
+                }
+            }
+        }
+        
+        // Восстанавливаем позиционные стили (они должны быть поверх)
+        el.style.position = 'absolute';
+        el.style.left = left;
+        el.style.top = top;
+        el.style.width = width;
+        el.style.height = height;
+        el.style.opacity = opacity;
+        el.style.display = display;
+        el.style.zIndex = zIndex;
+        el.style.cursor = 'grab';
+        el.style.touchAction = 'none';
+        el.style.pointerEvents = 'auto';
+        el.style.boxSizing = 'border-box';
+        el.style.transformOrigin = 'center center';
+        el.style.overflow = 'hidden';
+        
+        console.log('CSS успешно применён, новые стили:', el.style.cssText);
     }
     
     function onGlobalMouseMove(e) {
@@ -993,15 +1050,6 @@
         closeModal('widget-modal');
     }
     
-    function applyWidgetCss(el, css) {
-        if (!el || !css) return;
-        el.style.cssText = css + ';' + 
-            'position: absolute; left: ' + el.style.left + '; top: ' + el.style.top + '; ' +
-            'width: ' + el.style.width + '; height: ' + el.style.height + '; ' +
-            'opacity: ' + el.style.opacity + '; display: ' + el.style.display + '; ' +
-            'cursor: grab; touch-action: none; pointer-events: auto; box-sizing: border-box; transform-origin: center center;';
-    }
-    
     function syncElements() {
         updateCanvasSize();
         
@@ -1083,7 +1131,13 @@
             el.style.height = data.height + 'px';
             el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
             el.style.display = data.display === 'none' ? 'none' : 'block';
-            if (data.customCss) applyWidgetCss(el, data.customCss);
+            el.style.overflow = 'hidden';
+            
+            // ПРИМЕНЯЕМ CSS СТИЛИ ИЗ БАЗЫ ДАННЫХ
+            if (data.customCss && data.customCss.trim()) {
+                applyWidgetCss(el, data.customCss);
+            }
+            
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -1305,7 +1359,6 @@
             let newH = parseFloat(cropOverlay.style.height);
             if (newW > 20 && newH > 20) {
                 if (cropType === 'image') {
-                    // Обрезка изображения
                     let img = cropElement.querySelector('img');
                     let canvas = document.createElement('canvas');
                     let ctx = canvas.getContext('2d');
@@ -1320,7 +1373,6 @@
                     };
                     tempImg.src = images[cropElement.id].src;
                 } else if (cropType === 'widget') {
-                    // Обрезка виджета - просто меняем размер
                     widgetsRef.child(cropElement.id).update({ width: newW, height: newH });
                     alert('Виджет обрезан!');
                 }
@@ -1369,13 +1421,18 @@
             alert('Сначала выберите виджет');
         }
     };
+    
     document.getElementById('apply-widget-css').onclick = () => {
         if(selectedWidgetId) {
             let css = document.getElementById('widget-css-editor').value;
+            // Сохраняем в Firebase
             widgetsRef.child(selectedWidgetId).update({ customCss: css });
+            // Применяем к элементу на холсте
             let el = document.getElementById(selectedWidgetId);
-            if (el) applyWidgetCss(el, css);
-            alert('CSS стили применены!');
+            if (el) {
+                applyWidgetCss(el, css);
+            }
+            alert('CSS стили применены и сохранены!');
             closeModal('widget-css-modal');
         }
     };

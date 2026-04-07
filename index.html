@@ -499,19 +499,6 @@
             z-index: 1000;
         }
         
-        .info-hint {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            z-index: 9999;
-            pointer-events: none;
-        }
-        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
@@ -535,13 +522,12 @@
         <span>📦 Элементы:</span>
         <div id="thumbnails-container"><div id="thumbnails"></div></div>
     </div>
-    <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button></div>
+    <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button><button id="crop-btn" style="background:#ff9800;">✂ Обрезать</button></div>
     <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
     <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button></div>
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
-<div class="info-hint">💡 Для обрезки изображения: зажмите Shift и тяните за уголок</div>
 
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
@@ -572,8 +558,8 @@
             <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width:50%">
         </div>
         <input type="text" id="widget-name-input" placeholder="Название виджета">
-        <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета (например: border-radius: 10px; background: #fff;)" rows="3"></textarea>
-        <div class="url-hint">💡 Введите любой URL. Можно добавить свои CSS стили.</div>
+        <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета (например: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.3);)" rows="4"></textarea>
+        <div class="url-hint">💡 CSS стили применяются к контейнеру виджета. Можно использовать любые свойства.</div>
         <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить</button>
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
@@ -606,7 +592,7 @@
     <div class="modal-header"><h3>🎨 CSS стили для виджета</h3><div class="close-btn" onclick="closeModal('widget-css-modal')">×</div></div>
     <label>Дополнительные CSS стили:</label>
     <textarea id="widget-css-editor" rows="8" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);&#10;box-shadow: 0 10px 30px rgba(0,0,0,0.3);&#10;border: 2px solid gold;"></textarea>
-    <div class="url-hint">💡 Стили применяются к контейнеру виджета. Можно использовать любые CSS свойства.</div>
+    <div class="url-hint">💡 Стили применяются к контейнеру виджета. Изменения применяются сразу.</div>
     <button id="apply-widget-css" style="margin-top:10px;">✅ Применить стили</button>
 </div>
 
@@ -614,6 +600,16 @@
     <div class="modal-header"><h3>✏ Изменить URL виджета</h3><div class="close-btn" onclick="closeModal('edit-url-modal')">×</div></div>
     <input type="text" id="edit-widget-url" placeholder="URL виджета">
     <button id="apply-url-btn" style="margin-top:10px;">✅ Применить</button>
+</div>
+
+<div id="crop-modal" class="modal">
+    <div class="modal-header"><h3>✂ Обрезка изображения</h3><div class="close-btn" onclick="closeModal('crop-modal')">×</div></div>
+    <p style="margin-bottom:10px;">1. Нажмите "Начать обрезку"</p>
+    <p style="margin-bottom:10px;">2. Потяните за любой уголок изображения, чтобы выбрать область</p>
+    <p style="margin-bottom:10px;">3. Нажмите "Применить обрезку"</p>
+    <button id="start-crop-btn" style="background:#4caf50;">🔪 Начать обрезку</button>
+    <button id="apply-crop-btn" style="background:#2196f3; margin-top:10px;">✅ Применить обрезку</button>
+    <button id="cancel-crop-btn" style="background:#f44336; margin-top:10px;">❌ Отмена</button>
 </div>
 
 <input type="file" id="file-input" accept="image/*">
@@ -646,13 +642,10 @@
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
     
-    // Переменные для отслеживания активных действий
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
     let resizeActive = false, resizeElement = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0;
     let resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0;
-    let isCropMode = false, cropOverlay = null;
-    
-    // Флаги для отслеживания состояния кнопки мыши
+    let isCropMode = false, cropOverlay = null, cropImageElement = null;
     let isMouseDown = false;
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
@@ -675,7 +668,32 @@
         el.style.transform = transform.trim();
     }
     
-    // Глобальные обработчики с проверкой isMouseDown
+    // Функция применения CSS стилей к виджету
+    function applyWidgetCss(el, css) {
+        if (!el) return;
+        // Сохраняем основные позиционные стили
+        let left = el.style.left;
+        let top = el.style.top;
+        let width = el.style.width;
+        let height = el.style.height;
+        let opacity = el.style.opacity;
+        let display = el.style.display;
+        let transform = el.style.transform;
+        
+        // Применяем новые CSS стили
+        if (css && css.trim()) {
+            el.style.cssText = css + ';' + 
+                'left: ' + left + ';' +
+                'top: ' + top + ';' +
+                'width: ' + width + ';' +
+                'height: ' + height + ';' +
+                'opacity: ' + opacity + ';' +
+                'display: ' + display + ';' +
+                'transform: ' + transform + ';' +
+                'position: absolute; cursor: grab; touch-action: none; pointer-events: auto; box-sizing: border-box; transform-origin: center center;';
+        }
+    }
+    
     function onGlobalMouseMove(e) {
         if (!isMouseDown) return;
         
@@ -734,24 +752,7 @@
         isMouseDown = false;
         
         if (isCropMode && cropOverlay && resizeElement) {
-            let newW = parseFloat(cropOverlay.style.width);
-            let newH = parseFloat(cropOverlay.style.height);
-            if (newW > 50 && newH > 50 && (newW !== resizeStartW || newH !== resizeStartH)) {
-                let img = resizeElement.querySelector('img');
-                let canvas = document.createElement('canvas');
-                let ctx = canvas.getContext('2d');
-                canvas.width = newW;
-                canvas.height = newH;
-                let tempImg = new Image();
-                tempImg.onload = () => {
-                    ctx.drawImage(tempImg, 0, 0, newW, newH);
-                    let newSrc = canvas.toDataURL('image/png');
-                    imagesRef.child(resizeElement.id).update({ src: newSrc, width: newW, height: newH });
-                };
-                tempImg.src = images[resizeElement.id].src;
-            }
-            if (cropOverlay && cropOverlay.remove) cropOverlay.remove();
-            cropOverlay = null;
+            // Не применяем обрезку автоматически
         } else if (resizeActive && resizeElement && !isCropMode) {
             const id = resizeElement.id;
             let newL = parseFloat(resizeElement.style.left);
@@ -766,7 +767,6 @@
         dragElement = null;
         resizeActive = false;
         resizeElement = null;
-        isCropMode = false;
     }
     
     document.addEventListener('mousemove', onGlobalMouseMove);
@@ -793,9 +793,6 @@
         dragElement = null;
         resizeActive = false;
         resizeElement = null;
-        isCropMode = false;
-        if (cropOverlay && cropOverlay.remove) cropOverlay.remove();
-        cropOverlay = null;
     });
     
     function makeDraggable(el) {
@@ -856,7 +853,6 @@
         e.preventDefault();
         isMouseDown = true;
         
-        const isShift = e.shiftKey;
         resizeActive = true;
         resizeElement = el;
         resizeDir = dir;
@@ -867,17 +863,11 @@
         resizeStartL = parseFloat(el.style.left) || 0;
         resizeStartT = parseFloat(el.style.top) || 0;
         
-        if (isShift && el.id.startsWith('img')) {
-            isCropMode = true;
-            cropOverlay = document.createElement('div');
-            cropOverlay.className = 'crop-overlay';
+        if (isCropMode && cropOverlay) {
             cropOverlay.style.left = resizeStartL + 'px';
             cropOverlay.style.top = resizeStartT + 'px';
             cropOverlay.style.width = resizeStartW + 'px';
             cropOverlay.style.height = resizeStartH + 'px';
-            el.parentElement.appendChild(cropOverlay);
-        } else {
-            isCropMode = false;
         }
     }
     
@@ -1103,7 +1093,10 @@
             el.style.height = data.height + 'px';
             el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
             el.style.display = data.display === 'none' ? 'none' : 'block';
-            if (data.customCss) el.style.cssText += ';' + data.customCss;
+            // Применяем CSS стили
+            if (data.customCss && data.customCss.trim()) {
+                applyWidgetCss(el, data.customCss);
+            }
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -1270,6 +1263,83 @@
     document.getElementById('opacity-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ opacity: e.target.value / 100 }); };
     document.getElementById('brightness-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ brightness: e.target.value }); };
     
+    // Обрезка по кнопке
+    document.getElementById('crop-btn').onclick = () => {
+        if (selectedImageId && images[selectedImageId]) {
+            document.getElementById('crop-modal').style.display = 'block';
+        } else {
+            alert('Сначала выберите изображение');
+        }
+    };
+    
+    document.getElementById('start-crop-btn').onclick = () => {
+        if (selectedImageId) {
+            let el = document.getElementById(selectedImageId);
+            if (el) {
+                isCropMode = true;
+                cropImageElement = el;
+                
+                if (cropOverlay) cropOverlay.remove();
+                cropOverlay = document.createElement('div');
+                cropOverlay.className = 'crop-overlay';
+                let left = parseFloat(el.style.left) || 0;
+                let top = parseFloat(el.style.top) || 0;
+                let w = el.offsetWidth;
+                let h = el.offsetHeight;
+                cropOverlay.style.left = left + 'px';
+                cropOverlay.style.top = top + 'px';
+                cropOverlay.style.width = w + 'px';
+                cropOverlay.style.height = h + 'px';
+                el.parentElement.appendChild(cropOverlay);
+                
+                resizeStartW = w;
+                resizeStartH = h;
+                resizeStartL = left;
+                resizeStartT = top;
+                
+                alert('Режим обрезки включён. Потяните за уголок изображения, затем нажмите "Применить обрезку"');
+            }
+        }
+        closeModal('crop-modal');
+    };
+    
+    document.getElementById('apply-crop-btn').onclick = () => {
+        if (cropOverlay && cropImageElement) {
+            let newW = parseFloat(cropOverlay.style.width);
+            let newH = parseFloat(cropOverlay.style.height);
+            if (newW > 50 && newH > 50) {
+                let img = cropImageElement.querySelector('img');
+                let canvas = document.createElement('canvas');
+                let ctx = canvas.getContext('2d');
+                canvas.width = newW;
+                canvas.height = newH;
+                let tempImg = new Image();
+                tempImg.onload = () => {
+                    ctx.drawImage(tempImg, 0, 0, newW, newH);
+                    let newSrc = canvas.toDataURL('image/png');
+                    imagesRef.child(cropImageElement.id).update({ src: newSrc, width: newW, height: newH });
+                    alert('Изображение обрезано!');
+                };
+                tempImg.src = images[cropImageElement.id].src;
+            }
+            cropOverlay.remove();
+            cropOverlay = null;
+            cropImageElement = null;
+            isCropMode = false;
+        }
+        closeModal('crop-modal');
+    };
+    
+    document.getElementById('cancel-crop-btn').onclick = () => {
+        if (cropOverlay) {
+            cropOverlay.remove();
+            cropOverlay = null;
+        }
+        cropImageElement = null;
+        isCropMode = false;
+        closeModal('crop-modal');
+    };
+    
     document.getElementById('widget-opacity-btn').onclick = () => {
         if(selectedWidgetId && widgets[selectedWidgetId]) {
             document.getElementById('widget-opacity-slider').value = (widgets[selectedWidgetId].opacity || 1) * 100;
@@ -1296,8 +1366,7 @@
             widgetsRef.child(selectedWidgetId).update({ customCss: css });
             let el = document.getElementById(selectedWidgetId);
             if (el) {
-                let oldCss = el.style.cssText;
-                el.style.cssText = oldCss + ';' + css;
+                applyWidgetCss(el, css);
             }
             closeModal('widget-css-modal');
         }

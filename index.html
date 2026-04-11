@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Автоматический видеочат</title>
+    <title>Прозрачный холст - Видеочат для всех</title>
     <style>
         * {
             margin: 0;
@@ -515,51 +515,11 @@
             border-radius: 4px;
         }
         
-        .local-camera-preview {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 160px;
-            height: 120px;
-            background: #1a1a2e;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid #ffd966;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            z-index: 20001;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        
-        .local-camera-preview:hover {
-            transform: scale(1.02);
-            border-color: #ffb347;
-        }
-        
-        .local-camera-preview video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
-        
-        .local-camera-preview .label {
-            position: absolute;
-            bottom: 5px;
-            left: 5px;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
             .thumbnail { width: 35px; height: 35px; }
             .resize-handle { width: 8px; height: 8px; }
-            .local-camera-preview { width: 120px; height: 90px; bottom: 10px; right: 10px; }
         }
     </style>
 </head>
@@ -571,6 +531,8 @@
         <button id="add-text-btn">📝 Текст</button>
         <button id="add-sound-btn">🔊 Звук</button>
         <button id="add-widget-btn">🧩 Виджет</button>
+        <button id="start-camera-btn">📷 Включить камеру</button>
+        <button id="stop-camera-btn" style="background:#f44336;">⏹ Выключить камеру</button>
         <button id="clear-btn">🗑 Очистить</button>
         <div id="status">✅ Готово</div>
     </div>
@@ -584,13 +546,6 @@
     <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="del-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
     <div id="camera-controls"><span class="panel-title">📷</span><button id="hide-camera-btn">👁 Скрыть</button><button id="del-camera-btn">🗑 Удалить</button><button id="lock-camera-btn">🔒 Закрепить</button><button id="camera-opacity-btn">🎨 Прозрачность</button><button id="crop-camera-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
-
-<!-- Окно локальной камеры (только для себя) -->
-<div id="localCameraPreview" class="local-camera-preview" style="display: none;">
-    <video autoplay playsinline muted></video>
-    <div class="label">📷 Моя камера</div>
-</div>
-
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div><div id="cameras-layer"></div></div></div>
 
 <div id="text-modal" class="modal">
@@ -723,8 +678,9 @@
     // PeerJS для WebRTC
     let peer = null;
     let localStream = null;
-    let remoteVideos = new Map(); // userId -> { element, call }
+    let remoteVideos = new Map(); // userId -> { elementId, call }
     let isInRoom = false;
+    let myPeerId = null;
     
     // Drag state
     let dragElement = null;
@@ -775,36 +731,38 @@
     async function initPeer() {
         if (peer) return peer;
         
-        peer = new Peer(createId('user'), {
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                ]
-            }
+        return new Promise((resolve) => {
+            peer = new Peer({
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                    ]
+                }
+            });
+            
+            peer.on('open', (id) => {
+                myPeerId = id;
+                console.log('Peer ID:', id);
+                document.getElementById('status').textContent = '✅ Peer: ' + id.substring(0, 8);
+                resolve(peer);
+            });
+            
+            peer.on('call', async (call) => {
+                console.log('Входящий звонок от:', call.peer);
+                if (localStream) {
+                    call.answer(localStream);
+                    call.on('stream', (remoteStream) => {
+                        addRemoteVideo(call.peer, remoteStream);
+                    });
+                }
+            });
+            
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+            });
         });
-        
-        peer.on('open', (id) => {
-            console.log('Peer ID:', id);
-            document.getElementById('status').textContent = '✅ Видеочат: ' + id.substring(0, 8);
-        });
-        
-        peer.on('call', async (call) => {
-            console.log('Входящий звонок от:', call.peer);
-            if (localStream) {
-                call.answer(localStream);
-                call.on('stream', (remoteStream) => {
-                    addRemoteVideo(call.peer, remoteStream);
-                });
-            }
-        });
-        
-        peer.on('error', (err) => {
-            console.error('Peer error:', err);
-        });
-        
-        return peer;
     }
     
     async function startLocalCamera() {
@@ -814,19 +772,52 @@
             }
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             
-            // Показываем локальное видео в отдельном окне (только для себя)
-            const localPreview = document.getElementById('localCameraPreview');
-            const videoEl = localPreview.querySelector('video');
-            videoEl.srcObject = localStream;
-            videoEl.play();
-            localPreview.style.display = 'block';
+            // Показываем локальное видео как виджет на холсте (только для себя)
+            let localCameraId = 'my_camera';
+            
+            // Удаляем старую если есть
+            if (cameras[localCameraId]) {
+                camerasRef.child(localCameraId).remove();
+            }
+            
+            camerasRef.child(localCameraId).set({
+                id: localCameraId,
+                name: 'Моя камера',
+                x: 50, y: 50, width: 320, height: 240,
+                opacity: 1, locked: false, display: 'block',
+                isLocal: true
+            });
+            
+            // Обновляем видео элемент для локальной камеры
+            setTimeout(() => {
+                const videoEl = document.querySelector(`#${localCameraId} video`);
+                if (videoEl && localStream) {
+                    videoEl.srcObject = localStream;
+                    videoEl.play();
+                    videoEl.style.transform = 'scaleX(-1)'; // зеркало для локальной камеры
+                }
+            }, 100);
             
             return true;
         } catch (err) {
             console.error('Ошибка доступа к камере:', err);
-            document.getElementById('status').textContent = '❌ Нет доступа к камере';
+            alert('Не удалось получить доступ к камере: ' + err.message);
             return false;
         }
+    }
+    
+    function stopLocalCamera() {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        
+        // Удаляем виджет локальной камеры
+        if (cameras['my_camera']) {
+            camerasRef.child('my_camera').remove();
+        }
+        
+        document.getElementById('status').textContent = '✅ Камера выключена';
     }
     
     function addRemoteVideo(peerId, stream) {
@@ -837,9 +828,9 @@
         
         camerasRef.child(remoteCameraId).set({
             id: remoteCameraId,
-            name: 'Участник',
-            x: 50 + remoteVideos.size * 40, 
-            y: 50 + remoteVideos.size * 40, 
+            name: 'Участник ' + peerId.substring(0, 6),
+            x: 100 + remoteVideos.size * 30, 
+            y: 100 + remoteVideos.size * 30, 
             width: 320, height: 240,
             opacity: 1, locked: false, display: 'block',
             isRemote: true, peerId: peerId
@@ -860,20 +851,25 @@
     async function autoJoinRoom() {
         if (isInRoom) return;
         if (!peer) await initPeer();
-        if (!localStream) await startLocalCamera();
-        if (!localStream) return;
+        if (!localStream) {
+            await startLocalCamera();
+        }
+        if (!localStream) {
+            console.log('Нет локального видеопотока');
+            return;
+        }
         
         isInRoom = true;
         const roomRef = webrtcSignalingRef.child(ROOM_ID);
         const peersRef = roomRef.child('peers');
         
         // Регистрируем себя
-        await peersRef.child(peer.id).set(true);
+        await peersRef.child(myPeerId).set(true);
         
         // Слушаем новых участников
         peersRef.on('child_added', async (snapshot) => {
             const remotePeerId = snapshot.key;
-            if (remotePeerId !== peer.id && !remoteVideos.has(remotePeerId)) {
+            if (remotePeerId !== myPeerId && !remoteVideos.has(remotePeerId)) {
                 console.log('Новый участник:', remotePeerId);
                 const call = peer.call(remotePeerId, localStream);
                 call.on('stream', (remoteStream) => {
@@ -899,7 +895,7 @@
         const snapshot = await peersRef.once('value');
         snapshot.forEach((childSnapshot) => {
             const remotePeerId = childSnapshot.key;
-            if (remotePeerId !== peer.id && !remoteVideos.has(remotePeerId)) {
+            if (remotePeerId !== myPeerId && !remoteVideos.has(remotePeerId)) {
                 setTimeout(() => {
                     const call = peer.call(remotePeerId, localStream);
                     call.on('stream', (remoteStream) => {
@@ -910,12 +906,12 @@
             }
         });
         
-        document.getElementById('status').textContent = '✅ Видеочат активен';
+        document.getElementById('status').textContent = '✅ Видеочат активен, участников: ' + (remoteVideos.size + 1);
     }
     
     function leaveRoom() {
         if (!isInRoom) return;
-        webrtcSignalingRef.child(ROOM_ID).child('peers').child(peer.id).remove();
+        webrtcSignalingRef.child(ROOM_ID).child('peers').child(myPeerId).remove();
         isInRoom = false;
         for (let [peerId, data] of remoteVideos) {
             if (data.elementId) camerasRef.child(data.elementId).remove();
@@ -924,10 +920,15 @@
         document.getElementById('status').textContent = '✅ Видеочат отключён';
     }
     
-    // Синхронизация звука
+    // Синхронизация звука через Firebase
     function playSoundSync(soundId) {
         if (!soundId || !sounds[soundId]) return;
-        syncSoundRef.set({ soundId: soundId, action: 'play', timestamp: Date.now(), volume: sounds[soundId].volume || 100 });
+        syncSoundRef.set({
+            soundId: soundId,
+            action: 'play',
+            timestamp: Date.now(),
+            volume: sounds[soundId].volume || 100
+        });
     }
     
     function pauseSoundSync() {
@@ -942,8 +943,18 @@
             audioElement.volume = (data.volume || 100) / 100;
             audioElement.currentTime = 0;
             audioElement.play();
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                if (audioElement.paused || audioElement.ended) {
+                    if (audioElement.ended) document.getElementById('sound-progress').style.width = '0%';
+                } else {
+                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
+                    document.getElementById('sound-progress').style.width = percent + '%';
+                }
+            }, 100);
         } else if (data.action === 'pause') {
             audioElement.pause();
+            if (progressInterval) clearInterval(progressInterval);
         }
     });
     
@@ -1051,7 +1062,7 @@
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('camera') || el.id.startsWith('remote_')) selectCamera(el.id);
+            else if (el.id.startsWith('camera') || el.id.startsWith('remote_') || el.id === 'my_camera') selectCamera(el.id);
             isDragging = true;
             dragElement = el;
             dragStartX = e.clientX;
@@ -1068,7 +1079,7 @@
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('camera') || el.id.startsWith('remote_')) selectCamera(el.id);
+            else if (el.id.startsWith('camera') || el.id.startsWith('remote_') || el.id === 'my_camera') selectCamera(el.id);
             isDragging = true;
             dragElement = el;
             const touch = e.touches[0];
@@ -1192,7 +1203,7 @@
         else if (type === 'text') textsRef.child(id).remove();
         else if (type === 'widget') widgetsRef.child(id).remove();
         else if (type === 'sound') soundsRef.child(id).remove();
-        else if (type === 'camera') camerasRef.child(id).remove();
+        else if (type === 'camera') { camerasRef.child(id).remove(); }
         if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedCameraId === id) deselectAll();
     }
     
@@ -1349,19 +1360,30 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-camera';
-                el.innerHTML = `<video autoplay playsinline muted style="width:100%; height:100%; object-fit: cover;"></video><div class="camera-placeholder" style="display:none;">📷 Камера</div>`;
+                el.innerHTML = `<video autoplay playsinline muted style="width:100%; height:100%; object-fit: cover;"></video>`;
                 document.getElementById('cameras-layer').appendChild(el);
                 addResizeHandles(el);
                 makeDraggable(el);
                 
+                // Если это локальная камера и есть поток
+                if (id === 'my_camera' && localStream) {
+                    setTimeout(() => {
+                        const videoEl = el.querySelector('video');
+                        if (videoEl && localStream) {
+                            videoEl.srcObject = localStream;
+                            videoEl.play();
+                            videoEl.style.transform = 'scaleX(-1)';
+                        }
+                    }, 100);
+                }
                 // Если это удалённая камера
-                if (data.isRemote && data.peerId && remoteVideos.has(data.peerId)) {
+                else if (data.isRemote && data.peerId && remoteVideos.has(data.peerId)) {
                     setTimeout(() => {
                         const videoEl = el.querySelector('video');
                         const stream = remoteVideos.get(data.peerId).stream;
                         if (videoEl && stream) {
                             videoEl.srcObject = stream;
-                            videoEl.play().catch(e => console.log(e));
+                            videoEl.play();
                         }
                     }, 100);
                 }
@@ -1423,7 +1445,6 @@
         }
     }
     
-    // Кнопки
     document.getElementById('add-text-btn').onclick = () => {
         document.getElementById('text-input-area').value = '';
         document.getElementById('font-size-slider').value = 24;
@@ -1472,6 +1493,15 @@
             document.getElementById(tab.dataset.tab + '-widget-content').classList.add('active');
         };
     });
+    
+    document.getElementById('start-camera-btn').onclick = async () => {
+        await startLocalCamera();
+        await autoJoinRoom();
+    };
+    document.getElementById('stop-camera-btn').onclick = () => {
+        stopLocalCamera();
+        leaveRoom();
+    };
     
     document.getElementById('file-input').onchange = e => {
         let f = e.target.files[0];
@@ -1660,14 +1690,14 @@
     // Автоматический запуск видеочата при загрузке страницы
     async function initVideoChat() {
         await initPeer();
-        await startLocalCamera();
-        await autoJoinRoom();
+        // Не запускаем камеру автоматически, ждём нажатия кнопки
+        document.getElementById('status').textContent = '✅ Нажмите "Включить камеру" для начала видеочата';
     }
     
     // Закрытие соединения при уходе со страницы
     window.addEventListener('beforeunload', () => {
         if (peer && isInRoom) {
-            webrtcSignalingRef.child(ROOM_ID).child('peers').child(peer.id).remove();
+            webrtcSignalingRef.child(ROOM_ID).child('peers').child(myPeerId).remove();
         }
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
@@ -1678,7 +1708,6 @@
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
     setTimeout(() => syncElements(), 100);
     
-    // Запускаем видеочат автоматически
     initVideoChat();
 </script>
 </body>

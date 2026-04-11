@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Трансляция камеры (Firebase)</title>
+    <title>Прозрачный холст - Трансляция камеры</title>
     <style>
         * {
             margin: 0;
@@ -264,7 +264,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
         
-        .draggable-camera video, .draggable-camera img {
+        .draggable-camera video {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -531,8 +531,8 @@
         <button id="add-text-btn">📝 Текст</button>
         <button id="add-sound-btn">🔊 Звук</button>
         <button id="add-widget-btn">🧩 Виджет</button>
-        <button id="start-camera-btn" style="background:#4caf50;">📷 Включить камеру (трансляция)</button>
-        <button id="stop-camera-btn" style="background:#f44336;">⏹ Выключить камеру</button>
+        <button id="start-broadcast-btn" style="background:#4caf50;">📡 Начать трансляцию</button>
+        <button id="stop-broadcast-btn" style="background:#f44336;">⏹ Остановить трансляцию</button>
         <button id="clear-btn">🗑 Очистить</button>
         <div id="status">✅ Готово</div>
     </div>
@@ -641,6 +641,8 @@
 <input type="file" id="sound-input" accept="audio/*">
 <audio id="audio-element"></audio>
 
+<!-- PeerJS для WebRTC -->
+<script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
 
@@ -664,15 +666,46 @@
     const camerasRef = db.ref('cameras');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
-    const videoStreamRef = db.ref('videoStream');
+    const broadcastRef = db.ref('broadcast');
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, cameras = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null, selectedCameraId = null;
     let canvasRect = { width: 0, height: 0 };
     
+    // PeerJS для WebRTC
+    let peer = null;
     let localStream = null;
-    let captureInterval = null;
+    let myPeerId = null;
     let isBroadcasting = false;
+    let activeCalls = new Map();
+    
+    // Drag state
+    let dragElement = null;
+    let dragStartX = 0, dragStartY = 0;
+    let dragStartLeft = 0, dragStartTop = 0;
+    let isDragging = false;
+    
+    // Resize state
+    let resizeElement = null;
+    let resizeDir = null;
+    let resizeStartX = 0, resizeStartY = 0;
+    let resizeStartW = 0, resizeStartH = 0;
+    let resizeStartL = 0, resizeStartT = 0;
+    let isResizing = false;
+    
+    // Crop state
+    let isCropMode = false;
+    let cropOverlay = null;
+    let cropElement = null;
+    let cropType = null;
+    let cropStartW = 0, cropStartH = 0, cropStartL = 0, cropStartT = 0;
+    
+    let mouseDown = false;
+    let audioElement = document.getElementById('audio-element');
+    let progressInterval = null;
+    
+    // Флаг для отслеживания, подключались ли мы к трансляции
+    let hasConnectedToBroadcast = false;
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -694,18 +727,57 @@
         el.style.transform = transform.trim();
     }
     
-    // Захват кадра с камеры и отправка в Firebase
-    async function startCameraBroadcast() {
+    // === WebRTC функции ===
+    async function initPeer() {
+        if (peer) return peer;
+        
+        return new Promise((resolve) => {
+            peer = new Peer({
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                    ]
+                }
+            });
+            
+            peer.on('open', (id) => {
+                myPeerId = id;
+                console.log('Peer ID:', id);
+                document.getElementById('status').textContent = '✅ Peer: ' + id.substring(0, 8);
+                resolve(peer);
+            });
+            
+            peer.on('call', async (call) => {
+                console.log('Входящий звонок от:', call.peer);
+                if (localStream) {
+                    call.answer(localStream);
+                    activeCalls.set(call.peer, call);
+                }
+            });
+            
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+            });
+        });
+    }
+    
+    async function startBroadcast() {
         try {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             
-            // Показываем локальное видео у себя
+            // Показываем локальное видео (только у вещателя)
             let localCameraId = 'my_camera';
             camerasRef.child(localCameraId).set({
                 id: localCameraId,
-                name: '📷 Моя камера',
+                name: '📡 Моя камера',
                 x: 50, y: 50, width: 320, height: 240,
-                opacity: 1, locked: false, display: 'block'
+                opacity: 1, locked: false, display: 'block',
+                isLocal: true
             });
             
             setTimeout(() => {
@@ -717,31 +789,15 @@
                 }
             }, 100);
             
-            // Создаём video элемент для захвата кадров
-            const video = document.createElement('video');
-            video.srcObject = localStream;
-            video.play();
-            
-            // Отправляем кадры в Firebase каждые 200 мс
-            captureInterval = setInterval(() => {
-                if (!isBroadcasting) return;
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth || 320;
-                canvas.height = video.videoHeight || 240;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const frameData = canvas.toDataURL('image/jpeg', 0.5);
-                
-                videoStreamRef.set({
-                    frame: frameData,
-                    timestamp: Date.now(),
-                    active: true
-                });
-            }, 200);
+            // Сохраняем информацию о трансляции
+            await broadcastRef.set({
+                isActive: true,
+                broadcasterId: myPeerId,
+                startedAt: Date.now()
+            });
             
             isBroadcasting = true;
-            document.getElementById('status').textContent = '✅ Трансляция камеры активна';
+            document.getElementById('status').textContent = '✅ Трансляция активна, зрители подключаются...';
             
         } catch (err) {
             console.error('Ошибка:', err);
@@ -749,64 +805,66 @@
         }
     }
     
-    function stopCameraBroadcast() {
-        if (captureInterval) {
-            clearInterval(captureInterval);
-            captureInterval = null;
-        }
-        
+    async function stopBroadcast() {
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
         
-        videoStreamRef.set({ active: false });
-        
         if (cameras['my_camera']) {
             camerasRef.child('my_camera').remove();
         }
+        
+        for (let [peerId, call] of activeCalls) {
+            try { call.close(); } catch(e) {}
+        }
+        activeCalls.clear();
+        
+        await broadcastRef.set({ isActive: false });
         
         isBroadcasting = false;
         document.getElementById('status').textContent = '✅ Трансляция остановлена';
     }
     
-    // Слушаем трансляцию от других пользователей
-    videoStreamRef.on('value', (snapshot) => {
-        const data = snapshot.val();
+    async function connectToBroadcast(broadcasterId) {
+        if (!peer) await initPeer();
+        if (!broadcasterId || broadcasterId === myPeerId) return;
+        if (activeCalls.has(broadcasterId)) return;
         
-        if (data && data.active && data.frame) {
-            // Обновляем или создаём виджет с трансляцией
-            let broadcastId = 'broadcast_stream';
-            
-            if (!cameras[broadcastId]) {
-                camerasRef.child(broadcastId).set({
-                    id: broadcastId,
-                    name: '📺 Трансляция',
-                    x: 100, y: 100, width: 640, height: 480,
-                    opacity: 1, locked: false, display: 'block',
-                    isRemoteStream: true
-                });
-            }
-            
-            // Обновляем изображение в виджете
-            setTimeout(() => {
-                const imgEl = document.querySelector(`#${broadcastId} img`);
-                if (imgEl) {
-                    imgEl.src = data.frame;
-                }
-            }, 50);
-            
-            document.getElementById('status').textContent = '✅ Получение трансляции...';
-        } else if (!data || !data.active) {
-            // Трансляция остановлена, удаляем виджет
-            if (cameras['broadcast_stream']) {
-                camerasRef.child('broadcast_stream').remove();
-            }
-            if (!isBroadcasting) {
-                document.getElementById('status').textContent = '✅ Готово';
-            }
+        console.log('Подключаемся к вещателю:', broadcasterId);
+        
+        try {
+            const call = peer.call(broadcasterId, null);
+            call.on('stream', (remoteStream) => {
+                console.log('Получен поток от вещателя');
+                addRemoteVideo(broadcasterId, remoteStream);
+            });
+            call.on('error', (err) => console.error('Call error:', err));
+            activeCalls.set(broadcasterId, call);
+        } catch(e) {
+            console.error('Ошибка подключения:', e);
         }
-    });
+    }
+    
+    function addRemoteVideo(peerId, stream) {
+        let remoteCameraId = 'broadcast_' + peerId.replace(/[^a-zA-Z0-9]/g, '_');
+        
+        camerasRef.child(remoteCameraId).set({
+            id: remoteCameraId,
+            name: '📺 Трансляция',
+            x: 100, y: 100, width: 640, height: 480,
+            opacity: 1, locked: false, display: 'block',
+            isRemote: true
+        });
+        
+        setTimeout(() => {
+            const videoEl = document.querySelector(`#${remoteCameraId} video`);
+            if (videoEl && stream) {
+                videoEl.srcObject = stream;
+                videoEl.play().catch(e => console.log(e));
+            }
+        }, 200);
+    }
     
     // Синхронизация звука
     function playSoundSync(soundId) {
@@ -827,37 +885,49 @@
         const data = snapshot.val();
         if (!data) return;
         if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
-            let audio = document.getElementById('audio-element');
-            audio.src = sounds[data.soundId].src;
-            audio.volume = (data.volume || 100) / 100;
-            audio.currentTime = 0;
-            audio.play();
+            audioElement.src = sounds[data.soundId].src;
+            audioElement.volume = (data.volume || 100) / 100;
+            audioElement.currentTime = 0;
+            audioElement.play();
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                if (audioElement.paused || audioElement.ended) {
+                    if (audioElement.ended) document.getElementById('sound-progress').style.width = '0%';
+                } else {
+                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
+                    document.getElementById('sound-progress').style.width = percent + '%';
+                }
+            }, 100);
         } else if (data.action === 'pause') {
-            document.getElementById('audio-element').pause();
+            audioElement.pause();
+            if (progressInterval) clearInterval(progressInterval);
+        }
+    });
+    
+    // Слушаем активную трансляцию
+    broadcastRef.on('value', async (snapshot) => {
+        const data = snapshot.val();
+        console.log('Broadcast data:', data);
+        
+        if (data && data.isActive && data.broadcasterId && data.broadcasterId !== myPeerId) {
+            console.log('Активная трансляция найдена, подключаемся...');
+            setTimeout(() => connectToBroadcast(data.broadcasterId), 1000);
+        } else if (!data || !data.isActive) {
+            // Трансляция остановлена, удаляем удалённые видео
+            for (let id in cameras) {
+                if (cameras[id] && cameras[id].isRemote) {
+                    camerasRef.child(id).remove();
+                }
+            }
+            activeCalls.clear();
         }
     });
     
     // Обработчики мыши
-    let dragElement = null;
-    let dragStartX = 0, dragStartY = 0;
-    let dragStartLeft = 0, dragStartTop = 0;
-    let isDragging = false;
-    let resizeElement = null;
-    let resizeDir = null;
-    let resizeStartX = 0, resizeStartY = 0;
-    let resizeStartW = 0, resizeStartH = 0;
-    let resizeStartL = 0, resizeStartT = 0;
-    let isResizing = false;
-    let isCropMode = false;
-    let cropOverlay = null;
-    let cropElement = null;
-    let cropType = null;
-    let cropStartW = 0, cropStartH = 0;
-    let mouseDown = false;
-    
     document.addEventListener('mousemove', (e) => {
         if (!mouseDown) return;
         if (isDragging && dragElement) {
+            e.preventDefault();
             let newLeft = dragStartLeft + (e.clientX - dragStartX);
             let newTop = dragStartTop + (e.clientY - dragStartY);
             newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
@@ -871,6 +941,7 @@
             else if (cameras[id]) camerasRef.child(id).update({ x: newLeft, y: newTop });
         }
         if ((isResizing || isCropMode) && resizeElement) {
+            e.preventDefault();
             let dx = e.clientX - resizeStartX;
             let dy = e.clientY - resizeStartY;
             if (isCropMode && cropOverlay) {
@@ -913,6 +984,32 @@
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
             else if (cameras[id]) camerasRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
+        isDragging = false;
+        isResizing = false;
+        dragElement = null;
+        resizeElement = null;
+    });
+    
+    document.addEventListener('touchmove', (e) => {
+        if (!mouseDown) return;
+        if (isDragging && dragElement) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            let newLeft = dragStartLeft + (touch.clientX - dragStartX);
+            let newTop = dragStartTop + (touch.clientY - dragStartY);
+            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
+            dragElement.style.left = newLeft + 'px';
+            dragElement.style.top = newTop + 'px';
+            const id = dragElement.id;
+            if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
+            else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
+            else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
+            else if (cameras[id]) camerasRef.child(id).update({ x: newLeft, y: newTop });
+        }
+    });
+    document.addEventListener('touchend', () => {
+        mouseDown = false;
         isDragging = false;
         isResizing = false;
         dragElement = null;
@@ -980,7 +1077,25 @@
                 if (isCropMode && cropOverlay) {
                     cropStartW = resizeStartW;
                     cropStartH = resizeStartH;
+                    cropStartL = resizeStartL;
+                    cropStartT = resizeStartT;
                 }
+            });
+            handle.addEventListener('touchstart', (e) => {
+                if (el.classList.contains('locked')) return;
+                e.stopPropagation();
+                e.preventDefault();
+                mouseDown = true;
+                isResizing = true;
+                resizeElement = el;
+                resizeDir = dir;
+                const touch = e.touches[0];
+                resizeStartX = touch.clientX;
+                resizeStartY = touch.clientY;
+                resizeStartW = el.offsetWidth;
+                resizeStartH = el.offsetHeight;
+                resizeStartL = parseFloat(el.style.left) || 0;
+                resizeStartT = parseFloat(el.style.top) || 0;
             });
             el.appendChild(handle);
         });
@@ -1210,11 +1325,7 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-camera';
-                if (data.isRemoteStream) {
-                    el.innerHTML = `<img style="width:100%; height:100%; object-fit: cover;">`;
-                } else {
-                    el.innerHTML = `<video autoplay playsinline muted style="width:100%; height:100%; object-fit: cover;"></video>`;
-                }
+                el.innerHTML = `<video autoplay playsinline muted style="width:100%; height:100%; object-fit: cover;"></video>`;
                 document.getElementById('cameras-layer').appendChild(el);
                 addResizeHandles(el);
                 makeDraggable(el);
@@ -1336,11 +1447,12 @@
         };
     });
     
-    document.getElementById('start-camera-btn').onclick = () => {
-        startCameraBroadcast();
+    document.getElementById('start-broadcast-btn').onclick = async () => {
+        await initPeer();
+        await startBroadcast();
     };
-    document.getElementById('stop-camera-btn').onclick = () => {
-        stopCameraBroadcast();
+    document.getElementById('stop-broadcast-btn').onclick = () => {
+        stopBroadcast();
     };
     
     document.getElementById('file-input').onchange = e => {
@@ -1526,6 +1638,9 @@
     };
     document.getElementById('edit-text-btn').onclick = () => { if(selectedTextId) editText(selectedTextId); };
     document.getElementById('add-sound-btn').onclick = () => document.getElementById('sound-input').click();
+    
+    // Инициализация Peer
+    initPeer();
     
     updateCanvasSize();
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });

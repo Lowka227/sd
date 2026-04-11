@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Прозрачный холст - Текст без фона</title>
+    <title>Прозрачный холст - Рабочая версия</title>
     <style>
         * {
             margin: 0;
@@ -121,16 +121,13 @@
         .draggable-image:active, .draggable-text:active, .draggable-widget:active { cursor: grabbing; }
         .draggable-image { overflow: hidden; background: transparent; }
         .draggable-image img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-        
-        /* Текст без фона - полностью прозрачный */
         .draggable-text {
-            background: transparent !important;
-            padding: 4px 8px;
-            border: none !important;
+            background: rgba(255,255,200,0.95);
+            padding: 5px 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
             white-space: pre-wrap;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
         }
-        
         .draggable-widget {
             background: white;
             border-radius: 8px;
@@ -267,9 +264,9 @@
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
 <div id="text-modal" class="modal">
-    <div class="modal-header"><h3>Текст (без фона)</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
+    <div class="modal-header"><h3>Текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
     <textarea id="text-value" rows="3" placeholder="Введите текст"></textarea>
-    <select id="font-family"><option value="Arial">Arial</option><option value="'Comic Sans MS'">Comic Sans</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option></select>
+    <select id="font-family"><option value="Arial">Arial</option><option value="'Comic Sans MS'">Comic Sans</option><option value="Georgia">Georgia</option></select>
     <input type="range" id="font-size" min="12" max="72" value="24">
     <input type="color" id="text-color" value="#000000">
     <button id="apply-text">Применить</button>
@@ -335,8 +332,11 @@
     let selectedId = null, selectedType = null;
     let canvasSize = { w: 0, h: 0 };
     
+    // Drag state
     let dragEl = null, dragStartX = 0, dragStartY = 0, dragStartL = 0, dragStartT = 0, isDrag = false;
+    // Resize state
     let resizeEl = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0, resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0, isResize = false;
+    // Crop state
     let cropMode = false, cropOverlay = null, cropElement = null, cropType = null, cropStartW = 0, cropStartH = 0;
     let mouseDown = false;
     
@@ -348,9 +348,11 @@
         if (wrapper) { canvasSize.w = wrapper.clientWidth; canvasSize.h = wrapper.clientHeight; }
     }
     
+    // Глобальный обработчик движения
     document.addEventListener('mousemove', (e) => {
         if (!mouseDown) return;
         
+        // Drag
         if (isDrag && dragEl) {
             let newL = dragStartL + (e.clientX - dragStartX);
             let newT = dragStartT + (e.clientY - dragStartY);
@@ -364,6 +366,7 @@
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT });
         }
         
+        // Resize or Crop
         if ((isResize || cropMode) && resizeEl) {
             let dx = e.clientX - resizeStartX;
             let dy = e.clientY - resizeStartY;
@@ -637,9 +640,6 @@
             el.style.color = d.color;
             el.style.fontFamily = d.fontFamily;
             el.style.display = d.display === 'none' ? 'none' : 'block';
-            el.style.background = 'transparent';
-            el.style.border = 'none';
-            el.style.padding = '4px 8px';
             if (d.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -770,4 +770,83 @@
     document.getElementById('hide-text-btn').onclick = () => { if(selectedId) toggleVisibility(selectedId, 'text'); };
     document.getElementById('hide-widget-btn').onclick = () => { if(selectedId) toggleVisibility(selectedId, 'widget'); };
     document.getElementById('lock-img-btn').onclick = () => { if(selectedId && images[selectedId]) { let locked = !document.getElementById(selectedId).classList.contains('locked'); imagesRef.child(selectedId).update({ locked }); } };
-    document.getElementById('lock-text-btn').onclick = () => { if(selected
+    document.getElementById('lock-text-btn').onclick = () => { if(selectedId && texts[selectedId]) { let locked = !document.getElementById(selectedId).classList.contains('locked'); textsRef.child(selectedId).update({ locked }); } };
+    document.getElementById('lock-widget-btn').onclick = () => { if(selectedId && widgets[selectedId]) { let locked = !document.getElementById(selectedId).classList.contains('locked'); widgetsRef.child(selectedId).update({ locked }); } };
+    document.getElementById('flip-h-btn').onclick = () => { if(selectedId && images[selectedId]) { let el = document.getElementById(selectedId); let val = el.style.transform.includes('scaleX(-1)'); el.style.transform = val ? el.style.transform.replace('scaleX(-1)', '') : (el.style.transform + ' scaleX(-1)'); imagesRef.child(selectedId).update({ flipHorizontal: !val }); } };
+    document.getElementById('flip-v-btn').onclick = () => { if(selectedId && images[selectedId]) { let el = document.getElementById(selectedId); let val = el.style.transform.includes('scaleY(-1)'); el.style.transform = val ? el.style.transform.replace('scaleY(-1)', '') : (el.style.transform + ' scaleY(-1)'); imagesRef.child(selectedId).update({ flipVertical: !val }); } };
+    document.getElementById('opacity-btn').onclick = () => { if(selectedId && images[selectedId]) { document.getElementById('opacity-value').value = (images[selectedId].opacity || 1) * 100; document.getElementById('opacity-modal').style.display = 'block'; } };
+    document.getElementById('apply-opacity').onclick = () => { if(selectedId) { imagesRef.child(selectedId).update({ opacity: document.getElementById('opacity-value').value / 100 }); closeModal('opacity-modal'); } };
+    document.getElementById('reload-widget-btn').onclick = () => { if(selectedId && widgets[selectedId]) { let el = document.getElementById(selectedId); let iframe = el?.querySelector('iframe'); if(iframe) iframe.src = iframe.src; } };
+    document.getElementById('edit-url-btn').onclick = () => { if(selectedId && widgets[selectedId]) { let newUrl = prompt('Новый URL:', widgets[selectedId].url); if(newUrl) { let finalUrl = newUrl.startsWith('http') ? newUrl : 'https://' + newUrl; widgetsRef.child(selectedId).update({ url: finalUrl }); let el = document.getElementById(selectedId); if(el) { let iframe = el.querySelector('iframe'); if(iframe) iframe.src = finalUrl; } } } };
+    document.getElementById('widget-css-btn').onclick = () => { if(selectedId && widgets[selectedId]) { document.getElementById('css-editor').value = widgets[selectedId].customCss || ''; document.getElementById('css-modal').style.display = 'block'; } };
+    document.getElementById('apply-css').onclick = () => { if(selectedId) { let css = document.getElementById('css-editor').value; widgetsRef.child(selectedId).update({ customCss: css }); let el = document.getElementById(selectedId); if(el) { el.style.cssText = css + ';' + el.style.cssText; } closeModal('css-modal'); } };
+    document.getElementById('edit-text-btn').onclick = () => { if(selectedId && texts[selectedId]) openTextEditor(selectedId); };
+    document.getElementById('play-btn').onclick = () => { if(selectedId && sounds[selectedId]) { let a = document.getElementById('audio-player'); a.src = sounds[selectedId].src; a.volume = (sounds[selectedId].volume || 100) / 100; a.play(); } };
+    document.getElementById('pause-btn').onclick = () => document.getElementById('audio-player').pause();
+    document.getElementById('sound-volume').oninput = e => { if(selectedId) soundsRef.child(selectedId).update({ volume: e.target.value }); };
+    
+    // Crop handlers
+    document.getElementById('crop-img-btn').onclick = () => { if(selectedId && images[selectedId]) { cropType = 'image'; cropElement = document.getElementById(selectedId); document.getElementById('crop-modal').style.display = 'block'; } };
+    document.getElementById('crop-widget-btn').onclick = () => { if(selectedId && widgets[selectedId]) { cropType = 'widget'; cropElement = document.getElementById(selectedId); document.getElementById('crop-modal').style.display = 'block'; } };
+    document.getElementById('crop-start').onclick = () => {
+        if (cropElement) {
+            cropMode = true;
+            if (cropOverlay) cropOverlay.remove();
+            cropOverlay = document.createElement('div');
+            cropOverlay.className = 'crop-overlay';
+            let left = parseFloat(cropElement.style.left) || 0;
+            let top = parseFloat(cropElement.style.top) || 0;
+            let w = cropElement.offsetWidth;
+            let h = cropElement.offsetHeight;
+            cropOverlay.style.left = left + 'px';
+            cropOverlay.style.top = top + 'px';
+            cropOverlay.style.width = w + 'px';
+            cropOverlay.style.height = h + 'px';
+            cropElement.parentElement.appendChild(cropOverlay);
+            cropStartW = w; cropStartH = h;
+            alert('Тяните за уголок, затем нажмите "Применить"');
+        }
+        closeModal('crop-modal');
+    };
+    document.getElementById('crop-apply').onclick = () => {
+        if (cropOverlay && cropElement) {
+            let newW = parseFloat(cropOverlay.style.width);
+            let newH = parseFloat(cropOverlay.style.height);
+            if (newW > 20 && newH > 20) {
+                if (cropType === 'image') {
+                    let img = cropElement.querySelector('img');
+                    let canvas = document.createElement('canvas');
+                    canvas.width = newW;
+                    canvas.height = newH;
+                    let ctx = canvas.getContext('2d');
+                    let tempImg = new Image();
+                    tempImg.onload = () => {
+                        ctx.drawImage(tempImg, 0, 0, newW, newH);
+                        imagesRef.child(cropElement.id).update({ src: canvas.toDataURL(), width: newW, height: newH });
+                        alert('Изображение обрезано');
+                    };
+                    tempImg.src = images[cropElement.id].src;
+                } else if (cropType === 'widget') {
+                    widgetsRef.child(cropElement.id).update({ width: newW, height: newH });
+                    alert('Виджет обрезан');
+                }
+            }
+            cropOverlay.remove();
+            cropOverlay = null;
+            cropMode = false;
+        }
+        closeModal('crop-modal');
+    };
+    document.getElementById('crop-cancel').onclick = () => {
+        if (cropOverlay) cropOverlay.remove();
+        cropOverlay = null;
+        cropMode = false;
+        closeModal('crop-modal');
+    };
+    
+    updateCanvasSize();
+    window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
+    setTimeout(syncElements, 100);
+</script>
+</body>
+</html>

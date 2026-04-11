@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Видеочат для всех</title>
+    <title>Прозрачный холст - Трансляция камеры</title>
     <style>
         * {
             margin: 0;
@@ -515,6 +515,19 @@
             border-radius: 4px;
         }
         
+        .broadcast-info {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: #ffd966;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            z-index: 20001;
+            font-family: monospace;
+        }
+        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
@@ -531,8 +544,8 @@
         <button id="add-text-btn">📝 Текст</button>
         <button id="add-sound-btn">🔊 Звук</button>
         <button id="add-widget-btn">🧩 Виджет</button>
-        <button id="start-camera-btn">📷 Включить камеру</button>
-        <button id="stop-camera-btn" style="background:#f44336;">⏹ Выключить камеру</button>
+        <button id="start-broadcast-btn" style="background:#4caf50;">📡 Начать трансляцию камеры</button>
+        <button id="stop-broadcast-btn" style="background:#f44336;">⏹ Остановить трансляцию</button>
         <button id="clear-btn">🗑 Очистить</button>
         <div id="status">✅ Готово</div>
     </div>
@@ -547,6 +560,7 @@
     <div id="camera-controls"><span class="panel-title">📷</span><button id="hide-camera-btn">👁 Скрыть</button><button id="del-camera-btn">🗑 Удалить</button><button id="lock-camera-btn">🔒 Закрепить</button><button id="camera-opacity-btn">🎨 Прозрачность</button><button id="crop-camera-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div><div id="cameras-layer"></div></div></div>
+<div class="broadcast-info" id="broadcast-info">📡 Трансляция не активна</div>
 
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
@@ -666,10 +680,7 @@
     const camerasRef = db.ref('cameras');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
-    const webrtcSignalingRef = db.ref('webrtcSignaling');
-    
-    // ФИКСИРОВАННЫЙ ID КОМНАТЫ - все пользователи подключаются автоматически
-    const ROOM_ID = 'global_video_room_2024';
+    const broadcastRef = db.ref('broadcast'); // Для хранения информации о трансляции
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, cameras = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null, selectedCameraId = null;
@@ -678,9 +689,9 @@
     // PeerJS для WebRTC
     let peer = null;
     let localStream = null;
-    let remoteVideos = new Map(); // userId -> { elementId, call }
-    let isInRoom = false;
     let myPeerId = null;
+    let isBroadcasting = false;
+    let activeCalls = new Map(); // peerId -> call
     
     // Drag state
     let dragElement = null;
@@ -727,7 +738,7 @@
         el.style.transform = transform.trim();
     }
     
-    // === WebRTC функции ===
+    // === WebRTC функции для трансляции ===
     async function initPeer() {
         if (peer) return peer;
         
@@ -753,9 +764,7 @@
                 console.log('Входящий звонок от:', call.peer);
                 if (localStream) {
                     call.answer(localStream);
-                    call.on('stream', (remoteStream) => {
-                        addRemoteVideo(call.peer, remoteStream);
-                    });
+                    activeCalls.set(call.peer, call);
                 }
             });
             
@@ -765,160 +774,145 @@
         });
     }
     
-    async function startLocalCamera() {
+    async function startBroadcast() {
         try {
+            // Получаем доступ к камере
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
             }
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             
-            // Показываем локальное видео как виджет на холсте (только для себя)
-            let localCameraId = 'my_camera';
-            
-            // Удаляем старую если есть
-            if (cameras[localCameraId]) {
-                camerasRef.child(localCameraId).remove();
-            }
-            
+            // Показываем локальное видео (для вещателя)
+            let localCameraId = 'broadcaster_camera';
             camerasRef.child(localCameraId).set({
                 id: localCameraId,
-                name: 'Моя камера',
+                name: '📡 Трансляция (ведущий)',
                 x: 50, y: 50, width: 320, height: 240,
                 opacity: 1, locked: false, display: 'block',
-                isLocal: true
+                isBroadcast: true
             });
             
-            // Обновляем видео элемент для локальной камеры
             setTimeout(() => {
                 const videoEl = document.querySelector(`#${localCameraId} video`);
                 if (videoEl && localStream) {
                     videoEl.srcObject = localStream;
                     videoEl.play();
-                    videoEl.style.transform = 'scaleX(-1)'; // зеркало для локальной камеры
+                    videoEl.style.transform = 'scaleX(-1)';
                 }
             }, 100);
             
-            return true;
+            // Сохраняем информацию о трансляции в Firebase
+            await broadcastRef.set({
+                isActive: true,
+                broadcasterId: myPeerId,
+                startedAt: Date.now()
+            });
+            
+            isBroadcasting = true;
+            document.getElementById('broadcast-info').innerHTML = '📡 Трансляция активна (вы ведущий)';
+            document.getElementById('status').textContent = '✅ Трансляция идёт, зрители подключаются...';
+            
+            // Оповещаем всех через Firebase, что нужно подключиться
+            await broadcastRef.child('signal').set({ type: 'new_broadcast', peerId: myPeerId, timestamp: Date.now() });
+            
         } catch (err) {
-            console.error('Ошибка доступа к камере:', err);
+            console.error('Ошибка:', err);
             alert('Не удалось получить доступ к камере: ' + err.message);
-            return false;
         }
     }
     
-    function stopLocalCamera() {
+    async function stopBroadcast() {
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
         
-        // Удаляем виджет локальной камеры
-        if (cameras['my_camera']) {
-            camerasRef.child('my_camera').remove();
+        // Удаляем виджет камеры вещателя
+        if (cameras['broadcaster_camera']) {
+            camerasRef.child('broadcaster_camera').remove();
         }
         
-        document.getElementById('status').textContent = '✅ Камера выключена';
+        // Закрываем все активные звонки
+        for (let [peerId, call] of activeCalls) {
+            try { call.close(); } catch(e) {}
+        }
+        activeCalls.clear();
+        
+        // Обновляем Firebase
+        await broadcastRef.set({ isActive: false });
+        await broadcastRef.child('signal').set({ type: 'broadcast_stopped', timestamp: Date.now() });
+        
+        isBroadcasting = false;
+        document.getElementById('broadcast-info').innerHTML = '📡 Трансляция не активна';
+        document.getElementById('status').textContent = '✅ Трансляция остановлена';
+    }
+    
+    // Функция для зрителей - подключение к трансляции
+    async function connectToBroadcast(broadcasterId) {
+        if (!peer) await initPeer();
+        if (!broadcasterId || broadcasterId === myPeerId) return;
+        
+        // Проверяем, не подключены ли уже
+        if (activeCalls.has(broadcasterId)) return;
+        
+        console.log('Подключаемся к вещателю:', broadcasterId);
+        const call = peer.call(broadcasterId, null); // зритель не отправляет своё видео
+        call.on('stream', (remoteStream) => {
+            console.log('Получен поток от вещателя');
+            addRemoteVideo(broadcasterId, remoteStream);
+        });
+        call.on('error', (err) => console.error('Call error:', err));
+        activeCalls.set(broadcasterId, call);
     }
     
     function addRemoteVideo(peerId, stream) {
-        if (remoteVideos.has(peerId)) return;
-        
-        // Создаём виджет для удалённого видео на холсте
-        let remoteCameraId = 'remote_' + peerId.replace(/[^a-zA-Z0-9]/g, '_');
+        let remoteCameraId = 'broadcast_view_' + peerId.replace(/[^a-zA-Z0-9]/g, '_');
         
         camerasRef.child(remoteCameraId).set({
             id: remoteCameraId,
-            name: 'Участник ' + peerId.substring(0, 6),
-            x: 100 + remoteVideos.size * 30, 
-            y: 100 + remoteVideos.size * 30, 
-            width: 320, height: 240,
+            name: '📺 Трансляция',
+            x: 100, y: 100, width: 640, height: 480,
             opacity: 1, locked: false, display: 'block',
-            isRemote: true, peerId: peerId
+            isRemoteBroadcast: true
         });
         
-        remoteVideos.set(peerId, { elementId: remoteCameraId, stream: stream });
-        
-        // Привязываем поток к видео элементу
         setTimeout(() => {
             const videoEl = document.querySelector(`#${remoteCameraId} video`);
             if (videoEl && stream) {
                 videoEl.srcObject = stream;
-                videoEl.play().catch(e => console.log('play error', e));
+                videoEl.play();
             }
         }, 200);
     }
     
-    async function autoJoinRoom() {
-        if (isInRoom) return;
-        if (!peer) await initPeer();
-        if (!localStream) {
-            await startLocalCamera();
-        }
-        if (!localStream) {
-            console.log('Нет локального видеопотока');
-            return;
-        }
+    // Слушаем изменения в Firebase для автоматического подключения зрителей
+    broadcastRef.child('signal').on('value', async (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
         
-        isInRoom = true;
-        const roomRef = webrtcSignalingRef.child(ROOM_ID);
-        const peersRef = roomRef.child('peers');
-        
-        // Регистрируем себя
-        await peersRef.child(myPeerId).set(true);
-        
-        // Слушаем новых участников
-        peersRef.on('child_added', async (snapshot) => {
-            const remotePeerId = snapshot.key;
-            if (remotePeerId !== myPeerId && !remoteVideos.has(remotePeerId)) {
-                console.log('Новый участник:', remotePeerId);
-                const call = peer.call(remotePeerId, localStream);
-                call.on('stream', (remoteStream) => {
-                    addRemoteVideo(remotePeerId, remoteStream);
-                });
-                remoteVideos.set(remotePeerId, { call: call });
-            }
-        });
-        
-        // Слушаем уход участников
-        peersRef.on('child_removed', (snapshot) => {
-            const remotePeerId = snapshot.key;
-            if (remoteVideos.has(remotePeerId)) {
-                const data = remoteVideos.get(remotePeerId);
-                if (data.elementId) {
-                    camerasRef.child(data.elementId).remove();
+        if (data.type === 'new_broadcast' && data.peerId && data.peerId !== myPeerId) {
+            console.log('Обнаружена новая трансляция, подключаемся...');
+            setTimeout(() => connectToBroadcast(data.peerId), 1000);
+        } else if (data.type === 'broadcast_stopped') {
+            // Удаляем видео трансляции
+            for (let id in cameras) {
+                if (cameras[id] && cameras[id].isRemoteBroadcast) {
+                    camerasRef.child(id).remove();
                 }
-                remoteVideos.delete(remotePeerId);
             }
-        });
-        
-        // Звоним уже существующим участникам
-        const snapshot = await peersRef.once('value');
-        snapshot.forEach((childSnapshot) => {
-            const remotePeerId = childSnapshot.key;
-            if (remotePeerId !== myPeerId && !remoteVideos.has(remotePeerId)) {
-                setTimeout(() => {
-                    const call = peer.call(remotePeerId, localStream);
-                    call.on('stream', (remoteStream) => {
-                        addRemoteVideo(remotePeerId, remoteStream);
-                    });
-                    remoteVideos.set(remotePeerId, { call: call });
-                }, 500);
-            }
-        });
-        
-        document.getElementById('status').textContent = '✅ Видеочат активен, участников: ' + (remoteVideos.size + 1);
-    }
-    
-    function leaveRoom() {
-        if (!isInRoom) return;
-        webrtcSignalingRef.child(ROOM_ID).child('peers').child(myPeerId).remove();
-        isInRoom = false;
-        for (let [peerId, data] of remoteVideos) {
-            if (data.elementId) camerasRef.child(data.elementId).remove();
+            activeCalls.clear();
+            document.getElementById('broadcast-info').innerHTML = '📡 Трансляция завершена';
         }
-        remoteVideos.clear();
-        document.getElementById('status').textContent = '✅ Видеочат отключён';
-    }
+    });
+    
+    // Проверяем активную трансляцию при загрузке
+    broadcastRef.once('value', async (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.isActive && data.broadcasterId && data.broadcasterId !== myPeerId) {
+            console.log('Активная трансляция найдена, подключаемся...');
+            setTimeout(() => connectToBroadcast(data.broadcasterId), 1500);
+        }
+    });
     
     // Синхронизация звука через Firebase
     function playSoundSync(soundId) {
@@ -1062,7 +1056,7 @@
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('camera') || el.id.startsWith('remote_') || el.id === 'my_camera') selectCamera(el.id);
+            else if (el.id.startsWith('camera')) selectCamera(el.id);
             isDragging = true;
             dragElement = el;
             dragStartX = e.clientX;
@@ -1079,7 +1073,7 @@
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('camera') || el.id.startsWith('remote_') || el.id === 'my_camera') selectCamera(el.id);
+            else if (el.id.startsWith('camera')) selectCamera(el.id);
             isDragging = true;
             dragElement = el;
             const touch = e.touches[0];
@@ -1365,25 +1359,14 @@
                 addResizeHandles(el);
                 makeDraggable(el);
                 
-                // Если это локальная камера и есть поток
-                if (id === 'my_camera' && localStream) {
+                // Если это камера вещателя и есть поток
+                if (id === 'broadcaster_camera' && localStream) {
                     setTimeout(() => {
                         const videoEl = el.querySelector('video');
                         if (videoEl && localStream) {
                             videoEl.srcObject = localStream;
                             videoEl.play();
                             videoEl.style.transform = 'scaleX(-1)';
-                        }
-                    }, 100);
-                }
-                // Если это удалённая камера
-                else if (data.isRemote && data.peerId && remoteVideos.has(data.peerId)) {
-                    setTimeout(() => {
-                        const videoEl = el.querySelector('video');
-                        const stream = remoteVideos.get(data.peerId).stream;
-                        if (videoEl && stream) {
-                            videoEl.srcObject = stream;
-                            videoEl.play();
                         }
                     }, 100);
                 }
@@ -1494,13 +1477,12 @@
         };
     });
     
-    document.getElementById('start-camera-btn').onclick = async () => {
-        await startLocalCamera();
-        await autoJoinRoom();
+    document.getElementById('start-broadcast-btn').onclick = async () => {
+        await initPeer();
+        await startBroadcast();
     };
-    document.getElementById('stop-camera-btn').onclick = () => {
-        stopLocalCamera();
-        leaveRoom();
+    document.getElementById('stop-broadcast-btn').onclick = () => {
+        stopBroadcast();
     };
     
     document.getElementById('file-input').onchange = e => {
@@ -1687,28 +1669,12 @@
     document.getElementById('edit-text-btn').onclick = () => { if(selectedTextId) editText(selectedTextId); };
     document.getElementById('add-sound-btn').onclick = () => document.getElementById('sound-input').click();
     
-    // Автоматический запуск видеочата при загрузке страницы
-    async function initVideoChat() {
-        await initPeer();
-        // Не запускаем камеру автоматически, ждём нажатия кнопки
-        document.getElementById('status').textContent = '✅ Нажмите "Включить камеру" для начала видеочата';
-    }
-    
-    // Закрытие соединения при уходе со страницы
-    window.addEventListener('beforeunload', () => {
-        if (peer && isInRoom) {
-            webrtcSignalingRef.child(ROOM_ID).child('peers').child(myPeerId).remove();
-        }
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-    });
+    // Инициализация Peer
+    initPeer();
     
     updateCanvasSize();
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
     setTimeout(() => syncElements(), 100);
-    
-    initVideoChat();
 </script>
 </body>
 </html>

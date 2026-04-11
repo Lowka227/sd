@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Синхронный звук</title>
+    <title>Прозрачный холст - Текст без фона, синхронный звук</title>
     <style>
         * {
             margin: 0;
@@ -227,19 +227,13 @@
             display: block;
         }
         
+        /* Текст без фона - полностью прозрачный */
         .draggable-text {
-            background: rgba(255, 255, 240, 0.95);
-            padding: 6px 10px;
-            border: 1px solid rgba(0,0,0,0.15);
+            background: transparent !important;
+            padding: 4px 8px;
+            border: none !important;
             white-space: pre-wrap;
-            word-break: break-word;
-            min-width: 50px;
-            min-height: 40px;
-            cursor: grab;
-        }
-        
-        .draggable-text:active {
-            cursor: grabbing;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
         }
         
         .draggable-widget {
@@ -548,7 +542,7 @@
         <option value="Verdana, sans-serif">Verdana</option>
     </select>
     <input type="range" id="font-size-slider" min="12" max="72" value="24">
-    <input type="color" id="text-color-picker" value="#000000">
+    <input type="color" id="text-color-picker" value="#ffffff">
     <button id="apply-text-simple" style="margin-top:10px;">✅ Применить</button>
 </div>
 
@@ -676,7 +670,6 @@
     
     // Audio
     let audioElement = document.getElementById('audio-element');
-    let currentSoundId = null;
     let progressInterval = null;
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
@@ -727,7 +720,6 @@
             audioElement.volume = (data.volume || 100) / 100;
             audioElement.currentTime = 0;
             audioElement.play();
-            currentSoundId = data.soundId;
             
             if (progressInterval) clearInterval(progressInterval);
             progressInterval = setInterval(() => {
@@ -1127,6 +1119,10 @@
             el.style.color = data.color;
             el.style.fontFamily = data.fontFamily;
             el.style.display = data.display === 'none' ? 'none' : 'block';
+            el.style.background = 'transparent';
+            el.style.border = 'none';
+            el.style.padding = '4px 8px';
+            el.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)';
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -1211,7 +1207,7 @@
     document.getElementById('add-text-btn').onclick = () => {
         document.getElementById('text-input-area').value = '';
         document.getElementById('font-size-slider').value = 24;
-        document.getElementById('text-color-picker').value = '#000000';
+        document.getElementById('text-color-picker').value = '#ffffff';
         document.getElementById('text-modal').style.display = 'block';
         document.getElementById('apply-text-simple').onclick = () => {
             let txt = document.getElementById('text-input-area').value.trim();

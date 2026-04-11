@@ -515,19 +515,6 @@
             border-radius: 4px;
         }
         
-        .broadcast-info {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            color: #ffd966;
-            padding: 5px 10px;
-            border-radius: 8px;
-            font-size: 11px;
-            z-index: 20001;
-            font-family: monospace;
-        }
-        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
@@ -544,7 +531,7 @@
         <button id="add-text-btn">📝 Текст</button>
         <button id="add-sound-btn">🔊 Звук</button>
         <button id="add-widget-btn">🧩 Виджет</button>
-        <button id="start-broadcast-btn" style="background:#4caf50;">📡 Начать трансляцию камеры</button>
+        <button id="start-broadcast-btn" style="background:#4caf50;">📡 Начать трансляцию</button>
         <button id="stop-broadcast-btn" style="background:#f44336;">⏹ Остановить трансляцию</button>
         <button id="clear-btn">🗑 Очистить</button>
         <div id="status">✅ Готово</div>
@@ -560,7 +547,6 @@
     <div id="camera-controls"><span class="panel-title">📷</span><button id="hide-camera-btn">👁 Скрыть</button><button id="del-camera-btn">🗑 Удалить</button><button id="lock-camera-btn">🔒 Закрепить</button><button id="camera-opacity-btn">🎨 Прозрачность</button><button id="crop-camera-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div><div id="cameras-layer"></div></div></div>
-<div class="broadcast-info" id="broadcast-info">📡 Трансляция не активна</div>
 
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
@@ -680,7 +666,7 @@
     const camerasRef = db.ref('cameras');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
-    const broadcastRef = db.ref('broadcast'); // Для хранения информации о трансляции
+    const broadcastRef = db.ref('broadcast');
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, cameras = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null, selectedCameraId = null;
@@ -691,7 +677,7 @@
     let localStream = null;
     let myPeerId = null;
     let isBroadcasting = false;
-    let activeCalls = new Map(); // peerId -> call
+    let activeCalls = new Map();
     
     // Drag state
     let dragElement = null;
@@ -718,6 +704,9 @@
     let audioElement = document.getElementById('audio-element');
     let progressInterval = null;
     
+    // Флаг для отслеживания, подключались ли мы к трансляции
+    let hasConnectedToBroadcast = false;
+    
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     
@@ -738,7 +727,7 @@
         el.style.transform = transform.trim();
     }
     
-    // === WebRTC функции для трансляции ===
+    // === WebRTC функции ===
     async function initPeer() {
         if (peer) return peer;
         
@@ -776,20 +765,19 @@
     
     async function startBroadcast() {
         try {
-            // Получаем доступ к камере
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
             }
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             
-            // Показываем локальное видео (для вещателя)
-            let localCameraId = 'broadcaster_camera';
+            // Показываем локальное видео (только у вещателя)
+            let localCameraId = 'my_camera';
             camerasRef.child(localCameraId).set({
                 id: localCameraId,
-                name: '📡 Трансляция (ведущий)',
+                name: '📡 Моя камера',
                 x: 50, y: 50, width: 320, height: 240,
                 opacity: 1, locked: false, display: 'block',
-                isBroadcast: true
+                isLocal: true
             });
             
             setTimeout(() => {
@@ -801,7 +789,7 @@
                 }
             }, 100);
             
-            // Сохраняем информацию о трансляции в Firebase
+            // Сохраняем информацию о трансляции
             await broadcastRef.set({
                 isActive: true,
                 broadcasterId: myPeerId,
@@ -809,11 +797,7 @@
             });
             
             isBroadcasting = true;
-            document.getElementById('broadcast-info').innerHTML = '📡 Трансляция активна (вы ведущий)';
-            document.getElementById('status').textContent = '✅ Трансляция идёт, зрители подключаются...';
-            
-            // Оповещаем всех через Firebase, что нужно подключиться
-            await broadcastRef.child('signal').set({ type: 'new_broadcast', peerId: myPeerId, timestamp: Date.now() });
+            document.getElementById('status').textContent = '✅ Трансляция активна, зрители подключаются...';
             
         } catch (err) {
             console.error('Ошибка:', err);
@@ -827,94 +811,62 @@
             localStream = null;
         }
         
-        // Удаляем виджет камеры вещателя
-        if (cameras['broadcaster_camera']) {
-            camerasRef.child('broadcaster_camera').remove();
+        if (cameras['my_camera']) {
+            camerasRef.child('my_camera').remove();
         }
         
-        // Закрываем все активные звонки
         for (let [peerId, call] of activeCalls) {
             try { call.close(); } catch(e) {}
         }
         activeCalls.clear();
         
-        // Обновляем Firebase
         await broadcastRef.set({ isActive: false });
-        await broadcastRef.child('signal').set({ type: 'broadcast_stopped', timestamp: Date.now() });
         
         isBroadcasting = false;
-        document.getElementById('broadcast-info').innerHTML = '📡 Трансляция не активна';
         document.getElementById('status').textContent = '✅ Трансляция остановлена';
     }
     
-    // Функция для зрителей - подключение к трансляции
     async function connectToBroadcast(broadcasterId) {
         if (!peer) await initPeer();
         if (!broadcasterId || broadcasterId === myPeerId) return;
-        
-        // Проверяем, не подключены ли уже
         if (activeCalls.has(broadcasterId)) return;
         
         console.log('Подключаемся к вещателю:', broadcasterId);
-        const call = peer.call(broadcasterId, null); // зритель не отправляет своё видео
-        call.on('stream', (remoteStream) => {
-            console.log('Получен поток от вещателя');
-            addRemoteVideo(broadcasterId, remoteStream);
-        });
-        call.on('error', (err) => console.error('Call error:', err));
-        activeCalls.set(broadcasterId, call);
+        
+        try {
+            const call = peer.call(broadcasterId, null);
+            call.on('stream', (remoteStream) => {
+                console.log('Получен поток от вещателя');
+                addRemoteVideo(broadcasterId, remoteStream);
+            });
+            call.on('error', (err) => console.error('Call error:', err));
+            activeCalls.set(broadcasterId, call);
+        } catch(e) {
+            console.error('Ошибка подключения:', e);
+        }
     }
     
     function addRemoteVideo(peerId, stream) {
-        let remoteCameraId = 'broadcast_view_' + peerId.replace(/[^a-zA-Z0-9]/g, '_');
+        let remoteCameraId = 'broadcast_' + peerId.replace(/[^a-zA-Z0-9]/g, '_');
         
         camerasRef.child(remoteCameraId).set({
             id: remoteCameraId,
             name: '📺 Трансляция',
             x: 100, y: 100, width: 640, height: 480,
             opacity: 1, locked: false, display: 'block',
-            isRemoteBroadcast: true
+            isRemote: true
         });
         
         setTimeout(() => {
             const videoEl = document.querySelector(`#${remoteCameraId} video`);
             if (videoEl && stream) {
                 videoEl.srcObject = stream;
-                videoEl.play();
+                videoEl.play().catch(e => console.log(e));
             }
         }, 200);
     }
     
-    // Слушаем изменения в Firebase для автоматического подключения зрителей
-    broadcastRef.child('signal').on('value', async (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        if (data.type === 'new_broadcast' && data.peerId && data.peerId !== myPeerId) {
-            console.log('Обнаружена новая трансляция, подключаемся...');
-            setTimeout(() => connectToBroadcast(data.peerId), 1000);
-        } else if (data.type === 'broadcast_stopped') {
-            // Удаляем видео трансляции
-            for (let id in cameras) {
-                if (cameras[id] && cameras[id].isRemoteBroadcast) {
-                    camerasRef.child(id).remove();
-                }
-            }
-            activeCalls.clear();
-            document.getElementById('broadcast-info').innerHTML = '📡 Трансляция завершена';
-        }
-    });
-    
-    // Проверяем активную трансляцию при загрузке
-    broadcastRef.once('value', async (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.isActive && data.broadcasterId && data.broadcasterId !== myPeerId) {
-            console.log('Активная трансляция найдена, подключаемся...');
-            setTimeout(() => connectToBroadcast(data.broadcasterId), 1500);
-        }
-    });
-    
-    // Синхронизация звука через Firebase
+    // Синхронизация звука
     function playSoundSync(soundId) {
         if (!soundId || !sounds[soundId]) return;
         syncSoundRef.set({
@@ -949,6 +901,25 @@
         } else if (data.action === 'pause') {
             audioElement.pause();
             if (progressInterval) clearInterval(progressInterval);
+        }
+    });
+    
+    // Слушаем активную трансляцию
+    broadcastRef.on('value', async (snapshot) => {
+        const data = snapshot.val();
+        console.log('Broadcast data:', data);
+        
+        if (data && data.isActive && data.broadcasterId && data.broadcasterId !== myPeerId) {
+            console.log('Активная трансляция найдена, подключаемся...');
+            setTimeout(() => connectToBroadcast(data.broadcasterId), 1000);
+        } else if (!data || !data.isActive) {
+            // Трансляция остановлена, удаляем удалённые видео
+            for (let id in cameras) {
+                if (cameras[id] && cameras[id].isRemote) {
+                    camerasRef.child(id).remove();
+                }
+            }
+            activeCalls.clear();
         }
     });
     
@@ -1359,8 +1330,7 @@
                 addResizeHandles(el);
                 makeDraggable(el);
                 
-                // Если это камера вещателя и есть поток
-                if (id === 'broadcaster_camera' && localStream) {
+                if (id === 'my_camera' && localStream) {
                     setTimeout(() => {
                         const videoEl = el.querySelector('video');
                         if (videoEl && localStream) {

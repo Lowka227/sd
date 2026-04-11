@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Прозрачный холст - Текст без фона, звуки работают</title>
+    <title>Прозрачный холст - Текст без фона</title>
     <style>
         * {
             margin: 0;
@@ -128,7 +128,7 @@
             padding: 4px 8px;
             border: none !important;
             white-space: pre-wrap;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
         }
         
         .draggable-widget {
@@ -213,7 +213,7 @@
             pointer-events: none;
             z-index: 1000;
         }
-        .sound-controls-panel { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .sound-control { display: flex; gap: 8px; align-items: center; }
         .sound-progress { width: 100px; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; }
         .sound-progress-bar { height: 100%; background: #2a3f8a; width: 0%; }
     </style>
@@ -248,15 +248,11 @@
         <button id="lock-text-btn">🔒 Закрепить</button>
     </div>
     <div id="sound-controls" style="display:none;">
-        <div class="sound-controls-panel">
-            <button id="play-btn">▶ Воспроизвести</button>
-            <button id="pause-btn">⏸ Пауза</button>
-            <button id="stop-btn">⏹ Стоп</button>
-            <div class="sound-progress"><div class="sound-progress-bar" id="sound-progress-bar"></div></div>
-            <span>🔊</span>
-            <input type="range" id="sound-volume" min="0" max="100" value="100" style="width:80px">
-            <button id="del-sound-btn">🗑 Удалить</button>
-        </div>
+        <button id="play-btn">▶</button>
+        <button id="pause-btn">⏸</button>
+        <div class="sound-progress"><div class="sound-progress-bar" id="sound-progress-bar"></div></div>
+        <input type="range" id="sound-volume" min="0" max="100" value="100" style="width:80px">
+        <button id="del-sound-btn">🗑 Удалить</button>
     </div>
     <div id="widget-controls" style="display:none;">
         <button id="hide-widget-btn">👁 Скрыть</button>
@@ -273,7 +269,7 @@
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>Текст (без фона)</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
     <textarea id="text-value" rows="3" placeholder="Введите текст"></textarea>
-    <select id="font-family"><option value="Arial">Arial</option><option value="'Comic Sans MS'">Comic Sans</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="'Times New Roman'">Times New Roman</option></select>
+    <select id="font-family"><option value="Arial">Arial</option><option value="'Comic Sans MS'">Comic Sans</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option></select>
     <input type="range" id="font-size" min="12" max="72" value="24">
     <input type="color" id="text-color" value="#000000">
     <button id="apply-text">Применить</button>
@@ -295,7 +291,7 @@
 </div>
 
 <div id="opacity-modal" class="modal">
-    <div class="modal-header"><h3>Прозрачность изображения</h3><div class="close-btn" onclick="closeModal('opacity-modal')">×</div></div>
+    <div class="modal-header"><h3>Прозрачность</h3><div class="close-btn" onclick="closeModal('opacity-modal')">×</div></div>
     <input type="range" id="opacity-value" min="0" max="100" value="100">
     <button id="apply-opacity">Применить</button>
 </div>
@@ -303,7 +299,7 @@
 <div id="crop-modal" class="modal">
     <div class="modal-header"><h3>Обрезка</h3><div class="close-btn" onclick="closeModal('crop-modal')">×</div></div>
     <p>1. Нажмите "Начать"</p>
-    <p>2. Потяните за уголок элемента</p>
+    <p>2. Потяните за уголок</p>
     <p>3. Нажмите "Применить"</p>
     <button id="crop-start" style="background:#4caf50;">🔪 Начать</button>
     <button id="crop-apply" style="background:#2196f3; margin-top:10px;">✅ Применить</button>
@@ -344,26 +340,12 @@
     let cropMode = false, cropOverlay = null, cropElement = null, cropType = null, cropStartW = 0, cropStartH = 0;
     let mouseDown = false;
     
-    // Аудио плеер
-    let currentAudio = null;
-    let audioUpdateInterval = null;
-    
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     
     function updateCanvasSize() {
         const wrapper = document.getElementById('canvas-wrapper');
         if (wrapper) { canvasSize.w = wrapper.clientWidth; canvasSize.h = wrapper.clientHeight; }
-    }
-    
-    // Обновление прогресса звука
-    function updateSoundProgress() {
-        const audio = document.getElementById('audio-player');
-        const progressBar = document.getElementById('sound-progress-bar');
-        if (audio && !audio.paused && audio.duration) {
-            let percent = (audio.currentTime / audio.duration) * 100;
-            progressBar.style.width = percent + '%';
-        }
     }
     
     document.addEventListener('mousemove', (e) => {
@@ -538,12 +520,6 @@
         document.getElementById('text-controls').style.display = 'none';
         document.getElementById('sound-controls').style.display = 'none';
         document.getElementById('widget-controls').style.display = 'none';
-        
-        // Останавливаем звук при снятии выделения
-        if (currentAudio) {
-            currentAudio.pause();
-            if (audioUpdateInterval) clearInterval(audioUpdateInterval);
-        }
     }
     
     function updateThumbnails() {
@@ -664,7 +640,6 @@
             el.style.background = 'transparent';
             el.style.border = 'none';
             el.style.padding = '4px 8px';
-            el.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)';
             if (d.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -713,28 +688,6 @@
             });
             closeModal('text-modal');
         };
-    }
-    
-    // Звук: воспроизведение выбранного звука
-    function playSelectedSound() {
-        if (selectedId && sounds[selectedId]) {
-            let audio = document.getElementById('audio-player');
-            audio.src = sounds[selectedId].src;
-            audio.volume = (sounds[selectedId].volume || 100) / 100;
-            audio.play();
-            currentAudio = audio;
-            
-            if (audioUpdateInterval) clearInterval(audioUpdateInterval);
-            audioUpdateInterval = setInterval(() => {
-                if (audio.paused || audio.ended) {
-                    document.getElementById('sound-progress-bar').style.width = '0%';
-                    if (audio.ended) clearInterval(audioUpdateInterval);
-                } else {
-                    let percent = (audio.currentTime / audio.duration) * 100;
-                    document.getElementById('sound-progress-bar').style.width = percent + '%';
-                }
-            }, 100);
-        }
     }
     
     imagesRef.on('value', s => { images = s.val() || {}; syncElements(); });
@@ -816,91 +769,5 @@
     document.getElementById('hide-img-btn').onclick = () => { if(selectedId) toggleVisibility(selectedId, 'image'); };
     document.getElementById('hide-text-btn').onclick = () => { if(selectedId) toggleVisibility(selectedId, 'text'); };
     document.getElementById('hide-widget-btn').onclick = () => { if(selectedId) toggleVisibility(selectedId, 'widget'); };
-    
-    document.getElementById('lock-img-btn').onclick = () => { if(selectedId && images[selectedId]) { let el = document.getElementById(selectedId); let locked = !el.classList.contains('locked'); if (locked) el.classList.add('locked'); else el.classList.remove('locked'); imagesRef.child(selectedId).update({ locked }); } };
-    document.getElementById('lock-text-btn').onclick = () => { if(selectedId && texts[selectedId]) { let el = document.getElementById(selectedId); let locked = !el.classList.contains('locked'); if (locked) el.classList.add('locked'); else el.classList.remove('locked'); textsRef.child(selectedId).update({ locked }); } };
-    document.getElementById('lock-widget-btn').onclick = () => { if(selectedId && widgets[selectedId]) { let el = document.getElementById(selectedId); let locked = !el.classList.contains('locked'); if (locked) el.classList.add('locked'); else el.classList.remove('locked'); widgetsRef.child(selectedId).update({ locked }); } };
-    
-    document.getElementById('flip-h-btn').onclick = () => { if(selectedId && images[selectedId]) { let el = document.getElementById(selectedId); let val = el.style.transform.includes('scaleX(-1)'); el.style.transform = val ? el.style.transform.replace('scaleX(-1)', '') : (el.style.transform + ' scaleX(-1)'); imagesRef.child(selectedId).update({ flipHorizontal: !val }); } };
-    document.getElementById('flip-v-btn').onclick = () => { if(selectedId && images[selectedId]) { let el = document.getElementById(selectedId); let val = el.style.transform.includes('scaleY(-1)'); el.style.transform = val ? el.style.transform.replace('scaleY(-1)', '') : (el.style.transform + ' scaleY(-1)'); imagesRef.child(selectedId).update({ flipVertical: !val }); } };
-    
-    document.getElementById('opacity-btn').onclick = () => { if(selectedId && images[selectedId]) { document.getElementById('opacity-value').value = (images[selectedId].opacity || 1) * 100; document.getElementById('opacity-modal').style.display = 'block'; } };
-    document.getElementById('apply-opacity').onclick = () => { if(selectedId && images[selectedId]) { imagesRef.child(selectedId).update({ opacity: document.getElementById('opacity-value').value / 100 }); closeModal('opacity-modal'); } };
-    
-    document.getElementById('reload-widget-btn').onclick = () => { if(selectedId && widgets[selectedId]) { let el = document.getElementById(selectedId); let iframe = el?.querySelector('iframe'); if(iframe) iframe.src = iframe.src; } };
-    document.getElementById('edit-url-btn').onclick = () => { if(selectedId && widgets[selectedId]) { let newUrl = prompt('Новый URL:', widgets[selectedId].url); if(newUrl) { let finalUrl = newUrl.startsWith('http') ? newUrl : 'https://' + newUrl; widgetsRef.child(selectedId).update({ url: finalUrl }); let el = document.getElementById(selectedId); if(el) { let iframe = el.querySelector('iframe'); if(iframe) iframe.src = finalUrl; } } } };
-    document.getElementById('widget-css-btn').onclick = () => { if(selectedId && widgets[selectedId]) { document.getElementById('css-editor').value = widgets[selectedId].customCss || ''; document.getElementById('css-modal').style.display = 'block'; } };
-    document.getElementById('apply-css').onclick = () => { if(selectedId && widgets[selectedId]) { let css = document.getElementById('css-editor').value; widgetsRef.child(selectedId).update({ customCss: css }); let el = document.getElementById(selectedId); if(el) { el.style.cssText = css + ';' + el.style.cssText; } closeModal('css-modal'); } };
-    document.getElementById('edit-text-btn').onclick = () => { if(selectedId && texts[selectedId]) openTextEditor(selectedId); };
-    
-    // Звук кнопки
-    document.getElementById('play-btn').onclick = () => { playSelectedSound(); };
-    document.getElementById('pause-btn').onclick = () => { let audio = document.getElementById('audio-player'); audio.pause(); if (audioUpdateInterval) clearInterval(audioUpdateInterval); };
-    document.getElementById('stop-btn').onclick = () => { let audio = document.getElementById('audio-player'); audio.pause(); audio.currentTime = 0; document.getElementById('sound-progress-bar').style.width = '0%'; if (audioUpdateInterval) clearInterval(audioUpdateInterval); };
-    document.getElementById('sound-volume').oninput = (e) => { if(selectedId && sounds[selectedId]) { soundsRef.child(selectedId).update({ volume: e.target.value }); let audio = document.getElementById('audio-player'); if (audio.src === sounds[selectedId].src) audio.volume = e.target.value / 100; } };
-    
-    // Обрезка
-    document.getElementById('crop-img-btn').onclick = () => { if(selectedId && images[selectedId]) { cropType = 'image'; cropElement = document.getElementById(selectedId); document.getElementById('crop-modal').style.display = 'block'; } };
-    document.getElementById('crop-widget-btn').onclick = () => { if(selectedId && widgets[selectedId]) { cropType = 'widget'; cropElement = document.getElementById(selectedId); document.getElementById('crop-modal').style.display = 'block'; } };
-    document.getElementById('crop-start').onclick = () => {
-        if (cropElement) {
-            cropMode = true;
-            if (cropOverlay) cropOverlay.remove();
-            cropOverlay = document.createElement('div');
-            cropOverlay.className = 'crop-overlay';
-            let left = parseFloat(cropElement.style.left) || 0;
-            let top = parseFloat(cropElement.style.top) || 0;
-            let w = cropElement.offsetWidth;
-            let h = cropElement.offsetHeight;
-            cropOverlay.style.left = left + 'px';
-            cropOverlay.style.top = top + 'px';
-            cropOverlay.style.width = w + 'px';
-            cropOverlay.style.height = h + 'px';
-            cropElement.parentElement.appendChild(cropOverlay);
-            cropStartW = w; cropStartH = h;
-            alert('Тяните за уголок элемента, затем нажмите "Применить"');
-        }
-        closeModal('crop-modal');
-    };
-    document.getElementById('crop-apply').onclick = () => {
-        if (cropOverlay && cropElement) {
-            let newW = parseFloat(cropOverlay.style.width);
-            let newH = parseFloat(cropOverlay.style.height);
-            if (newW > 20 && newH > 20) {
-                if (cropType === 'image') {
-                    let img = cropElement.querySelector('img');
-                    let canvas = document.createElement('canvas');
-                    canvas.width = newW;
-                    canvas.height = newH;
-                    let ctx = canvas.getContext('2d');
-                    let tempImg = new Image();
-                    tempImg.onload = () => {
-                        ctx.drawImage(tempImg, 0, 0, newW, newH);
-                        imagesRef.child(cropElement.id).update({ src: canvas.toDataURL(), width: newW, height: newH });
-                        alert('Изображение обрезано');
-                    };
-                    tempImg.src = images[cropElement.id].src;
-                } else if (cropType === 'widget') {
-                    widgetsRef.child(cropElement.id).update({ width: newW, height: newH });
-                    alert('Виджет обрезан');
-                }
-            }
-            cropOverlay.remove();
-            cropOverlay = null;
-            cropMode = false;
-        }
-        closeModal('crop-modal');
-    };
-    document.getElementById('crop-cancel').onclick = () => {
-        if (cropOverlay) cropOverlay.remove();
-        cropOverlay = null;
-        cropMode = false;
-        closeModal('crop-modal');
-    };
-    
-    updateCanvasSize();
-    window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
-    setTimeout(syncElements, 100);
-</script>
-</body>
-</html>
+    document.getElementById('lock-img-btn').onclick = () => { if(selectedId && images[selectedId]) { let locked = !document.getElementById(selectedId).classList.contains('locked'); imagesRef.child(selectedId).update({ locked }); } };
+    document.getElementById('lock-text-btn').onclick = () => { if(selected

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Рабочая версия</title>
+    <title>Прозрачный холст - Синхронный звук</title>
     <style>
         * {
             margin: 0;
@@ -567,7 +567,7 @@
         </div>
         <input type="text" id="widget-name-input" placeholder="Название виджета">
         <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета" rows="4"></textarea>
-        <div class="css-example">✨ Примеры CSS: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 2px solid gold;</div>
+        <div class="css-example">✨ Примеры CSS: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);</div>
         <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить</button>
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
@@ -599,8 +599,7 @@
 <div id="widget-css-modal" class="modal">
     <div class="modal-header"><h3>🎨 CSS стили для виджета</h3><div class="close-btn" onclick="closeModal('widget-css-modal')">×</div></div>
     <label>Дополнительные CSS стили:</label>
-    <textarea id="widget-css-editor" rows="10" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);&#10;box-shadow: 0 10px 30px rgba(0,0,0,0.3);&#10;border: 2px solid gold;"></textarea>
-    <div class="css-example">💡 Стили применяются к контейнеру виджета</div>
+    <textarea id="widget-css-editor" rows="10" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></textarea>
     <button id="apply-widget-css" style="margin-top:10px; background:#4caf50;">✅ Применить</button>
 </div>
 
@@ -645,6 +644,7 @@
     const soundsRef = db.ref('sounds');
     const widgetsRef = db.ref('widgets');
     const savedWidgetsRef = db.ref('savedWidgets');
+    const syncSoundRef = db.ref('syncSound');
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
@@ -674,6 +674,11 @@
     // Global mouse flag
     let mouseDown = false;
     
+    // Audio
+    let audioElement = document.getElementById('audio-element');
+    let currentSoundId = null;
+    let progressInterval = null;
+    
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     
@@ -694,11 +699,58 @@
         el.style.transform = transform.trim();
     }
     
+    // Синхронизация звука через Firebase
+    function playSoundSync(soundId) {
+        if (!soundId || !sounds[soundId]) return;
+        syncSoundRef.set({
+            soundId: soundId,
+            action: 'play',
+            timestamp: Date.now(),
+            volume: sounds[soundId].volume || 100
+        });
+    }
+    
+    function pauseSoundSync() {
+        syncSoundRef.set({
+            action: 'pause',
+            timestamp: Date.now()
+        });
+    }
+    
+    // Слушаем синхронизацию звука
+    syncSoundRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
+            audioElement.src = sounds[data.soundId].src;
+            audioElement.volume = (data.volume || 100) / 100;
+            audioElement.currentTime = 0;
+            audioElement.play();
+            currentSoundId = data.soundId;
+            
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                if (audioElement.paused || audioElement.ended) {
+                    if (audioElement.ended) {
+                        document.getElementById('sound-progress').style.width = '0%';
+                        clearInterval(progressInterval);
+                    }
+                } else {
+                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
+                    document.getElementById('sound-progress').style.width = percent + '%';
+                }
+            }, 100);
+        } else if (data.action === 'pause') {
+            audioElement.pause();
+            if (progressInterval) clearInterval(progressInterval);
+        }
+    });
+    
     // Глобальный обработчик движения мыши
     document.addEventListener('mousemove', (e) => {
         if (!mouseDown) return;
         
-        // Drag
         if (isDragging && dragElement) {
             e.preventDefault();
             let newLeft = dragStartLeft + (e.clientX - dragStartX);
@@ -713,7 +765,6 @@
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
         }
         
-        // Resize or Crop
         if ((isResizing || isCropMode) && resizeElement) {
             e.preventDefault();
             let dx = e.clientX - resizeStartX;
@@ -750,7 +801,6 @@
         if (!mouseDown) return;
         mouseDown = false;
         
-        // Сохраняем изменения после resize
         if (isResizing && resizeElement && !isCropMode) {
             const id = resizeElement.id;
             let newL = parseFloat(resizeElement.style.left);
@@ -767,7 +817,6 @@
         resizeElement = null;
     });
     
-    // Touch support
     document.addEventListener('touchmove', (e) => {
         if (!mouseDown) return;
         if (isDragging && dragElement) {
@@ -1376,9 +1425,19 @@
         }
     };
     
-    document.getElementById('play-btn').onclick = () => { if(selectedSoundId && sounds[selectedSoundId]) { let a = document.getElementById('audio-element'); a.src = sounds[selectedSoundId].src; a.volume = (sounds[selectedSoundId].volume || 100) / 100; a.play(); } };
-    document.getElementById('pause-btn').onclick = () => document.getElementById('audio-element').pause();
-    document.getElementById('volume-slider').oninput = e => { if(selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); };
+    // Звук - синхронизированный
+    document.getElementById('play-btn').onclick = () => {
+        if (selectedSoundId && sounds[selectedSoundId]) {
+            playSoundSync(selectedSoundId);
+        }
+    };
+    document.getElementById('pause-btn').onclick = () => {
+        pauseSoundSync();
+    };
+    document.getElementById('volume-slider').oninput = e => { 
+        if(selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); 
+    };
+    
     document.getElementById('reload-widget-btn').onclick = () => { if(selectedWidgetId) { let el = document.getElementById(selectedWidgetId); let iframe = el?.querySelector('iframe'); if(iframe) iframe.src = iframe.src; } };
     document.getElementById('edit-widget-url-btn').onclick = () => {
         if(selectedWidgetId && widgets[selectedWidgetId]) {

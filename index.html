@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Виртуальная камера</title>
+    <title>Прозрачный холст - Автоматический видеочат</title>
     <style>
         * {
             margin: 0;
@@ -258,7 +258,7 @@
         }
         
         .draggable-camera {
-            background: #000;
+            background: #1a1a2e;
             overflow: hidden;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -268,18 +268,6 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1);
-        }
-        
-        .camera-placeholder {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #333;
-            color: white;
-            font-size: 14px;
         }
         
         .widget-error {
@@ -527,11 +515,51 @@
             border-radius: 4px;
         }
         
+        .local-camera-preview {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 160px;
+            height: 120px;
+            background: #1a1a2e;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #ffd966;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 20001;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        
+        .local-camera-preview:hover {
+            transform: scale(1.02);
+            border-color: #ffb347;
+        }
+        
+        .local-camera-preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        
+        .local-camera-preview .label {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
             .thumbnail { width: 35px; height: 35px; }
             .resize-handle { width: 8px; height: 8px; }
+            .local-camera-preview { width: 120px; height: 90px; bottom: 10px; right: 10px; }
         }
     </style>
 </head>
@@ -543,7 +571,6 @@
         <button id="add-text-btn">📝 Текст</button>
         <button id="add-sound-btn">🔊 Звук</button>
         <button id="add-widget-btn">🧩 Виджет</button>
-        <button id="add-camera-btn">📷 Камера</button>
         <button id="clear-btn">🗑 Очистить</button>
         <div id="status">✅ Готово</div>
     </div>
@@ -557,6 +584,13 @@
     <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="del-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
     <div id="camera-controls"><span class="panel-title">📷</span><button id="hide-camera-btn">👁 Скрыть</button><button id="del-camera-btn">🗑 Удалить</button><button id="lock-camera-btn">🔒 Закрепить</button><button id="camera-opacity-btn">🎨 Прозрачность</button><button id="crop-camera-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
+
+<!-- Окно локальной камеры (только для себя) -->
+<div id="localCameraPreview" class="local-camera-preview" style="display: none;">
+    <video autoplay playsinline muted></video>
+    <div class="label">📷 Моя камера</div>
+</div>
+
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div><div id="cameras-layer"></div></div></div>
 
 <div id="text-modal" class="modal">
@@ -652,6 +686,8 @@
 <input type="file" id="sound-input" accept="audio/*">
 <audio id="audio-element"></audio>
 
+<!-- PeerJS для WebRTC -->
+<script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
 
@@ -675,10 +711,20 @@
     const camerasRef = db.ref('cameras');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
+    const webrtcSignalingRef = db.ref('webrtcSignaling');
+    
+    // ФИКСИРОВАННЫЙ ID КОМНАТЫ - все пользователи подключаются автоматически
+    const ROOM_ID = 'global_video_room_2024';
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, cameras = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null, selectedCameraId = null;
     let canvasRect = { width: 0, height: 0 };
+    
+    // PeerJS для WebRTC
+    let peer = null;
+    let localStream = null;
+    let remoteVideos = new Map(); // userId -> { element, call }
+    let isInRoom = false;
     
     // Drag state
     let dragElement = null;
@@ -701,15 +747,9 @@
     let cropType = null;
     let cropStartW = 0, cropStartH = 0, cropStartL = 0, cropStartT = 0;
     
-    // Global mouse flag
     let mouseDown = false;
-    
-    // Audio
     let audioElement = document.getElementById('audio-element');
     let progressInterval = null;
-    
-    // Camera streams
-    let cameraStreams = {};
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -731,45 +771,163 @@
         el.style.transform = transform.trim();
     }
     
-    // Запуск камеры
-    async function startCamera(cameraId, deviceId = null) {
-        try {
-            const constraints = {
-                video: deviceId ? { deviceId: { exact: deviceId } } : true,
-                audio: false
-            };
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
-            cameraStreams[cameraId] = stream;
-            
-            const videoElement = document.querySelector(`#${cameraId} video`);
-            if (videoElement) {
-                videoElement.srcObject = stream;
-                videoElement.play();
+    // === WebRTC функции ===
+    async function initPeer() {
+        if (peer) return peer;
+        
+        peer = new Peer(createId('user'), {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                ]
             }
+        });
+        
+        peer.on('open', (id) => {
+            console.log('Peer ID:', id);
+            document.getElementById('status').textContent = '✅ Видеочат: ' + id.substring(0, 8);
+        });
+        
+        peer.on('call', async (call) => {
+            console.log('Входящий звонок от:', call.peer);
+            if (localStream) {
+                call.answer(localStream);
+                call.on('stream', (remoteStream) => {
+                    addRemoteVideo(call.peer, remoteStream);
+                });
+            }
+        });
+        
+        peer.on('error', (err) => {
+            console.error('Peer error:', err);
+        });
+        
+        return peer;
+    }
+    
+    async function startLocalCamera() {
+        try {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            
+            // Показываем локальное видео в отдельном окне (только для себя)
+            const localPreview = document.getElementById('localCameraPreview');
+            const videoEl = localPreview.querySelector('video');
+            videoEl.srcObject = localStream;
+            videoEl.play();
+            localPreview.style.display = 'block';
+            
             return true;
         } catch (err) {
             console.error('Ошибка доступа к камере:', err);
+            document.getElementById('status').textContent = '❌ Нет доступа к камере';
             return false;
         }
     }
     
-    // Остановка камеры
-    function stopCamera(cameraId) {
-        if (cameraStreams[cameraId]) {
-            cameraStreams[cameraId].getTracks().forEach(track => track.stop());
-            delete cameraStreams[cameraId];
-        }
+    function addRemoteVideo(peerId, stream) {
+        if (remoteVideos.has(peerId)) return;
+        
+        // Создаём виджет для удалённого видео на холсте
+        let remoteCameraId = 'remote_' + peerId.replace(/[^a-zA-Z0-9]/g, '_');
+        
+        camerasRef.child(remoteCameraId).set({
+            id: remoteCameraId,
+            name: 'Участник',
+            x: 50 + remoteVideos.size * 40, 
+            y: 50 + remoteVideos.size * 40, 
+            width: 320, height: 240,
+            opacity: 1, locked: false, display: 'block',
+            isRemote: true, peerId: peerId
+        });
+        
+        remoteVideos.set(peerId, { elementId: remoteCameraId, stream: stream });
+        
+        // Привязываем поток к видео элементу
+        setTimeout(() => {
+            const videoEl = document.querySelector(`#${remoteCameraId} video`);
+            if (videoEl && stream) {
+                videoEl.srcObject = stream;
+                videoEl.play().catch(e => console.log('play error', e));
+            }
+        }, 200);
     }
     
-    // Синхронизация звука через Firebase
+    async function autoJoinRoom() {
+        if (isInRoom) return;
+        if (!peer) await initPeer();
+        if (!localStream) await startLocalCamera();
+        if (!localStream) return;
+        
+        isInRoom = true;
+        const roomRef = webrtcSignalingRef.child(ROOM_ID);
+        const peersRef = roomRef.child('peers');
+        
+        // Регистрируем себя
+        await peersRef.child(peer.id).set(true);
+        
+        // Слушаем новых участников
+        peersRef.on('child_added', async (snapshot) => {
+            const remotePeerId = snapshot.key;
+            if (remotePeerId !== peer.id && !remoteVideos.has(remotePeerId)) {
+                console.log('Новый участник:', remotePeerId);
+                const call = peer.call(remotePeerId, localStream);
+                call.on('stream', (remoteStream) => {
+                    addRemoteVideo(remotePeerId, remoteStream);
+                });
+                remoteVideos.set(remotePeerId, { call: call });
+            }
+        });
+        
+        // Слушаем уход участников
+        peersRef.on('child_removed', (snapshot) => {
+            const remotePeerId = snapshot.key;
+            if (remoteVideos.has(remotePeerId)) {
+                const data = remoteVideos.get(remotePeerId);
+                if (data.elementId) {
+                    camerasRef.child(data.elementId).remove();
+                }
+                remoteVideos.delete(remotePeerId);
+            }
+        });
+        
+        // Звоним уже существующим участникам
+        const snapshot = await peersRef.once('value');
+        snapshot.forEach((childSnapshot) => {
+            const remotePeerId = childSnapshot.key;
+            if (remotePeerId !== peer.id && !remoteVideos.has(remotePeerId)) {
+                setTimeout(() => {
+                    const call = peer.call(remotePeerId, localStream);
+                    call.on('stream', (remoteStream) => {
+                        addRemoteVideo(remotePeerId, remoteStream);
+                    });
+                    remoteVideos.set(remotePeerId, { call: call });
+                }, 500);
+            }
+        });
+        
+        document.getElementById('status').textContent = '✅ Видеочат активен';
+    }
+    
+    function leaveRoom() {
+        if (!isInRoom) return;
+        webrtcSignalingRef.child(ROOM_ID).child('peers').child(peer.id).remove();
+        isInRoom = false;
+        for (let [peerId, data] of remoteVideos) {
+            if (data.elementId) camerasRef.child(data.elementId).remove();
+        }
+        remoteVideos.clear();
+        document.getElementById('status').textContent = '✅ Видеочат отключён';
+    }
+    
+    // Синхронизация звука
     function playSoundSync(soundId) {
         if (!soundId || !sounds[soundId]) return;
-        syncSoundRef.set({
-            soundId: soundId,
-            action: 'play',
-            timestamp: Date.now(),
-            volume: sounds[soundId].volume || 100
-        });
+        syncSoundRef.set({ soundId: soundId, action: 'play', timestamp: Date.now(), volume: sounds[soundId].volume || 100 });
     }
     
     function pauseSoundSync() {
@@ -784,21 +942,12 @@
             audioElement.volume = (data.volume || 100) / 100;
             audioElement.currentTime = 0;
             audioElement.play();
-            if (progressInterval) clearInterval(progressInterval);
-            progressInterval = setInterval(() => {
-                if (audioElement.paused || audioElement.ended) {
-                    if (audioElement.ended) document.getElementById('sound-progress').style.width = '0%';
-                } else {
-                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
-                    document.getElementById('sound-progress').style.width = percent + '%';
-                }
-            }, 100);
         } else if (data.action === 'pause') {
             audioElement.pause();
-            if (progressInterval) clearInterval(progressInterval);
         }
     });
     
+    // Обработчики мыши
     document.addEventListener('mousemove', (e) => {
         if (!mouseDown) return;
         if (isDragging && dragElement) {
@@ -902,7 +1051,7 @@
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('camera')) selectCamera(el.id);
+            else if (el.id.startsWith('camera') || el.id.startsWith('remote_')) selectCamera(el.id);
             isDragging = true;
             dragElement = el;
             dragStartX = e.clientX;
@@ -919,7 +1068,7 @@
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('camera')) selectCamera(el.id);
+            else if (el.id.startsWith('camera') || el.id.startsWith('remote_')) selectCamera(el.id);
             isDragging = true;
             dragElement = el;
             const touch = e.touches[0];
@@ -1043,7 +1192,7 @@
         else if (type === 'text') textsRef.child(id).remove();
         else if (type === 'widget') widgetsRef.child(id).remove();
         else if (type === 'sound') soundsRef.child(id).remove();
-        else if (type === 'camera') { stopCamera(id); camerasRef.child(id).remove(); }
+        else if (type === 'camera') camerasRef.child(id).remove();
         if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedCameraId === id) deselectAll();
     }
     
@@ -1088,7 +1237,7 @@
         for (let id in images) container.appendChild(createThumbnail(id, 'image', images[id].src, null));
         for (let id in texts) container.appendChild(createThumbnail(id, 'text', null, texts[id].text));
         for (let id in widgets) container.appendChild(createThumbnail(id, 'widget', null, widgets[id].name));
-        for (let id in cameras) container.appendChild(createThumbnail(id, 'camera', null, 'Камера'));
+        for (let id in cameras) container.appendChild(createThumbnail(id, 'camera', null, cameras[id].name));
         for (let id in sounds) container.appendChild(createThumbnail(id, 'sound', null, sounds[id].name));
     }
     
@@ -1102,15 +1251,6 @@
             opacity: 1, locked: false, display: 'block', customCss: customCss || ''
         });
         closeModal('widget-modal');
-    }
-    
-    function addCamera() {
-        let id = createId('camera');
-        camerasRef.child(id).set({
-            id, name: 'Камера',
-            x: 50, y: 50, width: 320, height: 240,
-            opacity: 1, locked: false, display: 'block'
-        });
     }
     
     function applyWidgetCss(el, css) {
@@ -1209,11 +1349,22 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-camera';
-                el.innerHTML = `<video autoplay playsinline muted style="width:100%; height:100%; object-fit: cover; transform: scaleX(-1);"></video><div class="camera-placeholder" style="display:none;">📷 Камера</div>`;
+                el.innerHTML = `<video autoplay playsinline muted style="width:100%; height:100%; object-fit: cover;"></video><div class="camera-placeholder" style="display:none;">📷 Камера</div>`;
                 document.getElementById('cameras-layer').appendChild(el);
                 addResizeHandles(el);
                 makeDraggable(el);
-                startCamera(id);
+                
+                // Если это удалённая камера
+                if (data.isRemote && data.peerId && remoteVideos.has(data.peerId)) {
+                    setTimeout(() => {
+                        const videoEl = el.querySelector('video');
+                        const stream = remoteVideos.get(data.peerId).stream;
+                        if (videoEl && stream) {
+                            videoEl.srcObject = stream;
+                            videoEl.play().catch(e => console.log(e));
+                        }
+                    }, 100);
+                }
             }
             el.style.left = data.x + 'px';
             el.style.top = data.y + 'px';
@@ -1272,6 +1423,7 @@
         }
     }
     
+    // Кнопки
     document.getElementById('add-text-btn').onclick = () => {
         document.getElementById('text-input-area').value = '';
         document.getElementById('font-size-slider').value = 24;
@@ -1321,7 +1473,6 @@
         };
     });
     
-    document.getElementById('add-camera-btn').onclick = () => { addCamera(); };
     document.getElementById('file-input').onchange = e => {
         let f = e.target.files[0];
         if (f) {
@@ -1355,7 +1506,7 @@
     document.getElementById('del-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); };
     document.getElementById('del-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); };
     document.getElementById('del-sound-btn').onclick = () => { if(selectedSoundId) soundsRef.child(selectedSoundId).remove(); deselectAll(); };
-    document.getElementById('del-camera-btn').onclick = () => { if(selectedCameraId) { stopCamera(selectedCameraId); camerasRef.child(selectedCameraId).remove(); deselectAll(); } };
+    document.getElementById('del-camera-btn').onclick = () => { if(selectedCameraId) { camerasRef.child(selectedCameraId).remove(); deselectAll(); } };
     document.getElementById('hide-img-btn').onclick = () => { if(selectedImageId) toggleVisibility(selectedImageId, 'image'); };
     document.getElementById('hide-text-btn').onclick = () => { if(selectedTextId) toggleVisibility(selectedTextId, 'text'); };
     document.getElementById('hide-widget-btn').onclick = () => { if(selectedWidgetId) toggleVisibility(selectedWidgetId, 'widget'); };
@@ -1506,9 +1657,29 @@
     document.getElementById('edit-text-btn').onclick = () => { if(selectedTextId) editText(selectedTextId); };
     document.getElementById('add-sound-btn').onclick = () => document.getElementById('sound-input').click();
     
+    // Автоматический запуск видеочата при загрузке страницы
+    async function initVideoChat() {
+        await initPeer();
+        await startLocalCamera();
+        await autoJoinRoom();
+    }
+    
+    // Закрытие соединения при уходе со страницы
+    window.addEventListener('beforeunload', () => {
+        if (peer && isInRoom) {
+            webrtcSignalingRef.child(ROOM_ID).child('peers').child(peer.id).remove();
+        }
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+    });
+    
     updateCanvasSize();
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
     setTimeout(() => syncElements(), 100);
+    
+    // Запускаем видеочат автоматически
+    initVideoChat();
 </script>
 </body>
 </html>

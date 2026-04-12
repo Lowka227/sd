@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Трансляция камеры</title>
+    <title>Прозрачный холст - Реальное время</title>
     <style>
         * {
             margin: 0;
@@ -92,7 +92,7 @@
             object-fit: cover;
         }
         
-        .text-thumbnail, .sound-thumbnail, .widget-thumbnail, .camera-thumbnail {
+        .text-thumbnail, .sound-thumbnail, .widget-thumbnail {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -109,7 +109,6 @@
         
         .sound-thumbnail { background: #e3f2fd; }
         .widget-thumbnail { background: #e8f5e9; color: #2e7d32; font-weight: bold; }
-        .camera-thumbnail { background: #ffe0b2; color: #e65100; font-weight: bold; }
         
         .thumbnail.selected {
             border-color: #ffd966;
@@ -156,7 +155,7 @@
             border: 1px solid white;
         }
         
-        #image-controls, #text-controls, #sound-controls, #widget-controls, #camera-controls {
+        #image-controls, #text-controls, #sound-controls, #widget-controls {
             display: none;
             gap: 6px;
             align-items: center;
@@ -189,7 +188,7 @@
             background: transparent !important;
         }
         
-        #images-layer, #texts-layer, #widgets-layer, #cameras-layer {
+        #images-layer, #texts-layer, #widgets-layer {
             position: absolute;
             top: 0;
             left: 0;
@@ -201,9 +200,8 @@
         #images-layer { z-index: 2; }
         #texts-layer { z-index: 3; }
         #widgets-layer { z-index: 4; }
-        #cameras-layer { z-index: 5; }
         
-        .draggable-image, .draggable-text, .draggable-widget, .draggable-camera {
+        .draggable-image, .draggable-text, .draggable-widget {
             position: absolute;
             cursor: grab;
             touch-action: none;
@@ -212,7 +210,7 @@
             transform-origin: center center;
         }
         
-        .draggable-image:active, .draggable-text:active, .draggable-widget:active, .draggable-camera:active {
+        .draggable-image:active, .draggable-text:active, .draggable-widget:active {
             cursor: grabbing;
         }
         
@@ -230,11 +228,18 @@
         }
         
         .draggable-text {
-            background: transparent !important;
-            padding: 4px 8px;
-            border: none !important;
+            background: rgba(255, 255, 240, 0.95);
+            padding: 6px 10px;
+            border: 1px solid rgba(0,0,0,0.15);
             white-space: pre-wrap;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            word-break: break-word;
+            min-width: 50px;
+            min-height: 40px;
+            cursor: grab;
+        }
+        
+        .draggable-text:active {
+            cursor: grabbing;
         }
         
         .draggable-widget {
@@ -255,19 +260,6 @@
             border: none;
             pointer-events: auto;
             background: white;
-        }
-        
-        .draggable-camera {
-            background: #1a1a2e;
-            overflow: hidden;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
-        
-        .draggable-camera video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
         }
         
         .widget-error {
@@ -531,22 +523,19 @@
         <button id="add-text-btn">📝 Текст</button>
         <button id="add-sound-btn">🔊 Звук</button>
         <button id="add-widget-btn">🧩 Виджет</button>
-        <button id="start-broadcast-btn" style="background:#4caf50;">📡 Начать трансляцию</button>
-        <button id="stop-broadcast-btn" style="background:#f44336;">⏹ Остановить трансляцию</button>
         <button id="clear-btn">🗑 Очистить</button>
-        <div id="status">✅ Готово</div>
+        <div id="status">✅ Синхр.</div>
     </div>
     <div class="controls-row">
         <span>📦 Элементы:</span>
         <div id="thumbnails-container"><div id="thumbnails"></div></div>
     </div>
-    <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-img-btn">👁 Скрыть</button><button id="del-img-btn">🗑 Удалить</button><button id="lock-img-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button><button id="crop-image-btn" style="background:#ff9800;">✂ Обрезать</button></div>
-    <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="del-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
-    <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="del-sound-btn">🗑 Удалить</button></div>
-    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="del-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
-    <div id="camera-controls"><span class="panel-title">📷</span><button id="hide-camera-btn">👁 Скрыть</button><button id="del-camera-btn">🗑 Удалить</button><button id="lock-camera-btn">🔒 Закрепить</button><button id="camera-opacity-btn">🎨 Прозрачность</button><button id="crop-camera-btn" style="background:#ff9800;">✂ Обрезать</button></div>
+    <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button><button id="crop-image-btn" style="background:#ff9800;">✂ Обрезать</button></div>
+    <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
+    <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
+    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
-<div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div><div id="cameras-layer"></div></div></div>
+<div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
@@ -559,7 +548,7 @@
         <option value="Verdana, sans-serif">Verdana</option>
     </select>
     <input type="range" id="font-size-slider" min="12" max="72" value="24">
-    <input type="color" id="text-color-picker" value="#ffffff">
+    <input type="color" id="text-color-picker" value="#000000">
     <button id="apply-text-simple" style="margin-top:10px;">✅ Применить</button>
 </div>
 
@@ -600,13 +589,6 @@
     <input type="range" id="brightness-slider" min="0" max="200" value="100" step="1">
 </div>
 
-<div id="camera-opacity-modal" class="modal">
-    <div class="modal-header"><h3>📷 Прозрачность камеры</h3><div class="close-btn" onclick="closeModal('camera-opacity-modal')">×</div></div>
-    <label>Прозрачность (0-100%):</label>
-    <input type="range" id="camera-opacity-slider" min="0" max="100" value="100" step="1">
-    <button id="apply-camera-opacity" style="margin-top:10px;">✅ Применить</button>
-</div>
-
 <div id="widget-opacity-modal" class="modal">
     <div class="modal-header"><h3>🎨 Прозрачность виджета</h3><div class="close-btn" onclick="closeModal('widget-opacity-modal')">×</div></div>
     <label>Прозрачность (0-100%):</label>
@@ -630,8 +612,8 @@
 <div id="crop-modal" class="modal">
     <div class="modal-header"><h3>✂ Обрезка</h3><div class="close-btn" onclick="closeModal('crop-modal')">×</div></div>
     <p>1. Нажмите "Начать обрезку"</p>
-    <p>2. Потяните за уголок</p>
-    <p>3. Нажмите "Применить"</p>
+    <p>2. Потяните за уголок элемента</p>
+    <p>3. Нажмите "Применить обрезку"</p>
     <button id="start-crop-btn" style="background:#4caf50;">🔪 Начать</button>
     <button id="apply-crop-btn" style="background:#2196f3; margin-top:10px;">✅ Применить</button>
     <button id="cancel-crop-btn" style="background:#f44336; margin-top:10px;">❌ Отмена</button>
@@ -641,8 +623,6 @@
 <input type="file" id="sound-input" accept="audio/*">
 <audio id="audio-element"></audio>
 
-<!-- PeerJS для WebRTC -->
-<script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
 
@@ -663,49 +643,33 @@
     const textsRef = db.ref('texts');
     const soundsRef = db.ref('sounds');
     const widgetsRef = db.ref('widgets');
-    const camerasRef = db.ref('cameras');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
-    const broadcastRef = db.ref('broadcast');
     
-    let images = {}, texts = {}, sounds = {}, widgets = {}, cameras = {}, savedWidgets = {};
-    let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null, selectedCameraId = null;
+    let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
+    let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
     
-    // PeerJS для WebRTC
-    let peer = null;
-    let localStream = null;
-    let myPeerId = null;
-    let isBroadcasting = false;
-    let activeCalls = new Map();
-    
-    // Drag state
+    // Состояния для перетаскивания и изменения размера
+    let activeDrag = false;
     let dragElement = null;
     let dragStartX = 0, dragStartY = 0;
     let dragStartLeft = 0, dragStartTop = 0;
-    let isDragging = false;
     
-    // Resize state
+    let activeResize = false;
     let resizeElement = null;
     let resizeDir = null;
     let resizeStartX = 0, resizeStartY = 0;
     let resizeStartW = 0, resizeStartH = 0;
     let resizeStartL = 0, resizeStartT = 0;
-    let isResizing = false;
     
-    // Crop state
     let isCropMode = false;
     let cropOverlay = null;
     let cropElement = null;
     let cropType = null;
-    let cropStartW = 0, cropStartH = 0, cropStartL = 0, cropStartT = 0;
+    let cropStartW = 0, cropStartH = 0;
     
     let mouseDown = false;
-    let audioElement = document.getElementById('audio-element');
-    let progressInterval = null;
-    
-    // Флаг для отслеживания, подключались ли мы к трансляции
-    let hasConnectedToBroadcast = false;
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -727,206 +691,12 @@
         el.style.transform = transform.trim();
     }
     
-    // === WebRTC функции ===
-    async function initPeer() {
-        if (peer) return peer;
-        
-        return new Promise((resolve) => {
-            peer = new Peer({
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' },
-                    ]
-                }
-            });
-            
-            peer.on('open', (id) => {
-                myPeerId = id;
-                console.log('Peer ID:', id);
-                document.getElementById('status').textContent = '✅ Peer: ' + id.substring(0, 8);
-                resolve(peer);
-            });
-            
-            peer.on('call', async (call) => {
-                console.log('Входящий звонок от:', call.peer);
-                if (localStream) {
-                    call.answer(localStream);
-                    activeCalls.set(call.peer, call);
-                }
-            });
-            
-            peer.on('error', (err) => {
-                console.error('Peer error:', err);
-            });
-        });
-    }
-    
-    async function startBroadcast() {
-        try {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            
-            // Показываем локальное видео (только у вещателя)
-            let localCameraId = 'my_camera';
-            camerasRef.child(localCameraId).set({
-                id: localCameraId,
-                name: '📡 Моя камера',
-                x: 50, y: 50, width: 320, height: 240,
-                opacity: 1, locked: false, display: 'block',
-                isLocal: true
-            });
-            
-            setTimeout(() => {
-                const videoEl = document.querySelector(`#${localCameraId} video`);
-                if (videoEl && localStream) {
-                    videoEl.srcObject = localStream;
-                    videoEl.play();
-                    videoEl.style.transform = 'scaleX(-1)';
-                }
-            }, 100);
-            
-            // Сохраняем информацию о трансляции
-            await broadcastRef.set({
-                isActive: true,
-                broadcasterId: myPeerId,
-                startedAt: Date.now()
-            });
-            
-            isBroadcasting = true;
-            document.getElementById('status').textContent = '✅ Трансляция активна, зрители подключаются...';
-            
-        } catch (err) {
-            console.error('Ошибка:', err);
-            alert('Не удалось получить доступ к камере: ' + err.message);
-        }
-    }
-    
-    async function stopBroadcast() {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-        
-        if (cameras['my_camera']) {
-            camerasRef.child('my_camera').remove();
-        }
-        
-        for (let [peerId, call] of activeCalls) {
-            try { call.close(); } catch(e) {}
-        }
-        activeCalls.clear();
-        
-        await broadcastRef.set({ isActive: false });
-        
-        isBroadcasting = false;
-        document.getElementById('status').textContent = '✅ Трансляция остановлена';
-    }
-    
-    async function connectToBroadcast(broadcasterId) {
-        if (!peer) await initPeer();
-        if (!broadcasterId || broadcasterId === myPeerId) return;
-        if (activeCalls.has(broadcasterId)) return;
-        
-        console.log('Подключаемся к вещателю:', broadcasterId);
-        
-        try {
-            const call = peer.call(broadcasterId, null);
-            call.on('stream', (remoteStream) => {
-                console.log('Получен поток от вещателя');
-                addRemoteVideo(broadcasterId, remoteStream);
-            });
-            call.on('error', (err) => console.error('Call error:', err));
-            activeCalls.set(broadcasterId, call);
-        } catch(e) {
-            console.error('Ошибка подключения:', e);
-        }
-    }
-    
-    function addRemoteVideo(peerId, stream) {
-        let remoteCameraId = 'broadcast_' + peerId.replace(/[^a-zA-Z0-9]/g, '_');
-        
-        camerasRef.child(remoteCameraId).set({
-            id: remoteCameraId,
-            name: '📺 Трансляция',
-            x: 100, y: 100, width: 640, height: 480,
-            opacity: 1, locked: false, display: 'block',
-            isRemote: true
-        });
-        
-        setTimeout(() => {
-            const videoEl = document.querySelector(`#${remoteCameraId} video`);
-            if (videoEl && stream) {
-                videoEl.srcObject = stream;
-                videoEl.play().catch(e => console.log(e));
-            }
-        }, 200);
-    }
-    
-    // Синхронизация звука
-    function playSoundSync(soundId) {
-        if (!soundId || !sounds[soundId]) return;
-        syncSoundRef.set({
-            soundId: soundId,
-            action: 'play',
-            timestamp: Date.now(),
-            volume: sounds[soundId].volume || 100
-        });
-    }
-    
-    function pauseSoundSync() {
-        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
-    }
-    
-    syncSoundRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
-            audioElement.src = sounds[data.soundId].src;
-            audioElement.volume = (data.volume || 100) / 100;
-            audioElement.currentTime = 0;
-            audioElement.play();
-            if (progressInterval) clearInterval(progressInterval);
-            progressInterval = setInterval(() => {
-                if (audioElement.paused || audioElement.ended) {
-                    if (audioElement.ended) document.getElementById('sound-progress').style.width = '0%';
-                } else {
-                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
-                    document.getElementById('sound-progress').style.width = percent + '%';
-                }
-            }, 100);
-        } else if (data.action === 'pause') {
-            audioElement.pause();
-            if (progressInterval) clearInterval(progressInterval);
-        }
-    });
-    
-    // Слушаем активную трансляцию
-    broadcastRef.on('value', async (snapshot) => {
-        const data = snapshot.val();
-        console.log('Broadcast data:', data);
-        
-        if (data && data.isActive && data.broadcasterId && data.broadcasterId !== myPeerId) {
-            console.log('Активная трансляция найдена, подключаемся...');
-            setTimeout(() => connectToBroadcast(data.broadcasterId), 1000);
-        } else if (!data || !data.isActive) {
-            // Трансляция остановлена, удаляем удалённые видео
-            for (let id in cameras) {
-                if (cameras[id] && cameras[id].isRemote) {
-                    camerasRef.child(id).remove();
-                }
-            }
-            activeCalls.clear();
-        }
-    });
-    
-    // Обработчики мыши
+    // Глобальные обработчики
     document.addEventListener('mousemove', (e) => {
         if (!mouseDown) return;
-        if (isDragging && dragElement) {
+        
+        // Перетаскивание
+        if (activeDrag && dragElement) {
             e.preventDefault();
             let newLeft = dragStartLeft + (e.clientX - dragStartX);
             let newTop = dragStartTop + (e.clientY - dragStartY);
@@ -938,43 +708,55 @@
             if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
             else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
-            else if (cameras[id]) camerasRef.child(id).update({ x: newLeft, y: newTop });
         }
-        if ((isResizing || isCropMode) && resizeElement) {
+        
+        // Изменение размера
+        if (activeResize && resizeElement) {
             e.preventDefault();
             let dx = e.clientX - resizeStartX;
             let dy = e.clientY - resizeStartY;
-            if (isCropMode && cropOverlay) {
-                let newW = Math.max(30, cropStartW + dx);
-                let newH = Math.max(30, cropStartH + dy);
-                cropOverlay.style.width = newW + 'px';
-                cropOverlay.style.height = newH + 'px';
-            } else if (isResizing) {
-                let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
-                switch(resizeDir) {
-                    case 'e': newW = Math.max(50, resizeStartW + dx); break;
-                    case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
-                    case 's': newH = Math.max(50, resizeStartH + dy); break;
-                    case 'n': newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
-                    case 'se': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH + dy); break;
-                    case 'sw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH + dy); newL = resizeStartL + (resizeStartW - newW); break;
-                    case 'ne': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
-                    case 'nw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH - dy); newL = resizeStartL + (resizeStartW - newW); newT = resizeStartT + (resizeStartH - newH); break;
-                }
-                newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
-                newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
-                resizeElement.style.width = newW + 'px';
-                resizeElement.style.height = newH + 'px';
-                resizeElement.style.left = newL + 'px';
-                resizeElement.style.top = newT + 'px';
+            let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
+            
+            switch(resizeDir) {
+                case 'e': newW = Math.max(50, resizeStartW + dx); break;
+                case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
+                case 's': newH = Math.max(50, resizeStartH + dy); break;
+                case 'n': newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
+                case 'se': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH + dy); break;
+                case 'sw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH + dy); newL = resizeStartL + (resizeStartW - newW); break;
+                case 'ne': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
+                case 'nw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH - dy); newL = resizeStartL + (resizeStartW - newW); newT = resizeStartT + (resizeStartH - newH); break;
             }
+            
+            newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
+            newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
+            resizeElement.style.width = newW + 'px';
+            resizeElement.style.height = newH + 'px';
+            resizeElement.style.left = newL + 'px';
+            resizeElement.style.top = newT + 'px';
+            
+            const id = resizeElement.id;
+            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+        }
+        
+        // Обрезка
+        if (isCropMode && cropOverlay && resizeElement) {
+            e.preventDefault();
+            let dx = e.clientX - resizeStartX;
+            let dy = e.clientY - resizeStartY;
+            let newW = Math.max(30, cropStartW + dx);
+            let newH = Math.max(30, cropStartH + dy);
+            cropOverlay.style.width = newW + 'px';
+            cropOverlay.style.height = newH + 'px';
         }
     });
     
     document.addEventListener('mouseup', () => {
         if (!mouseDown) return;
         mouseDown = false;
-        if (isResizing && resizeElement && !isCropMode) {
+        
+        if (activeResize && resizeElement && !isCropMode) {
             const id = resizeElement.id;
             let newL = parseFloat(resizeElement.style.left);
             let newT = parseFloat(resizeElement.style.top);
@@ -982,17 +764,18 @@
             let newH = parseFloat(resizeElement.style.height);
             if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (cameras[id]) camerasRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
-        isDragging = false;
-        isResizing = false;
+        
+        activeDrag = false;
+        activeResize = false;
         dragElement = null;
         resizeElement = null;
     });
     
+    // Touch support
     document.addEventListener('touchmove', (e) => {
         if (!mouseDown) return;
-        if (isDragging && dragElement) {
+        if (activeDrag && dragElement) {
             e.preventDefault();
             const touch = e.touches[0];
             let newLeft = dragStartLeft + (touch.clientX - dragStartX);
@@ -1005,13 +788,12 @@
             if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
             else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
-            else if (cameras[id]) camerasRef.child(id).update({ x: newLeft, y: newTop });
         }
     });
     document.addEventListener('touchend', () => {
         mouseDown = false;
-        isDragging = false;
-        isResizing = false;
+        activeDrag = false;
+        activeResize = false;
         dragElement = null;
         resizeElement = null;
     });
@@ -1020,32 +802,35 @@
         el.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
             if (el.classList.contains('locked')) return;
-            if (isResizing) return;
+            if (activeResize) return;
             e.preventDefault();
             e.stopPropagation();
             mouseDown = true;
+            
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('camera')) selectCamera(el.id);
-            isDragging = true;
+            
+            activeDrag = true;
             dragElement = el;
             dragStartX = e.clientX;
             dragStartY = e.clientY;
             dragStartLeft = parseFloat(el.style.left) || 0;
             dragStartTop = parseFloat(el.style.top) || 0;
         });
+        
         el.addEventListener('touchstart', (e) => {
             if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
             if (el.classList.contains('locked')) return;
             e.preventDefault();
             e.stopPropagation();
             mouseDown = true;
+            
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('camera')) selectCamera(el.id);
-            isDragging = true;
+            
+            activeDrag = true;
             dragElement = el;
             const touch = e.touches[0];
             dragStartX = touch.clientX;
@@ -1065,7 +850,7 @@
                 e.stopPropagation();
                 e.preventDefault();
                 mouseDown = true;
-                isResizing = true;
+                activeResize = true;
                 resizeElement = el;
                 resizeDir = dir;
                 resizeStartX = e.clientX;
@@ -1074,11 +859,10 @@
                 resizeStartH = el.offsetHeight;
                 resizeStartL = parseFloat(el.style.left) || 0;
                 resizeStartT = parseFloat(el.style.top) || 0;
+                
                 if (isCropMode && cropOverlay) {
                     cropStartW = resizeStartW;
                     cropStartH = resizeStartH;
-                    cropStartL = resizeStartL;
-                    cropStartT = resizeStartT;
                 }
             });
             handle.addEventListener('touchstart', (e) => {
@@ -1086,7 +870,7 @@
                 e.stopPropagation();
                 e.preventDefault();
                 mouseDown = true;
-                isResizing = true;
+                activeResize = true;
                 resizeElement = el;
                 resizeDir = dir;
                 const touch = e.touches[0];
@@ -1110,35 +894,42 @@
             e.stopPropagation();
             e.preventDefault();
             mouseDown = true;
+            
             let startX = e.clientX, startY = e.clientY;
             let rect = el.getBoundingClientRect();
-            let centerX = rect.left + rect.width/2, centerY = rect.top + rect.height/2;
+            let centerX = rect.left + rect.width / 2;
+            let centerY = rect.top + rect.height / 2;
             let startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
             let currentRot = parseFloat(el.dataset.rotation) || 0;
-            function onRotate(me) {
+            
+            function onRotate(moveEv) {
                 if (!mouseDown) return;
-                let angle = Math.atan2(me.clientY - centerY, me.clientX - centerX) * 180 / Math.PI;
-                let newRot = currentRot + (angle - startAngle);
+                let currX = moveEv.clientX;
+                let currY = moveEv.clientY;
+                let currAngle = Math.atan2(currY - centerY, currX - centerX) * 180 / Math.PI;
+                let delta = currAngle - startAngle;
+                let newRot = currentRot + delta;
                 el.dataset.rotation = newRot;
                 el.style.transform = `rotate(${newRot}deg)`;
                 if (el.id.startsWith('img')) imagesRef.child(el.id).update({ rotation: newRot });
             }
+            
             function stopRotate() {
                 mouseDown = false;
                 document.removeEventListener('mousemove', onRotate);
                 document.removeEventListener('mouseup', stopRotate);
             }
+            
             document.addEventListener('mousemove', onRotate);
             document.addEventListener('mouseup', stopRotate);
         });
         el.appendChild(rot);
     }
     
-    function selectImage(id) { deselectAll(); selectedImageId = id; let el = document.getElementById(id); if(el) el.classList.add('selected'); document.getElementById('image-controls').style.display = 'flex'; updateThumbnails(); }
-    function selectText(id) { deselectAll(); selectedTextId = id; let el = document.getElementById(id); if(el) el.classList.add('selected'); document.getElementById('text-controls').style.display = 'flex'; updateThumbnails(); }
-    function selectWidget(id) { deselectAll(); selectedWidgetId = id; let el = document.getElementById(id); if(el) el.classList.add('selected'); document.getElementById('widget-controls').style.display = 'flex'; updateThumbnails(); }
+    function selectImage(id) { deselectAll(); selectedImageId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('image-controls').style.display = 'flex'; document.getElementById('lock-btn').textContent = el.classList.contains('locked') ? '🔓 Открепить' : '🔒 Закрепить'; } updateThumbnails(); }
+    function selectText(id) { deselectAll(); selectedTextId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('text-controls').style.display = 'flex'; } updateThumbnails(); }
+    function selectWidget(id) { deselectAll(); selectedWidgetId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('widget-controls').style.display = 'flex'; } updateThumbnails(); }
     function selectSound(id) { deselectAll(); selectedSoundId = id; document.getElementById('sound-controls').style.display = 'flex'; updateThumbnails(); }
-    function selectCamera(id) { deselectAll(); selectedCameraId = id; let el = document.getElementById(id); if(el) el.classList.add('selected'); document.getElementById('camera-controls').style.display = 'flex'; updateThumbnails(); }
     
     function deselectAll() {
         document.querySelectorAll('.selected').forEach(e => e.classList.remove('selected'));
@@ -1146,8 +937,7 @@
         document.getElementById('text-controls').style.display = 'none';
         document.getElementById('sound-controls').style.display = 'none';
         document.getElementById('widget-controls').style.display = 'none';
-        document.getElementById('camera-controls').style.display = 'none';
-        selectedImageId = selectedTextId = selectedSoundId = selectedWidgetId = selectedCameraId = null;
+        selectedImageId = selectedTextId = selectedSoundId = selectedWidgetId = null;
     }
     
     function toggleVisibility(id, type) {
@@ -1159,7 +949,6 @@
         else if (type === 'text') textsRef.child(id).update({ display: newDisplay });
         else if (type === 'widget') widgetsRef.child(id).update({ display: newDisplay });
         else if (type === 'sound') soundsRef.child(id).update({ display: newDisplay });
-        else if (type === 'camera') camerasRef.child(id).update({ display: newDisplay });
         updateThumbnails();
     }
     
@@ -1168,40 +957,42 @@
         else if (type === 'text') textsRef.child(id).remove();
         else if (type === 'widget') widgetsRef.child(id).remove();
         else if (type === 'sound') soundsRef.child(id).remove();
-        else if (type === 'camera') { camerasRef.child(id).remove(); }
-        if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedCameraId === id) deselectAll();
+        deselectAll();
     }
     
     function createThumbnail(id, type, preview, name) {
         let thumb = document.createElement('div');
         thumb.className = 'thumbnail';
-        let data = images[id] || texts[id] || widgets[id] || cameras[id] || sounds[id];
+        let data = images[id] || texts[id] || widgets[id] || sounds[id];
         if (data && data.display === 'none') thumb.classList.add('thumbnail-hidden');
+        
         let previewDiv = document.createElement('div');
         if (type === 'image') {
             let img = document.createElement('img');
             img.src = preview;
             previewDiv.appendChild(img);
         } else {
-            previewDiv.className = type === 'text' ? 'text-thumbnail' : (type === 'widget' ? 'widget-thumbnail' : (type === 'camera' ? 'camera-thumbnail' : 'sound-thumbnail'));
-            previewDiv.textContent = name ? name.substring(0, 6) : (type === 'text' ? '📝' : (type === 'widget' ? '🧩' : (type === 'camera' ? '📷' : '🔊')));
+            previewDiv.className = type === 'text' ? 'text-thumbnail' : (type === 'widget' ? 'widget-thumbnail' : 'sound-thumbnail');
+            previewDiv.textContent = name ? name.substring(0, 6) : (type === 'text' ? '📝' : (type === 'widget' ? '🧩' : '🔊'));
         }
         thumb.appendChild(previewDiv);
+        
         let eyeBtn = document.createElement('div');
         eyeBtn.className = 'thumbnail-eye' + (data && data.display === 'none' ? ' hidden' : '');
-        eyeBtn.textContent = '👁';
+        eyeBtn.textContent = data && data.display === 'none' ? '👁‍🗨' : '👁';
         eyeBtn.onclick = (e) => { e.stopPropagation(); toggleVisibility(id, type); };
         thumb.appendChild(eyeBtn);
+        
         let delBtn = document.createElement('div');
         delBtn.className = 'thumbnail-delete';
         delBtn.textContent = '✕';
         delBtn.onclick = (e) => { e.stopPropagation(); deleteElement(id, type); };
         thumb.appendChild(delBtn);
+        
         thumb.onclick = () => {
             if (type === 'image') selectImage(id);
             else if (type === 'text') selectText(id);
             else if (type === 'widget') selectWidget(id);
-            else if (type === 'camera') selectCamera(id);
             else if (type === 'sound') selectSound(id);
         };
         return thumb;
@@ -1213,7 +1004,6 @@
         for (let id in images) container.appendChild(createThumbnail(id, 'image', images[id].src, null));
         for (let id in texts) container.appendChild(createThumbnail(id, 'text', null, texts[id].text));
         for (let id in widgets) container.appendChild(createThumbnail(id, 'widget', null, widgets[id].name));
-        for (let id in cameras) container.appendChild(createThumbnail(id, 'camera', null, cameras[id].name));
         for (let id in sounds) container.appendChild(createThumbnail(id, 'sound', null, sounds[id].name));
     }
     
@@ -1231,11 +1021,12 @@
     
     function applyWidgetCss(el, css) {
         if (!el || !css) return;
-        el.style.cssText = css + '; position: absolute; left: ' + el.style.left + '; top: ' + el.style.top + '; width: ' + el.style.width + '; height: ' + el.style.height + '; opacity: ' + el.style.opacity + '; display: ' + el.style.display + '; overflow: hidden; cursor: grab;';
+        el.style.cssText = css + '; position: absolute; left: ' + el.style.left + '; top: ' + el.style.top + '; width: ' + el.style.width + '; height: ' + el.style.height + '; opacity: ' + el.style.opacity + '; display: ' + el.style.display + '; overflow: hidden; cursor: grab; touch-action: none; pointer-events: auto; box-sizing: border-box; transform-origin: center center;';
     }
     
     function syncElements() {
         updateCanvasSize();
+        
         for (let id in images) {
             let data = images[id];
             let el = document.getElementById(id);
@@ -1255,7 +1046,7 @@
             el.style.top = data.y + 'px';
             el.style.width = data.width + 'px';
             el.style.height = data.height + 'px';
-            el.style.opacity = data.opacity || 1;
+            el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
             el.style.filter = `brightness(${data.brightness || 100}%)`;
             el.style.display = data.display === 'none' ? 'none' : 'block';
             if (data.locked) el.classList.add('locked');
@@ -1265,6 +1056,7 @@
             if (data.flipVertical) el.dataset.flipV = 'true';
             applyTransform(el);
         }
+        
         for (let id in texts) {
             let data = texts[id];
             let el = document.getElementById(id);
@@ -1285,11 +1077,10 @@
             el.style.color = data.color;
             el.style.fontFamily = data.fontFamily;
             el.style.display = data.display === 'none' ? 'none' : 'block';
-            el.style.background = 'transparent';
-            el.style.border = 'none';
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
+        
         for (let id in widgets) {
             let data = widgets[id];
             let el = document.getElementById(id);
@@ -1297,7 +1088,7 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-widget';
-                el.innerHTML = `<iframe src="${data.url}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals" style="width:100%; height:100%; border:none;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
+                el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
                 makeDraggable(el);
@@ -1312,41 +1103,10 @@
             el.style.top = data.y + 'px';
             el.style.width = data.width + 'px';
             el.style.height = data.height + 'px';
-            el.style.opacity = data.opacity || 1;
+            el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
             el.style.display = data.display === 'none' ? 'none' : 'block';
+            el.style.overflow = 'hidden';
             if (data.customCss) applyWidgetCss(el, data.customCss);
-            if (data.locked) el.classList.add('locked');
-            else el.classList.remove('locked');
-        }
-        for (let id in cameras) {
-            let data = cameras[id];
-            let el = document.getElementById(id);
-            if (!el) {
-                el = document.createElement('div');
-                el.id = id;
-                el.className = 'draggable-camera';
-                el.innerHTML = `<video autoplay playsinline muted style="width:100%; height:100%; object-fit: cover;"></video>`;
-                document.getElementById('cameras-layer').appendChild(el);
-                addResizeHandles(el);
-                makeDraggable(el);
-                
-                if (id === 'my_camera' && localStream) {
-                    setTimeout(() => {
-                        const videoEl = el.querySelector('video');
-                        if (videoEl && localStream) {
-                            videoEl.srcObject = localStream;
-                            videoEl.play();
-                            videoEl.style.transform = 'scaleX(-1)';
-                        }
-                    }, 100);
-                }
-            }
-            el.style.left = data.x + 'px';
-            el.style.top = data.y + 'px';
-            el.style.width = data.width + 'px';
-            el.style.height = data.height + 'px';
-            el.style.opacity = data.opacity || 1;
-            el.style.display = data.display === 'none' ? 'none' : 'block';
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -1361,6 +1121,7 @@
         document.getElementById('text-color-picker').value = data.color;
         document.getElementById('font-family-select').value = data.fontFamily;
         document.getElementById('text-modal').style.display = 'block';
+        
         let oldApply = document.getElementById('apply-text-simple').onclick;
         document.getElementById('apply-text-simple').onclick = () => {
             let newText = document.getElementById('text-input-area').value.trim();
@@ -1377,10 +1138,50 @@
         };
     }
     
+    // Синхронизация звука через Firebase
+    let progressInterval = null;
+    
+    function playSoundSync(soundId) {
+        if (!soundId || !sounds[soundId]) return;
+        syncSoundRef.set({
+            soundId: soundId,
+            action: 'play',
+            timestamp: Date.now(),
+            volume: sounds[soundId].volume || 100
+        });
+    }
+    
+    function pauseSoundSync() {
+        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
+    }
+    
+    syncSoundRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
+            let audio = document.getElementById('audio-element');
+            audio.src = sounds[data.soundId].src;
+            audio.volume = (data.volume || 100) / 100;
+            audio.currentTime = 0;
+            audio.play();
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                if (audio.paused || audio.ended) {
+                    if (audio.ended) document.getElementById('sound-progress').style.width = '0%';
+                } else {
+                    let percent = (audio.currentTime / audio.duration) * 100;
+                    document.getElementById('sound-progress').style.width = percent + '%';
+                }
+            }, 100);
+        } else if (data.action === 'pause') {
+            document.getElementById('audio-element').pause();
+            if (progressInterval) clearInterval(progressInterval);
+        }
+    });
+    
     imagesRef.on('value', s => { images = s.val() || {}; syncElements(); });
     textsRef.on('value', s => { texts = s.val() || {}; syncElements(); });
     widgetsRef.on('value', s => { widgets = s.val() || {}; syncElements(); });
-    camerasRef.on('value', s => { cameras = s.val() || {}; syncElements(); });
     soundsRef.on('value', s => { sounds = s.val() || {}; updateThumbnails(); });
     savedWidgetsRef.on('value', s => { savedWidgets = s.val() || {}; updateSavedList(); });
     
@@ -1401,13 +1202,19 @@
     document.getElementById('add-text-btn').onclick = () => {
         document.getElementById('text-input-area').value = '';
         document.getElementById('font-size-slider').value = 24;
-        document.getElementById('text-color-picker').value = '#ffffff';
+        document.getElementById('text-color-picker').value = '#000000';
         document.getElementById('text-modal').style.display = 'block';
         document.getElementById('apply-text-simple').onclick = () => {
             let txt = document.getElementById('text-input-area').value.trim();
             if (txt) {
                 let id = createId('text');
-                textsRef.child(id).set({ id, text: txt, x: 50, y: 50, fontSize: 24, color: '#ffffff', fontFamily: 'Arial', display: 'block', locked: false });
+                textsRef.child(id).set({
+                    id, text: txt, x: 50, y: 50,
+                    fontSize: parseInt(document.getElementById('font-size-slider').value),
+                    color: document.getElementById('text-color-picker').value,
+                    fontFamily: document.getElementById('font-family-select').value,
+                    display: 'block', locked: false
+                });
             }
             document.getElementById('text-modal').style.display = 'none';
         };
@@ -1429,7 +1236,12 @@
     document.getElementById('save-widget-btn').onclick = () => {
         let url = document.getElementById('widget-url-input').value.trim();
         if (url) {
-            savedWidgetsRef.push({ url, name: document.getElementById('widget-name-input').value.trim() || 'Виджет', width: parseInt(document.getElementById('widget-width-input').value) || 400, height: parseInt(document.getElementById('widget-height-input').value) || 300, customCss: document.getElementById('widget-css-input').value });
+            savedWidgetsRef.push({
+                url, name: document.getElementById('widget-name-input').value.trim() || 'Виджет',
+                width: parseInt(document.getElementById('widget-width-input').value) || 400,
+                height: parseInt(document.getElementById('widget-height-input').value) || 300,
+                customCss: document.getElementById('widget-css-input').value
+            });
             alert('Виджет сохранен!');
         } else alert('Введите URL');
     };
@@ -1447,14 +1259,6 @@
         };
     });
     
-    document.getElementById('start-broadcast-btn').onclick = async () => {
-        await initPeer();
-        await startBroadcast();
-    };
-    document.getElementById('stop-broadcast-btn').onclick = () => {
-        stopBroadcast();
-    };
-    
     document.getElementById('file-input').onchange = e => {
         let f = e.target.files[0];
         if (f) {
@@ -1463,7 +1267,11 @@
                 let img = new Image();
                 img.onload = () => {
                     let id = createId('img');
-                    imagesRef.child(id).set({ id, src: ev.target.result, x: 50, y: 50, width: Math.min(400, img.width), height: Math.min(300, img.height), opacity: 1, brightness: 100, display: 'block', locked: false });
+                    imagesRef.child(id).set({
+                        id, src: ev.target.result, x: 50, y: 50,
+                        width: Math.min(400, img.width), height: Math.min(300, img.height),
+                        opacity: 1, brightness: 100, display: 'block', locked: false
+                    });
                 };
                 img.src = ev.target.result;
             };
@@ -1483,20 +1291,17 @@
         }
     };
     
-    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); camerasRef.remove(); } };
-    document.getElementById('del-img-btn').onclick = () => { if(selectedImageId) imagesRef.child(selectedImageId).remove(); deselectAll(); };
-    document.getElementById('del-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); };
-    document.getElementById('del-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); };
-    document.getElementById('del-sound-btn').onclick = () => { if(selectedSoundId) soundsRef.child(selectedSoundId).remove(); deselectAll(); };
-    document.getElementById('del-camera-btn').onclick = () => { if(selectedCameraId) { camerasRef.child(selectedCameraId).remove(); deselectAll(); } };
-    document.getElementById('hide-img-btn').onclick = () => { if(selectedImageId) toggleVisibility(selectedImageId, 'image'); };
+    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); } };
+    document.getElementById('delete-btn').onclick = () => { if(selectedImageId) imagesRef.child(selectedImageId).remove(); deselectAll(); };
+    document.getElementById('delete-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); };
+    document.getElementById('delete-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); };
+    document.getElementById('delete-sound-btn').onclick = () => { if(selectedSoundId) soundsRef.child(selectedSoundId).remove(); deselectAll(); };
+    document.getElementById('hide-btn').onclick = () => { if(selectedImageId) toggleVisibility(selectedImageId, 'image'); };
     document.getElementById('hide-text-btn').onclick = () => { if(selectedTextId) toggleVisibility(selectedTextId, 'text'); };
     document.getElementById('hide-widget-btn').onclick = () => { if(selectedWidgetId) toggleVisibility(selectedWidgetId, 'widget'); };
-    document.getElementById('hide-camera-btn').onclick = () => { if(selectedCameraId) toggleVisibility(selectedCameraId, 'camera'); };
-    document.getElementById('lock-img-btn').onclick = () => { if(selectedImageId) { let el = document.getElementById(selectedImageId); let locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); imagesRef.child(selectedImageId).update({ locked }); } };
+    document.getElementById('lock-btn').onclick = () => { if(selectedImageId) { let el = document.getElementById(selectedImageId); let locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); imagesRef.child(selectedImageId).update({ locked }); } };
     document.getElementById('lock-text-btn').onclick = () => { if(selectedTextId) { let el = document.getElementById(selectedTextId); let locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); textsRef.child(selectedTextId).update({ locked }); } };
     document.getElementById('lock-widget-btn').onclick = () => { if(selectedWidgetId) { let el = document.getElementById(selectedWidgetId); let locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); widgetsRef.child(selectedWidgetId).update({ locked }); } };
-    document.getElementById('lock-camera-btn').onclick = () => { if(selectedCameraId) { let el = document.getElementById(selectedCameraId); let locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); camerasRef.child(selectedCameraId).update({ locked }); } };
     document.getElementById('flip-h-btn').onclick = () => { if(selectedImageId) { let el = document.getElementById(selectedImageId); let val = el.dataset.flipH === 'true'; el.dataset.flipH = (!val).toString(); applyTransform(el); imagesRef.child(selectedImageId).update({ flipHorizontal: !val }); } };
     document.getElementById('flip-v-btn').onclick = () => { if(selectedImageId) { let el = document.getElementById(selectedImageId); let val = el.dataset.flipV === 'true'; el.dataset.flipV = (!val).toString(); applyTransform(el); imagesRef.child(selectedImageId).update({ flipVertical: !val }); } };
     document.getElementById('settings-btn').onclick = () => {
@@ -1509,23 +1314,21 @@
     document.getElementById('opacity-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ opacity: e.target.value / 100 }); };
     document.getElementById('brightness-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ brightness: e.target.value }); };
     
-    document.getElementById('camera-opacity-btn').onclick = () => {
-        if(selectedCameraId && cameras[selectedCameraId]) {
-            document.getElementById('camera-opacity-slider').value = (cameras[selectedCameraId].opacity || 1) * 100;
-            document.getElementById('camera-opacity-modal').style.display = 'block';
-        }
+    // Crop handlers
+    document.getElementById('crop-image-btn').onclick = () => {
+        if (selectedImageId) {
+            cropType = 'image';
+            cropElement = document.getElementById(selectedImageId);
+            document.getElementById('crop-modal').style.display = 'block';
+        } else alert('Выберите изображение');
     };
-    document.getElementById('apply-camera-opacity').onclick = () => {
-        if(selectedCameraId) {
-            let opacity = document.getElementById('camera-opacity-slider').value / 100;
-            camerasRef.child(selectedCameraId).update({ opacity: opacity });
-            closeModal('camera-opacity-modal');
-        }
+    document.getElementById('crop-widget-btn').onclick = () => {
+        if (selectedWidgetId) {
+            cropType = 'widget';
+            cropElement = document.getElementById(selectedWidgetId);
+            document.getElementById('crop-modal').style.display = 'block';
+        } else alert('Выберите виджет');
     };
-    
-    document.getElementById('crop-image-btn').onclick = () => { if (selectedImageId) { cropType = 'image'; cropElement = document.getElementById(selectedImageId); document.getElementById('crop-modal').style.display = 'block'; } else alert('Выберите изображение'); };
-    document.getElementById('crop-widget-btn').onclick = () => { if (selectedWidgetId) { cropType = 'widget'; cropElement = document.getElementById(selectedWidgetId); document.getElementById('crop-modal').style.display = 'block'; } else alert('Выберите виджет'); };
-    document.getElementById('crop-camera-btn').onclick = () => { if (selectedCameraId) { cropType = 'camera'; cropElement = document.getElementById(selectedCameraId); document.getElementById('crop-modal').style.display = 'block'; } else alert('Выберите камеру'); };
     document.getElementById('start-crop-btn').onclick = () => {
         if (cropElement) {
             isCropMode = true;
@@ -1542,7 +1345,7 @@
             cropOverlay.style.height = h + 'px';
             cropElement.parentElement.appendChild(cropOverlay);
             cropStartW = w; cropStartH = h;
-            alert('Тяните за уголок, затем нажмите "Применить"');
+            alert('Тяните за уголок элемента, затем нажмите "Применить"');
         }
         closeModal('crop-modal');
     };
@@ -1561,16 +1364,15 @@
                     tempImg.onload = () => {
                         ctx.drawImage(tempImg, 0, 0, newW, newH);
                         imagesRef.child(cropElement.id).update({ src: canvas.toDataURL(), width: newW, height: newH });
-                        alert('Изображение обрезано');
+                        alert('Изображение обрезано!');
                     };
                     tempImg.src = images[cropElement.id].src;
                 } else if (cropType === 'widget') {
                     widgetsRef.child(cropElement.id).update({ width: newW, height: newH });
-                    alert('Виджет обрезан');
-                } else if (cropType === 'camera') {
-                    camerasRef.child(cropElement.id).update({ width: newW, height: newH });
-                    alert('Камера обрезана');
+                    alert('Виджет обрезан!');
                 }
+            } else {
+                alert('Размер слишком маленький');
             }
             cropOverlay.remove();
             cropOverlay = null;
@@ -1593,7 +1395,8 @@
     };
     document.getElementById('apply-widget-opacity').onclick = () => {
         if(selectedWidgetId) {
-            widgetsRef.child(selectedWidgetId).update({ opacity: document.getElementById('widget-opacity-slider').value / 100 });
+            let opacity = document.getElementById('widget-opacity-slider').value / 100;
+            widgetsRef.child(selectedWidgetId).update({ opacity: opacity });
             closeModal('widget-opacity-modal');
         }
     };
@@ -1638,9 +1441,6 @@
     };
     document.getElementById('edit-text-btn').onclick = () => { if(selectedTextId) editText(selectedTextId); };
     document.getElementById('add-sound-btn').onclick = () => document.getElementById('sound-input').click();
-    
-    // Инициализация Peer
-    initPeer();
     
     updateCanvasSize();
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Синхронный звук</title>
+    <title>Прозрачный холст - Масштабирование виджетов</title>
     <style>
         * {
             margin: 0;
@@ -227,13 +227,19 @@
             display: block;
         }
         
-        /* Текст без фона и без тени */
         .draggable-text {
-            background: transparent !important;
-            padding: 4px 8px;
-            border: none !important;
+            background: rgba(255, 255, 240, 0.95);
+            padding: 6px 10px;
+            border: 1px solid rgba(0,0,0,0.15);
             white-space: pre-wrap;
-            text-shadow: none !important;
+            word-break: break-word;
+            min-width: 50px;
+            min-height: 40px;
+            cursor: grab;
+        }
+        
+        .draggable-text:active {
+            cursor: grabbing;
         }
         
         .draggable-widget {
@@ -242,6 +248,7 @@
             flex-direction: column;
             cursor: grab;
             overflow: hidden !important;
+            transform-origin: center center;
         }
         
         .draggable-widget:active {
@@ -649,12 +656,14 @@
     let dragStartX = 0, dragStartY = 0;
     let dragStartLeft = 0, dragStartTop = 0;
     
-    let activeResize = false;
-    let resizeElement = null;
-    let resizeDir = null;
-    let resizeStartX = 0, resizeStartY = 0;
-    let resizeStartW = 0, resizeStartH = 0;
-    let resizeStartL = 0, resizeStartT = 0;
+    // Для масштабирования (scale)
+    let activeScale = false;
+    let scaleElement = null;
+    let scaleDir = null;
+    let scaleStartX = 0, scaleStartY = 0;
+    let scaleStartScale = 1;
+    let scaleStartW = 0, scaleStartH = 0;
+    let scaleStartL = 0, scaleStartT = 0;
     
     let activeRotate = false;
     let rotateElement = null;
@@ -686,7 +695,9 @@
     function applyTransform(el) {
         let transform = '';
         let rot = el.dataset.rotation || 0;
+        let scale = parseFloat(el.dataset.scale) || 1;
         if (rot != 0) transform += `rotate(${rot}deg) `;
+        if (scale != 1) transform += `scale(${scale}) `;
         if (el.dataset.flipH === 'true') transform += 'scaleX(-1) ';
         if (el.dataset.flipV === 'true') transform += 'scaleY(-1) ';
         el.style.transform = transform.trim();
@@ -752,33 +763,22 @@
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
         }
         
-        if (activeResize && resizeElement) {
+        // Масштабирование (scale)
+        if (activeScale && scaleElement) {
             e.preventDefault();
-            let dx = e.clientX - resizeStartX;
-            let dy = e.clientY - resizeStartY;
-            let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
+            let dx = e.clientX - scaleStartX;
+            let dy = e.clientY - scaleStartY;
             
-            switch(resizeDir) {
-                case 'e': newW = Math.max(50, resizeStartW + dx); break;
-                case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
-                case 's': newH = Math.max(50, resizeStartH + dy); break;
-                case 'n': newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
-                case 'se': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH + dy); break;
-                case 'sw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH + dy); newL = resizeStartL + (resizeStartW - newW); break;
-                case 'ne': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
-                case 'nw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH - dy); newL = resizeStartL + (resizeStartW - newW); newT = resizeStartT + (resizeStartH - newH); break;
+            let delta = (dx + dy) / 200;
+            let newScale = Math.max(0.1, Math.min(3, scaleStartScale + delta));
+            
+            scaleElement.dataset.scale = newScale;
+            applyTransform(scaleElement);
+            
+            const id = scaleElement.id;
+            if (widgets[id]) {
+                widgetsRef.child(id).update({ scale: newScale });
             }
-            
-            newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
-            newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
-            resizeElement.style.width = newW + 'px';
-            resizeElement.style.height = newH + 'px';
-            resizeElement.style.left = newL + 'px';
-            resizeElement.style.top = newT + 'px';
-            
-            const id = resizeElement.id;
-            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
         
         if (activeRotate && rotateElement) {
@@ -789,16 +789,18 @@
             let delta = currAngle - rotateStartAngle;
             let newRot = rotateCurrentRot + delta;
             rotateElement.dataset.rotation = newRot;
-            rotateElement.style.transform = `rotate(${newRot}deg)`;
+            applyTransform(rotateElement);
             if (rotateElement.id.startsWith('img')) {
                 imagesRef.child(rotateElement.id).update({ rotation: newRot });
+            } else if (rotateElement.id.startsWith('widget')) {
+                widgetsRef.child(rotateElement.id).update({ rotation: newRot });
             }
         }
         
-        if (isCropMode && cropOverlay && resizeElement) {
+        if (isCropMode && cropOverlay && scaleElement) {
             e.preventDefault();
-            let dx = e.clientX - resizeStartX;
-            let dy = e.clientY - resizeStartY;
+            let dx = e.clientX - scaleStartX;
+            let dy = e.clientY - scaleStartY;
             let newW = Math.max(30, cropStartW + dx);
             let newH = Math.max(30, cropStartH + dy);
             cropOverlay.style.width = newW + 'px';
@@ -810,21 +812,11 @@
         if (!mouseDown) return;
         mouseDown = false;
         
-        if (activeResize && resizeElement && !isCropMode) {
-            const id = resizeElement.id;
-            let newL = parseFloat(resizeElement.style.left);
-            let newT = parseFloat(resizeElement.style.top);
-            let newW = parseFloat(resizeElement.style.width);
-            let newH = parseFloat(resizeElement.style.height);
-            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-        }
-        
         activeDrag = false;
-        activeResize = false;
+        activeScale = false;
         activeRotate = false;
         dragElement = null;
-        resizeElement = null;
+        scaleElement = null;
         rotateElement = null;
     });
     
@@ -848,10 +840,10 @@
     document.addEventListener('touchend', () => {
         mouseDown = false;
         activeDrag = false;
-        activeResize = false;
+        activeScale = false;
         activeRotate = false;
         dragElement = null;
-        resizeElement = null;
+        scaleElement = null;
         rotateElement = null;
     });
     
@@ -859,7 +851,7 @@
         el.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
             if (el.classList.contains('locked')) return;
-            if (activeResize || activeRotate) return;
+            if (activeScale || activeRotate) return;
             e.preventDefault();
             e.stopPropagation();
             mouseDown = true;
@@ -897,7 +889,8 @@
         });
     }
     
-    function addResizeHandles(el) {
+    // Добавляем handles для масштабирования (вместо изменения размера)
+    function addScaleHandles(el) {
         const dirs = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
         dirs.forEach(dir => {
             let handle = document.createElement('div');
@@ -907,19 +900,20 @@
                 e.stopPropagation();
                 e.preventDefault();
                 mouseDown = true;
-                activeResize = true;
-                resizeElement = el;
-                resizeDir = dir;
-                resizeStartX = e.clientX;
-                resizeStartY = e.clientY;
-                resizeStartW = el.offsetWidth;
-                resizeStartH = el.offsetHeight;
-                resizeStartL = parseFloat(el.style.left) || 0;
-                resizeStartT = parseFloat(el.style.top) || 0;
+                activeScale = true;
+                scaleElement = el;
+                scaleDir = dir;
+                scaleStartX = e.clientX;
+                scaleStartY = e.clientY;
+                scaleStartScale = parseFloat(el.dataset.scale) || 1;
+                scaleStartW = el.offsetWidth;
+                scaleStartH = el.offsetHeight;
+                scaleStartL = parseFloat(el.style.left) || 0;
+                scaleStartT = parseFloat(el.style.top) || 0;
                 
                 if (isCropMode && cropOverlay) {
-                    cropStartW = resizeStartW;
-                    cropStartH = resizeStartH;
+                    cropStartW = scaleStartW;
+                    cropStartH = scaleStartH;
                 }
             });
             handle.addEventListener('touchstart', (e) => {
@@ -927,16 +921,13 @@
                 e.stopPropagation();
                 e.preventDefault();
                 mouseDown = true;
-                activeResize = true;
-                resizeElement = el;
-                resizeDir = dir;
+                activeScale = true;
+                scaleElement = el;
+                scaleDir = dir;
                 const touch = e.touches[0];
-                resizeStartX = touch.clientX;
-                resizeStartY = touch.clientY;
-                resizeStartW = el.offsetWidth;
-                resizeStartH = el.offsetHeight;
-                resizeStartL = parseFloat(el.style.left) || 0;
-                resizeStartT = parseFloat(el.style.top) || 0;
+                scaleStartX = touch.clientX;
+                scaleStartY = touch.clientY;
+                scaleStartScale = parseFloat(el.dataset.scale) || 1;
             });
             el.appendChild(handle);
         });
@@ -976,9 +967,11 @@
                 let delta = currAngle - rotateStartAngle;
                 let newRot = rotateCurrentRot + delta;
                 rotateElement.dataset.rotation = newRot;
-                rotateElement.style.transform = `rotate(${newRot}deg)`;
+                applyTransform(rotateElement);
                 if (rotateElement.id.startsWith('img')) {
                     imagesRef.child(rotateElement.id).update({ rotation: newRot });
+                } else if (rotateElement.id.startsWith('widget')) {
+                    widgetsRef.child(rotateElement.id).update({ rotation: newRot });
                 }
             }
             
@@ -1076,6 +1069,7 @@
         widgetsRef.child(id).set({
             id, url: finalUrl, name: name || 'Виджет',
             x: 50, y: 50, width: width || 400, height: height || 300,
+            scale: 1, rotation: 0,
             opacity: 1, locked: false, display: 'block', customCss: customCss || ''
         });
         closeModal('widget-modal');
@@ -1100,7 +1094,7 @@
                 img.src = data.src;
                 el.appendChild(img);
                 document.getElementById('images-layer').appendChild(el);
-                addResizeHandles(el);
+                addScaleHandles(el);
                 addRotateHandle(el);
                 makeDraggable(el);
             }
@@ -1114,6 +1108,7 @@
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
             if (data.rotation) el.dataset.rotation = data.rotation;
+            if (data.scale) el.dataset.scale = data.scale;
             if (data.flipHorizontal) el.dataset.flipH = 'true';
             if (data.flipVertical) el.dataset.flipV = 'true';
             applyTransform(el);
@@ -1128,7 +1123,7 @@
                 el.className = 'draggable-text';
                 el.textContent = data.text;
                 document.getElementById('texts-layer').appendChild(el);
-                addResizeHandles(el);
+                addScaleHandles(el);
                 makeDraggable(el);
                 el.ondblclick = () => editText(id);
             }
@@ -1142,7 +1137,6 @@
             el.style.background = 'transparent';
             el.style.border = 'none';
             el.style.padding = '4px 8px';
-            el.style.textShadow = 'none';
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -1156,7 +1150,8 @@
                 el.className = 'draggable-widget';
                 el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
                 document.getElementById('widgets-layer').appendChild(el);
-                addResizeHandles(el);
+                addScaleHandles(el);
+                addRotateHandle(el);
                 makeDraggable(el);
                 el.querySelector('.retry-widget')?.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1172,9 +1167,12 @@
             el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
             el.style.display = data.display === 'none' ? 'none' : 'block';
             el.style.overflow = 'hidden';
+            if (data.rotation) el.dataset.rotation = data.rotation;
+            if (data.scale) el.dataset.scale = data.scale;
             if (data.customCss) applyWidgetCss(el, data.customCss);
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
+            applyTransform(el);
         }
         updateThumbnails();
     }
@@ -1295,7 +1293,8 @@
                     imagesRef.child(id).set({
                         id, src: ev.target.result, x: 50, y: 50,
                         width: Math.min(400, img.width), height: Math.min(300, img.height),
-                        opacity: 1, brightness: 100, display: 'block', locked: false
+                        opacity: 1, brightness: 100, display: 'block', locked: false,
+                        scale: 1, rotation: 0
                     });
                 };
                 img.src = ev.target.result;

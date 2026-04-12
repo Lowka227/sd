@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Изменение размера и обрезка</title>
+    <title>Прозрачный холст - Исправленная версия</title>
     <style>
         * {
             margin: 0;
@@ -667,14 +667,14 @@
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
     
-    // Resize state (изменение размера)
+    // Resize state
     let resizeActive = false, resizeElement = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0;
     let resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0;
     
     // Rotate state
     let rotateActive = false, rotateElement = null, rotateStartAngle = 0, rotateCurrentRot = 0, rotateCenterX = 0, rotateCenterY = 0;
     
-    // Crop state (обрезка)
+    // Crop state
     let cropActive = false, cropOverlay = null, cropElement = null, cropType = null;
     let cropStartW = 0, cropStartH = 0, cropStartX = 0, cropStartY = 0;
     
@@ -702,7 +702,7 @@
         el.style.transform = transform.trim();
     }
     
-    // Синхронизация звука через Firebase
+    // Синхронизация звука
     function playSoundSync(soundId) {
         if (!soundId || !sounds[soundId]) return;
         syncSoundRef.set({
@@ -765,7 +765,7 @@
                 else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
             }
             
-            // Resize (изменение размера)
+            // Resize
             if (resizeActive && resizeElement && !cropActive) {
                 let dx = e.clientX - resizeStartX;
                 let dy = e.clientY - resizeStartY;
@@ -803,7 +803,7 @@
                 if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
             }
             
-            // Crop (обрезка)
+            // Crop
             if (cropActive && cropOverlay && resizeElement) {
                 let dx = e.clientX - cropStartX;
                 let dy = e.clientY - cropStartY;
@@ -820,7 +820,6 @@
         if (!mouseDown) return;
         mouseDown = false;
         
-        // Сохраняем изменения после resize
         if (resizeActive && resizeElement && !cropActive) {
             const id = resizeElement.id;
             let newL = parseFloat(resizeElement.style.left);
@@ -930,7 +929,6 @@
                 resizeStartL = parseFloat(el.style.left) || 0;
                 resizeStartT = parseFloat(el.style.top) || 0;
                 
-                // Если в режиме обрезки - сохраняем начальные размеры для обрезки
                 if (cropActive && cropOverlay) {
                     cropStartX = e.clientX;
                     cropStartY = e.clientY;
@@ -1036,6 +1034,7 @@
         else if (type === 'widget') widgetsRef.child(id).remove();
         else if (type === 'sound') soundsRef.child(id).remove();
         deselectAll();
+        updateThumbnails();
     }
     
     function createThumbnail(id, type, preview, name) {
@@ -1331,10 +1330,10 @@
     };
     
     document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); } };
-    document.getElementById('delete-btn').onclick = () => { if(selectedImageId) imagesRef.child(selectedImageId).remove(); deselectAll(); };
-    document.getElementById('delete-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); };
-    document.getElementById('delete-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); };
-    document.getElementById('delete-sound-btn').onclick = () => { if(selectedSoundId) soundsRef.child(selectedSoundId).remove(); deselectAll(); };
+    document.getElementById('delete-btn').onclick = () => { if(selectedImageId) imagesRef.child(selectedImageId).remove(); deselectAll(); updateThumbnails(); };
+    document.getElementById('delete-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); updateThumbnails(); };
+    document.getElementById('delete-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); updateThumbnails(); };
+    document.getElementById('delete-sound-btn').onclick = () => { if(selectedSoundId) soundsRef.child(selectedSoundId).remove(); deselectAll(); updateThumbnails(); };
     document.getElementById('hide-btn').onclick = () => { if(selectedImageId) toggleVisibility(selectedImageId, 'image'); };
     document.getElementById('hide-text-btn').onclick = () => { if(selectedTextId) toggleVisibility(selectedTextId, 'text'); };
     document.getElementById('hide-widget-btn').onclick = () => { if(selectedWidgetId) toggleVisibility(selectedWidgetId, 'widget'); };
@@ -1396,7 +1395,6 @@
             let newH = parseFloat(cropOverlay.style.height);
             if (newW > 20 && newH > 20) {
                 if (cropType === 'image') {
-                    // Для изображений - реальная обрезка картинки
                     let img = cropElement.querySelector('img');
                     let canvas = document.createElement('canvas');
                     canvas.width = newW;
@@ -1410,7 +1408,6 @@
                     };
                     tempImg.src = images[cropElement.id].src;
                 } else if (cropType === 'widget') {
-                    // Для виджетов - просто меняем размер контейнера
                     widgetsRef.child(cropElement.id).update({ width: newW, height: newH });
                     alert('Виджет обрезан!');
                 }

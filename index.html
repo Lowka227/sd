@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Масштабирование виджетов</title>
+    <title>Прозрачный холст - Улучшенное взаимодействие</title>
     <style>
         * {
             margin: 0;
@@ -208,6 +208,7 @@
             pointer-events: auto;
             box-sizing: border-box;
             transform-origin: center center;
+            transition: box-shadow 0.1s, outline 0.1s;
         }
         
         .draggable-image:active, .draggable-text:active, .draggable-widget:active {
@@ -241,6 +242,7 @@
             cursor: grab;
             overflow: hidden !important;
             transform-origin: center center;
+            border-radius: 8px;
         }
         
         .draggable-widget:active {
@@ -286,33 +288,44 @@
         
         .resize-handle {
             position: absolute;
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             background: #ffd966;
-            border: 1px solid #1e2b6e;
+            border: 2px solid #1e2b6e;
+            border-radius: 50%;
             z-index: 20;
             opacity: 0;
-            transition: opacity 0.15s;
+            transition: opacity 0.15s, transform 0.1s;
             pointer-events: auto;
+        }
+        
+        .resize-handle:hover {
+            transform: scale(1.2);
         }
         
         .rotate-corner {
             position: absolute;
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             background: #4caf50;
-            border: 1px solid white;
+            border: 2px solid white;
+            border-radius: 50%;
             z-index: 20;
             opacity: 0;
             cursor: grab;
-            top: -24px;
-            right: -24px;
+            top: -28px;
+            right: -28px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 12px;
+            font-size: 14px;
             pointer-events: auto;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        
+        .rotate-corner:hover {
+            transform: scale(1.1);
         }
         
         .rotate-corner:active {
@@ -321,14 +334,14 @@
         
         .rotate-corner::after { content: "↻"; }
         
-        .resize-n { top: -5px; left: 50%; margin-left: -5px; cursor: n-resize; }
-        .resize-ne { top: -5px; right: -5px; cursor: ne-resize; }
-        .resize-e { top: 50%; right: -5px; margin-top: -5px; cursor: e-resize; }
-        .resize-se { bottom: -5px; right: -5px; cursor: se-resize; }
-        .resize-s { bottom: -5px; left: 50%; margin-left: -5px; cursor: s-resize; }
-        .resize-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
-        .resize-w { top: 50%; left: -5px; margin-top: -5px; cursor: w-resize; }
-        .resize-nw { top: -5px; left: -5px; cursor: nw-resize; }
+        .resize-n { top: -6px; left: 50%; margin-left: -6px; cursor: n-resize; }
+        .resize-ne { top: -6px; right: -6px; cursor: ne-resize; }
+        .resize-e { top: 50%; right: -6px; margin-top: -6px; cursor: e-resize; }
+        .resize-se { bottom: -6px; right: -6px; cursor: se-resize; }
+        .resize-s { bottom: -6px; left: 50%; margin-left: -6px; cursor: s-resize; }
+        .resize-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+        .resize-w { top: 50%; left: -6px; margin-top: -6px; cursor: w-resize; }
+        .resize-nw { top: -6px; left: -6px; cursor: nw-resize; }
         
         .selected:not(.locked) .resize-handle,
         .selected:not(.locked) .rotate-corner {
@@ -345,6 +358,7 @@
             cursor: pointer;
             transition: 0.1s;
             white-space: nowrap;
+            border-radius: 20px;
         }
         
         button:hover { transform: translateY(-1px); filter: brightness(1.05); }
@@ -359,6 +373,7 @@
             background: #e8f5e9;
             padding: 4px 10px;
             font-weight: bold;
+            border-radius: 20px;
         }
         
         .modal {
@@ -378,6 +393,7 @@
             max-width: 90vw;
             max-height: 85vh;
             overflow-y: auto;
+            border-radius: 16px;
         }
         
         .modal-header {
@@ -396,6 +412,7 @@
             justify-content: center;
             cursor: pointer;
             font-size: 18px;
+            border-radius: 50%;
         }
         
         textarea, input, select {
@@ -406,6 +423,7 @@
             margin: 5px 0;
             width: 100%;
             box-sizing: border-box;
+            border-radius: 8px;
         }
         
         textarea {
@@ -426,6 +444,7 @@
             cursor: pointer;
             border: none;
             color: white;
+            border-radius: 20px;
         }
         
         .widgets-tab.active {
@@ -448,6 +467,7 @@
             width: 100%;
             text-align: center;
             font-size: 14px;
+            border-radius: 8px;
         }
         
         .url-hint {
@@ -464,6 +484,7 @@
             padding: 8px;
             background: rgba(255,255,255,0.2);
             align-items: center;
+            border-radius: 8px;
         }
         
         .sound-visualization {
@@ -471,6 +492,7 @@
             height: 24px;
             background: #ddd;
             overflow: hidden;
+            border-radius: 12px;
         }
         
         .sound-progress {
@@ -504,7 +526,7 @@
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
             .thumbnail { width: 35px; height: 35px; }
-            .resize-handle { width: 8px; height: 8px; }
+            .resize-handle { width: 10px; height: 10px; }
         }
     </style>
 </head>

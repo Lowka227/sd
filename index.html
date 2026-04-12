@@ -228,18 +228,10 @@
         }
         
         .draggable-text {
-            background: rgba(255, 255, 240, 0.95);
-            padding: 6px 10px;
-            border: 1px solid rgba(0,0,0,0.15);
+            background: transparent !important;
+            padding: 4px 8px;
+            border: none !important;
             white-space: pre-wrap;
-            word-break: break-word;
-            min-width: 50px;
-            min-height: 40px;
-            cursor: grab;
-        }
-        
-        .draggable-text:active {
-            cursor: grabbing;
         }
         
         .draggable-widget {
@@ -656,14 +648,10 @@
     let dragStartX = 0, dragStartY = 0;
     let dragStartLeft = 0, dragStartTop = 0;
     
-    // Для масштабирования (scale)
     let activeScale = false;
     let scaleElement = null;
-    let scaleDir = null;
     let scaleStartX = 0, scaleStartY = 0;
     let scaleStartScale = 1;
-    let scaleStartW = 0, scaleStartH = 0;
-    let scaleStartL = 0, scaleStartT = 0;
     
     let activeRotate = false;
     let rotateElement = null;
@@ -676,6 +664,7 @@
     let cropElement = null;
     let cropType = null;
     let cropStartW = 0, cropStartH = 0;
+    let cropStartX = 0, cropStartY = 0;
     
     let mouseDown = false;
     let progressInterval = null;
@@ -703,7 +692,6 @@
         el.style.transform = transform.trim();
     }
     
-    // Синхронизация звука через Firebase
     function playSoundSync(soundId) {
         if (!soundId || !sounds[soundId]) return;
         syncSoundRef.set({
@@ -763,22 +751,17 @@
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
         }
         
-        // Масштабирование (scale)
         if (activeScale && scaleElement) {
             e.preventDefault();
             let dx = e.clientX - scaleStartX;
             let dy = e.clientY - scaleStartY;
-            
             let delta = (dx + dy) / 200;
             let newScale = Math.max(0.1, Math.min(3, scaleStartScale + delta));
-            
             scaleElement.dataset.scale = newScale;
             applyTransform(scaleElement);
-            
             const id = scaleElement.id;
-            if (widgets[id]) {
-                widgetsRef.child(id).update({ scale: newScale });
-            }
+            if (widgets[id]) widgetsRef.child(id).update({ scale: newScale });
+            if (images[id]) imagesRef.child(id).update({ scale: newScale });
         }
         
         if (activeRotate && rotateElement) {
@@ -790,17 +773,15 @@
             let newRot = rotateCurrentRot + delta;
             rotateElement.dataset.rotation = newRot;
             applyTransform(rotateElement);
-            if (rotateElement.id.startsWith('img')) {
-                imagesRef.child(rotateElement.id).update({ rotation: newRot });
-            } else if (rotateElement.id.startsWith('widget')) {
-                widgetsRef.child(rotateElement.id).update({ rotation: newRot });
-            }
+            const id = rotateElement.id;
+            if (images[id]) imagesRef.child(id).update({ rotation: newRot });
+            if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
         }
         
         if (isCropMode && cropOverlay && scaleElement) {
             e.preventDefault();
-            let dx = e.clientX - scaleStartX;
-            let dy = e.clientY - scaleStartY;
+            let dx = e.clientX - cropStartX;
+            let dy = e.clientY - cropStartY;
             let newW = Math.max(30, cropStartW + dx);
             let newH = Math.max(30, cropStartH + dy);
             cropOverlay.style.width = newW + 'px';
@@ -889,7 +870,6 @@
         });
     }
     
-    // Добавляем handles для масштабирования (вместо изменения размера)
     function addScaleHandles(el) {
         const dirs = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
         dirs.forEach(dir => {
@@ -902,18 +882,15 @@
                 mouseDown = true;
                 activeScale = true;
                 scaleElement = el;
-                scaleDir = dir;
                 scaleStartX = e.clientX;
                 scaleStartY = e.clientY;
                 scaleStartScale = parseFloat(el.dataset.scale) || 1;
-                scaleStartW = el.offsetWidth;
-                scaleStartH = el.offsetHeight;
-                scaleStartL = parseFloat(el.style.left) || 0;
-                scaleStartT = parseFloat(el.style.top) || 0;
                 
                 if (isCropMode && cropOverlay) {
-                    cropStartW = scaleStartW;
-                    cropStartH = scaleStartH;
+                    cropStartX = e.clientX;
+                    cropStartY = e.clientY;
+                    cropStartW = parseFloat(cropOverlay.style.width) || el.offsetWidth;
+                    cropStartH = parseFloat(cropOverlay.style.height) || el.offsetHeight;
                 }
             });
             handle.addEventListener('touchstart', (e) => {
@@ -923,7 +900,6 @@
                 mouseDown = true;
                 activeScale = true;
                 scaleElement = el;
-                scaleDir = dir;
                 const touch = e.touches[0];
                 scaleStartX = touch.clientX;
                 scaleStartY = touch.clientY;
@@ -968,11 +944,9 @@
                 let newRot = rotateCurrentRot + delta;
                 rotateElement.dataset.rotation = newRot;
                 applyTransform(rotateElement);
-                if (rotateElement.id.startsWith('img')) {
-                    imagesRef.child(rotateElement.id).update({ rotation: newRot });
-                } else if (rotateElement.id.startsWith('widget')) {
-                    widgetsRef.child(rotateElement.id).update({ rotation: newRot });
-                }
+                const id = rotateElement.id;
+                if (images[id]) imagesRef.child(id).update({ rotation: newRot });
+                if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
             }
             
             document.addEventListener('mousemove', onRotate);
@@ -1136,7 +1110,6 @@
             el.style.display = data.display === 'none' ? 'none' : 'block';
             el.style.background = 'transparent';
             el.style.border = 'none';
-            el.style.padding = '4px 8px';
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }

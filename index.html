@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Реальное время</title>
+    <title>Прозрачный холст - Синхронный звук</title>
     <style>
         * {
             margin: 0;
@@ -227,19 +227,13 @@
             display: block;
         }
         
+        /* Текст без фона и без тени */
         .draggable-text {
-            background: rgba(255, 255, 240, 0.95);
-            padding: 6px 10px;
-            border: 1px solid rgba(0,0,0,0.15);
+            background: transparent !important;
+            padding: 4px 8px;
+            border: none !important;
             white-space: pre-wrap;
-            word-break: break-word;
-            min-width: 50px;
-            min-height: 40px;
-            cursor: grab;
-        }
-        
-        .draggable-text:active {
-            cursor: grabbing;
+            text-shadow: none !important;
         }
         
         .draggable-widget {
@@ -548,7 +542,7 @@
         <option value="Verdana, sans-serif">Verdana</option>
     </select>
     <input type="range" id="font-size-slider" min="12" max="72" value="24">
-    <input type="color" id="text-color-picker" value="#000000">
+    <input type="color" id="text-color-picker" value="#ffffff">
     <button id="apply-text-simple" style="margin-top:10px;">✅ Применить</button>
 </div>
 
@@ -650,7 +644,6 @@
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
     
-    // Состояния для перетаскивания и изменения размера
     let activeDrag = false;
     let dragElement = null;
     let dragStartX = 0, dragStartY = 0;
@@ -663,6 +656,12 @@
     let resizeStartW = 0, resizeStartH = 0;
     let resizeStartL = 0, resizeStartT = 0;
     
+    let activeRotate = false;
+    let rotateElement = null;
+    let rotateStartAngle = 0;
+    let rotateCurrentRot = 0;
+    let rotateCenterX = 0, rotateCenterY = 0;
+    
     let isCropMode = false;
     let cropOverlay = null;
     let cropElement = null;
@@ -670,6 +669,8 @@
     let cropStartW = 0, cropStartH = 0;
     
     let mouseDown = false;
+    let progressInterval = null;
+    let audioElement = document.getElementById('audio-element');
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -691,11 +692,52 @@
         el.style.transform = transform.trim();
     }
     
-    // Глобальные обработчики
+    // Синхронизация звука через Firebase
+    function playSoundSync(soundId) {
+        if (!soundId || !sounds[soundId]) return;
+        syncSoundRef.set({
+            soundId: soundId,
+            action: 'play',
+            timestamp: Date.now(),
+            volume: sounds[soundId].volume || 100
+        });
+    }
+    
+    function pauseSoundSync() {
+        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
+    }
+    
+    syncSoundRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
+            audioElement.src = sounds[data.soundId].src;
+            audioElement.volume = (data.volume || 100) / 100;
+            audioElement.currentTime = 0;
+            audioElement.play();
+            
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                if (audioElement.paused || audioElement.ended) {
+                    if (audioElement.ended) {
+                        document.getElementById('sound-progress').style.width = '0%';
+                        clearInterval(progressInterval);
+                    }
+                } else {
+                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
+                    document.getElementById('sound-progress').style.width = percent + '%';
+                }
+            }, 100);
+        } else if (data.action === 'pause') {
+            audioElement.pause();
+            if (progressInterval) clearInterval(progressInterval);
+        }
+    });
+    
     document.addEventListener('mousemove', (e) => {
         if (!mouseDown) return;
         
-        // Перетаскивание
         if (activeDrag && dragElement) {
             e.preventDefault();
             let newLeft = dragStartLeft + (e.clientX - dragStartX);
@@ -710,7 +752,6 @@
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
         }
         
-        // Изменение размера
         if (activeResize && resizeElement) {
             e.preventDefault();
             let dx = e.clientX - resizeStartX;
@@ -740,7 +781,20 @@
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
         
-        // Обрезка
+        if (activeRotate && rotateElement) {
+            e.preventDefault();
+            let currX = e.clientX;
+            let currY = e.clientY;
+            let currAngle = Math.atan2(currY - rotateCenterY, currX - rotateCenterX) * 180 / Math.PI;
+            let delta = currAngle - rotateStartAngle;
+            let newRot = rotateCurrentRot + delta;
+            rotateElement.dataset.rotation = newRot;
+            rotateElement.style.transform = `rotate(${newRot}deg)`;
+            if (rotateElement.id.startsWith('img')) {
+                imagesRef.child(rotateElement.id).update({ rotation: newRot });
+            }
+        }
+        
         if (isCropMode && cropOverlay && resizeElement) {
             e.preventDefault();
             let dx = e.clientX - resizeStartX;
@@ -768,11 +822,12 @@
         
         activeDrag = false;
         activeResize = false;
+        activeRotate = false;
         dragElement = null;
         resizeElement = null;
+        rotateElement = null;
     });
     
-    // Touch support
     document.addEventListener('touchmove', (e) => {
         if (!mouseDown) return;
         if (activeDrag && dragElement) {
@@ -794,15 +849,17 @@
         mouseDown = false;
         activeDrag = false;
         activeResize = false;
+        activeRotate = false;
         dragElement = null;
         resizeElement = null;
+        rotateElement = null;
     });
     
     function makeDraggable(el) {
         el.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
             if (el.classList.contains('locked')) return;
-            if (activeResize) return;
+            if (activeResize || activeRotate) return;
             e.preventDefault();
             e.stopPropagation();
             mouseDown = true;
@@ -894,30 +951,35 @@
             e.stopPropagation();
             e.preventDefault();
             mouseDown = true;
+            activeRotate = true;
+            rotateElement = el;
             
-            let startX = e.clientX, startY = e.clientY;
             let rect = el.getBoundingClientRect();
-            let centerX = rect.left + rect.width / 2;
-            let centerY = rect.top + rect.height / 2;
-            let startAngle = Math.atan2(startY - centerY, startX - centerX) * 180 / Math.PI;
-            let currentRot = parseFloat(el.dataset.rotation) || 0;
-            
-            function onRotate(moveEv) {
-                if (!mouseDown) return;
-                let currX = moveEv.clientX;
-                let currY = moveEv.clientY;
-                let currAngle = Math.atan2(currY - centerY, currX - centerX) * 180 / Math.PI;
-                let delta = currAngle - startAngle;
-                let newRot = currentRot + delta;
-                el.dataset.rotation = newRot;
-                el.style.transform = `rotate(${newRot}deg)`;
-                if (el.id.startsWith('img')) imagesRef.child(el.id).update({ rotation: newRot });
-            }
+            rotateCenterX = rect.left + rect.width / 2;
+            rotateCenterY = rect.top + rect.height / 2;
+            rotateStartAngle = Math.atan2(e.clientY - rotateCenterY, e.clientX - rotateCenterX) * 180 / Math.PI;
+            rotateCurrentRot = parseFloat(el.dataset.rotation) || 0;
             
             function stopRotate() {
                 mouseDown = false;
+                activeRotate = false;
+                rotateElement = null;
                 document.removeEventListener('mousemove', onRotate);
                 document.removeEventListener('mouseup', stopRotate);
+            }
+            
+            function onRotate(moveEv) {
+                if (!mouseDown || !rotateElement) return;
+                let currX = moveEv.clientX;
+                let currY = moveEv.clientY;
+                let currAngle = Math.atan2(currY - rotateCenterY, currX - rotateCenterX) * 180 / Math.PI;
+                let delta = currAngle - rotateStartAngle;
+                let newRot = rotateCurrentRot + delta;
+                rotateElement.dataset.rotation = newRot;
+                rotateElement.style.transform = `rotate(${newRot}deg)`;
+                if (rotateElement.id.startsWith('img')) {
+                    imagesRef.child(rotateElement.id).update({ rotation: newRot });
+                }
             }
             
             document.addEventListener('mousemove', onRotate);
@@ -1077,6 +1139,10 @@
             el.style.color = data.color;
             el.style.fontFamily = data.fontFamily;
             el.style.display = data.display === 'none' ? 'none' : 'block';
+            el.style.background = 'transparent';
+            el.style.border = 'none';
+            el.style.padding = '4px 8px';
+            el.style.textShadow = 'none';
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
@@ -1138,47 +1204,6 @@
         };
     }
     
-    // Синхронизация звука через Firebase
-    let progressInterval = null;
-    
-    function playSoundSync(soundId) {
-        if (!soundId || !sounds[soundId]) return;
-        syncSoundRef.set({
-            soundId: soundId,
-            action: 'play',
-            timestamp: Date.now(),
-            volume: sounds[soundId].volume || 100
-        });
-    }
-    
-    function pauseSoundSync() {
-        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
-    }
-    
-    syncSoundRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
-            let audio = document.getElementById('audio-element');
-            audio.src = sounds[data.soundId].src;
-            audio.volume = (data.volume || 100) / 100;
-            audio.currentTime = 0;
-            audio.play();
-            if (progressInterval) clearInterval(progressInterval);
-            progressInterval = setInterval(() => {
-                if (audio.paused || audio.ended) {
-                    if (audio.ended) document.getElementById('sound-progress').style.width = '0%';
-                } else {
-                    let percent = (audio.currentTime / audio.duration) * 100;
-                    document.getElementById('sound-progress').style.width = percent + '%';
-                }
-            }, 100);
-        } else if (data.action === 'pause') {
-            document.getElementById('audio-element').pause();
-            if (progressInterval) clearInterval(progressInterval);
-        }
-    });
-    
     imagesRef.on('value', s => { images = s.val() || {}; syncElements(); });
     textsRef.on('value', s => { texts = s.val() || {}; syncElements(); });
     widgetsRef.on('value', s => { widgets = s.val() || {}; syncElements(); });
@@ -1202,7 +1227,7 @@
     document.getElementById('add-text-btn').onclick = () => {
         document.getElementById('text-input-area').value = '';
         document.getElementById('font-size-slider').value = 24;
-        document.getElementById('text-color-picker').value = '#000000';
+        document.getElementById('text-color-picker').value = '#ffffff';
         document.getElementById('text-modal').style.display = 'block';
         document.getElementById('apply-text-simple').onclick = () => {
             let txt = document.getElementById('text-input-area').value.trim();
@@ -1314,7 +1339,6 @@
     document.getElementById('opacity-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ opacity: e.target.value / 100 }); };
     document.getElementById('brightness-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ brightness: e.target.value }); };
     
-    // Crop handlers
     document.getElementById('crop-image-btn').onclick = () => {
         if (selectedImageId) {
             cropType = 'image';
@@ -1418,9 +1442,17 @@
         }
     };
     
-    document.getElementById('play-btn').onclick = () => { if (selectedSoundId && sounds[selectedSoundId]) playSoundSync(selectedSoundId); };
-    document.getElementById('pause-btn').onclick = () => pauseSoundSync();
-    document.getElementById('volume-slider').oninput = e => { if(selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); };
+    document.getElementById('play-btn').onclick = () => {
+        if (selectedSoundId && sounds[selectedSoundId]) {
+            playSoundSync(selectedSoundId);
+        }
+    };
+    document.getElementById('pause-btn').onclick = () => {
+        pauseSoundSync();
+    };
+    document.getElementById('volume-slider').oninput = e => { 
+        if(selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); 
+    };
     
     document.getElementById('reload-widget-btn').onclick = () => { if(selectedWidgetId) { let el = document.getElementById(selectedWidgetId); let iframe = el?.querySelector('iframe'); if(iframe) iframe.src = iframe.src; } };
     document.getElementById('edit-widget-url-btn').onclick = () => {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Виртуальная камера OBS с прозрачным фоном</title>
+    <title>Прозрачный холст - Полностью рабочая версия</title>
     <style>
         * {
             margin: 0;
@@ -520,29 +520,6 @@
             border-radius: 4px;
         }
         
-        /* OBS Виртуальная камера - видео на весь фон */
-        .obs-background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
-            pointer-events: none;
-            background: transparent;
-        }
-        
-        .obs-background.active {
-            z-index: 0;
-        }
-        
-        /* Контент поверх фона */
-        #canvas-wrapper {
-            z-index: 10;
-            position: relative;
-        }
-        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
@@ -560,8 +537,6 @@
         <button id="add-sound-btn">🔊 Звук</button>
         <button id="add-widget-btn">🧩 Виджет</button>
         <button id="clear-btn">🗑 Очистить</button>
-        <button id="start-obs-btn" style="background:#4caf50;">🎥 Включить OBS камеру (фон)</button>
-        <button id="stop-obs-btn" style="background:#f44336;">⏹ Выключить OBS камеру</button>
         <div id="status">✅ Готово</div>
     </div>
     <div class="controls-row">
@@ -573,10 +548,6 @@
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
     <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
-
-<!-- Видео элемент для OBS камеры (фон) -->
-<video id="obs-video" class="obs-background" autoplay playsinline muted></video>
-
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
 <div id="text-modal" class="modal">
@@ -688,17 +659,10 @@
     const widgetsRef = db.ref('widgets');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
-    const broadcastRef = db.ref('broadcast'); // Для синхронизации трансляции
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
-    
-    // OBS камера
-    let obsStream = null;
-    let obsVideo = document.getElementById('obs-video');
-    let isObsActive = false;
-    let captureInterval = null;
     
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
@@ -737,132 +701,6 @@
         if (el.dataset.flipV === 'true') transform += 'scaleY(-1) ';
         el.style.transform = transform.trim();
     }
-    
-    // Запуск OBS виртуальной камеры
-    async function startOBSCamera() {
-        try {
-            // Пытаемся получить доступ к виртуальной камере OBS
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            
-            // Ищем OBS Virtual Camera
-            let obsDevice = videoDevices.find(device => 
-                device.label.toLowerCase().includes('obs') || 
-                device.label.toLowerCase().includes('virtual') ||
-                device.label.toLowerCase().includes('camera')
-            );
-            
-            // Если не нашли OBS, используем первую доступную камеру
-            const deviceId = obsDevice ? obsDevice.deviceId : undefined;
-            
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: deviceId ? { deviceId: { exact: deviceId } } : true,
-                audio: false
-            });
-            
-            obsStream = stream;
-            obsVideo.srcObject = stream;
-            obsVideo.play();
-            obsVideo.classList.add('active');
-            isObsActive = true;
-            
-            document.getElementById('status').textContent = '✅ OBS камера активна';
-            
-            // Транслируем в Firebase для синхронизации с другими пользователями
-            await broadcastRef.set({
-                isActive: true,
-                timestamp: Date.now()
-            });
-            
-            // Захватываем кадры и отправляем в Firebase для синхронизации
-            captureInterval = setInterval(async () => {
-                if (!isObsActive) return;
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = obsVideo.videoWidth || 640;
-                canvas.height = obsVideo.videoHeight || 480;
-                if (canvas.width > 0 && canvas.height > 0) {
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(obsVideo, 0, 0, canvas.width, canvas.height);
-                    const frameData = canvas.toDataURL('image/jpeg', 0.3);
-                    
-                    await broadcastRef.child('frame').set({
-                        data: frameData,
-                        timestamp: Date.now()
-                    });
-                }
-            }, 200);
-            
-        } catch (err) {
-            console.error('Ошибка доступа к OBS камере:', err);
-            alert('Не удалось получить доступ к камере. Убедитесь, что OBS Virtual Camera запущена.');
-            document.getElementById('status').textContent = '❌ Ошибка доступа к камере';
-        }
-    }
-    
-    function stopOBSCamera() {
-        if (obsStream) {
-            obsStream.getTracks().forEach(track => track.stop());
-            obsStream = null;
-        }
-        obsVideo.srcObject = null;
-        obsVideo.classList.remove('active');
-        isObsActive = false;
-        
-        if (captureInterval) {
-            clearInterval(captureInterval);
-            captureInterval = null;
-        }
-        
-        broadcastRef.set({ isActive: false });
-        document.getElementById('status').textContent = '✅ OBS камера выключена';
-    }
-    
-    // Слушаем трансляцию от других пользователей
-    broadcastRef.child('frame').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.data && !isObsActive) {
-            // Если мы не вещаем сами, показываем трансляцию от другого пользователя
-            const img = new Image();
-            img.onload = () => {
-                // Рисуем полученный кадр на фоне
-                const ctx = obsVideo.getContext ? null : null;
-                // Просто показываем как фон через video элемент не получится, используем canvas
-                if (!document.getElementById('broadcast-canvas')) {
-                    const canvas = document.createElement('canvas');
-                    canvas.id = 'broadcast-canvas';
-                    canvas.style.position = 'fixed';
-                    canvas.style.top = '0';
-                    canvas.style.left = '0';
-                    canvas.style.width = '100%';
-                    canvas.style.height = '100%';
-                    canvas.style.objectFit = 'cover';
-                    canvas.style.zIndex = '1';
-                    canvas.style.pointerEvents = 'none';
-                    document.body.insertBefore(canvas, document.getElementById('canvas-wrapper'));
-                }
-                const canvas = document.getElementById('broadcast-canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            };
-            img.src = data.data;
-            document.getElementById('status').textContent = '✅ Приём трансляции OBS';
-        }
-    });
-    
-    broadcastRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data || !data.isActive) {
-            // Удаляем canvas с трансляцией
-            const canvas = document.getElementById('broadcast-canvas');
-            if (canvas) canvas.remove();
-            if (!isObsActive) {
-                document.getElementById('status').textContent = '✅ Готово';
-            }
-        }
-    });
     
     // Синхронизация звука
     function playSoundSync(soundId) {
@@ -1195,6 +1033,7 @@
         else if (type === 'text') textsRef.child(id).remove();
         else if (type === 'widget') widgetsRef.child(id).remove();
         else if (type === 'sound') soundsRef.child(id).remove();
+        // Также удаляем DOM элемент
         const el = document.getElementById(id);
         if (el) el.remove();
         if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedSoundId === id) deselectAll();
@@ -1268,6 +1107,7 @@
     function syncElements() {
         updateCanvasSize();
         
+        // Удаляем элементы, которых нет в данных
         document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
             const id = el.id;
             if (!images[id] && !texts[id] && !widgets[id]) {
@@ -1661,10 +1501,6 @@
     };
     document.getElementById('edit-text-btn').onclick = () => { if(selectedTextId) editText(selectedTextId); };
     document.getElementById('add-sound-btn').onclick = () => document.getElementById('sound-input').click();
-    
-    // OBS кнопки
-    document.getElementById('start-obs-btn').onclick = () => startOBSCamera();
-    document.getElementById('stop-obs-btn').onclick = () => stopOBSCamera();
     
     updateCanvasSize();
     window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });

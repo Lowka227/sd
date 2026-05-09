@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Полностью рабочая версия</title>
+    <title>Прозрачный холст - Редактор с озвучкой текста</title>
     <style>
         * {
             margin: 0;
@@ -520,6 +520,15 @@
             border-radius: 4px;
         }
         
+        /* Стили для кнопки озвучки текста */
+        .speech-btn {
+            background: #9c27b0;
+            margin-left: 5px;
+        }
+        .speech-btn:hover {
+            background: #7b1fa2;
+        }
+        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
@@ -544,7 +553,7 @@
         <div id="thumbnails-container"><div id="thumbnails"></div></div>
     </div>
     <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button><button id="crop-image-btn" style="background:#ff9800;">✂ Обрезать</button></div>
-    <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
+    <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button><button id="speech-text-btn" class="speech-btn">🔊 Озвучить</button></div>
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
     <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
@@ -681,6 +690,72 @@
     let mouseDown = false;
     let progressInterval = null;
     let audioElement = document.getElementById('audio-element');
+    
+    // --- Новая функция озвучки текста с использованием Web Speech API ---
+    let currentSpeechUtterance = null;
+    
+    function speakText(text) {
+        if (!text || text.trim() === "") {
+            alert("Нет текста для озвучивания");
+            return;
+        }
+        
+        // Останавливаем текущее воспроизведение, если оно есть
+        if (currentSpeechUtterance) {
+            window.speechSynthesis.cancel();
+            currentSpeechUtterance = null;
+        }
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ru-RU'; // Русский язык
+        utterance.rate = 0.9;      // Скорость речи (0.1 - 10)
+        utterance.pitch = 1.0;      // Высота тона
+        utterance.volume = 1.0;     // Громкость
+        
+        // Поиск русского голоса (опционально)
+        const setVoice = () => {
+            const voices = window.speechSynthesis.getVoices();
+            const russianVoice = voices.find(voice => voice.lang === 'ru-RU' || voice.lang.startsWith('ru'));
+            if (russianVoice) utterance.voice = russianVoice;
+        };
+        
+        if (window.speechSynthesis.getVoices().length > 0) {
+            setVoice();
+        } else {
+            window.speechSynthesis.onvoiceschanged = setVoice;
+        }
+        
+        utterance.onstart = () => {
+            document.getElementById('status').innerHTML = '🔊 Озвучивание...';
+            document.getElementById('status').style.background = '#e3f2fd';
+            document.getElementById('status').style.color = '#0d47a1';
+        };
+        
+        utterance.onend = () => {
+            document.getElementById('status').innerHTML = '✅ Готово';
+            document.getElementById('status').style.background = '#e8f5e9';
+            document.getElementById('status').style.color = '#2e7d32';
+            currentSpeechUtterance = null;
+        };
+        
+        utterance.onerror = (e) => {
+            console.error('Speech error:', e);
+            document.getElementById('status').innerHTML = '❌ Ошибка озвучки';
+            document.getElementById('status').style.background = '#ffebee';
+            document.getElementById('status').style.color = '#c62828';
+            currentSpeechUtterance = null;
+            setTimeout(() => {
+                if (document.getElementById('status').innerHTML === '❌ Ошибка озвучки') {
+                    document.getElementById('status').innerHTML = '✅ Готово';
+                    document.getElementById('status').style.background = '#e8f5e9';
+                    document.getElementById('status').style.color = '#2e7d32';
+                }
+            }, 2000);
+        };
+        
+        currentSpeechUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
+    }
     
     function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -1033,7 +1108,6 @@
         else if (type === 'text') textsRef.child(id).remove();
         else if (type === 'widget') widgetsRef.child(id).remove();
         else if (type === 'sound') soundsRef.child(id).remove();
-        // Также удаляем DOM элемент
         const el = document.getElementById(id);
         if (el) el.remove();
         if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedSoundId === id) deselectAll();
@@ -1107,7 +1181,6 @@
     function syncElements() {
         updateCanvasSize();
         
-        // Удаляем элементы, которых нет в данных
         document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
             const id = el.id;
             if (!images[id] && !texts[id] && !widgets[id]) {
@@ -1248,6 +1321,16 @@
         }
     }
     
+    // Обработчик для кнопки озвучки текста
+    document.getElementById('speech-text-btn').onclick = () => {
+        if (selectedTextId && texts[selectedTextId]) {
+            const textToSpeak = texts[selectedTextId].text;
+            speakText(textToSpeak);
+        } else {
+            alert("Выберите текстовый элемент для озвучивания");
+        }
+    };
+    
     document.getElementById('add-text-btn').onclick = () => {
         document.getElementById('text-input-area').value = '';
         document.getElementById('font-size-slider').value = 24;
@@ -1363,7 +1446,6 @@
     document.getElementById('opacity-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ opacity: e.target.value / 100 }); };
     document.getElementById('brightness-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ brightness: e.target.value }); };
     
-    // Обрезка по кнопке
     document.getElementById('crop-image-btn').onclick = () => {
         if (selectedImageId) {
             cropActive = true;

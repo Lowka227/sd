@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Редактор с озвучкой текста</title>
+    <title>Прозрачный холст - С озвучкой текста</title>
     <style>
         * {
             margin: 0;
@@ -362,6 +362,14 @@
         button:hover { transform: translateY(-1px); filter: brightness(1.05); }
         button:active { transform: translateY(0); }
         
+        /* Специальная кнопка для озвучки */
+        .tts-btn {
+            background: linear-gradient(135deg, #9c27b0, #6a1b9a);
+        }
+        .tts-btn:hover {
+            background: linear-gradient(135deg, #ab47bc, #7b1fa2);
+        }
+        
         #file-input, #sound-input { display: none; }
         
         #status {
@@ -520,13 +528,19 @@
             border-radius: 4px;
         }
         
-        /* Стили для кнопки озвучки текста */
-        .speech-btn {
-            background: #9c27b0;
-            margin-left: 5px;
+        /* Стили для модального окна озвучки */
+        .voice-select {
+            margin: 10px 0;
+            background: #444;
+            color: white;
         }
-        .speech-btn:hover {
-            background: #7b1fa2;
+        .tts-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .tts-controls button {
+            flex: 1;
         }
         
         @media (max-width: 700px) {
@@ -546,6 +560,7 @@
         <button id="add-sound-btn">🔊 Звук</button>
         <button id="add-widget-btn">🧩 Виджет</button>
         <button id="clear-btn">🗑 Очистить</button>
+        <button id="tts-button" class="tts-btn">🗣 Озвучить текст</button>
         <div id="status">✅ Готово</div>
     </div>
     <div class="controls-row">
@@ -553,11 +568,34 @@
         <div id="thumbnails-container"><div id="thumbnails"></div></div>
     </div>
     <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button><button id="crop-image-btn" style="background:#ff9800;">✂ Обрезать</button></div>
-    <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button><button id="speech-text-btn" class="speech-btn">🔊 Озвучить</button></div>
+    <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
     <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
+
+<!-- Модальное окно для озвучивания текста -->
+<div id="tts-modal" class="modal">
+    <div class="modal-header">
+        <h3>🗣 Озвучивание текста</h3>
+        <div class="close-btn" onclick="closeModal('tts-modal')">×</div>
+    </div>
+    <textarea id="tts-text-input" rows="5" placeholder="Введите текст, который хотите озвучить..." style="font-size: 14px;"></textarea>
+    <select id="tts-voice-select" class="voice-select">
+        <option value="">Выберите голос (по умолчанию русский)</option>
+    </select>
+    <div style="display: flex; gap: 15px; margin: 10px 0;">
+        <label>🎚 Скорость: <input type="range" id="tts-rate" min="0.5" max="2" step="0.1" value="0.9" style="width: 120px;"></label>
+        <label>📢 Громкость: <input type="range" id="tts-volume" min="0" max="1" step="0.05" value="1" style="width: 120px;"></label>
+    </div>
+    <div class="tts-controls">
+        <button id="tts-speak-btn" style="background:#4caf50;">▶ Озвучить</button>
+        <button id="tts-stop-btn" style="background:#f44336;">⏹ Остановить</button>
+    </div>
+    <div class="css-example" style="margin-top: 10px;">
+        💡 Поддерживаются русские голоса, если они установлены в системе.
+    </div>
+</div>
 
 <div id="text-modal" class="modal">
     <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
@@ -673,6 +711,10 @@
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
     
+    // TTS variables
+    let currentUtterance = null;
+    let availableVoices = [];
+    
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
     
@@ -691,39 +733,87 @@
     let progressInterval = null;
     let audioElement = document.getElementById('audio-element');
     
-    // --- Новая функция озвучки текста с использованием Web Speech API ---
-    let currentSpeechUtterance = null;
+    // --- Функции для TTS ---
+    function loadVoices() {
+        availableVoices = window.speechSynthesis.getVoices();
+        const select = document.getElementById('tts-voice-select');
+        if (select) {
+            // Сохраняем текущее выбранное значение
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">🌐 Голос по умолчанию</option>';
+            
+            // Сортируем голоса: сначала русские, потом остальные
+            const russianVoices = availableVoices.filter(v => v.lang.startsWith('ru'));
+            const otherVoices = availableVoices.filter(v => !v.lang.startsWith('ru'));
+            
+            [...russianVoices, ...otherVoices].forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                if (voice.lang.startsWith('ru')) option.textContent += ' 🇷🇺';
+                select.appendChild(option);
+            });
+            
+            // Восстанавливаем выбранное значение, если оно было
+            if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+                select.value = currentValue;
+            }
+        }
+    }
+    
+    // Загружаем голоса при загрузке страницы и при их изменении
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+    }
+    
+    function stopSpeaking() {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            currentUtterance = null;
+            document.getElementById('status').innerHTML = '✅ Готово';
+            document.getElementById('status').style.background = '#e8f5e9';
+            document.getElementById('status').style.color = '#2e7d32';
+        }
+    }
     
     function speakText(text) {
         if (!text || text.trim() === "") {
-            alert("Нет текста для озвучивания");
+            alert("Пожалуйста, введите текст для озвучивания");
             return;
         }
         
-        // Останавливаем текущее воспроизведение, если оно есть
-        if (currentSpeechUtterance) {
-            window.speechSynthesis.cancel();
-            currentSpeechUtterance = null;
+        if (!('speechSynthesis' in window)) {
+            alert("Ваш браузер не поддерживает синтез речи");
+            return;
         }
+        
+        // Останавливаем текущее воспроизведение
+        stopSpeaking();
         
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ru-RU'; // Русский язык
-        utterance.rate = 0.9;      // Скорость речи (0.1 - 10)
-        utterance.pitch = 1.0;      // Высота тона
-        utterance.volume = 1.0;     // Громкость
         
-        // Поиск русского голоса (опционально)
-        const setVoice = () => {
-            const voices = window.speechSynthesis.getVoices();
-            const russianVoice = voices.find(voice => voice.lang === 'ru-RU' || voice.lang.startsWith('ru'));
-            if (russianVoice) utterance.voice = russianVoice;
-        };
+        // Получаем настройки из модального окна
+        const rate = parseFloat(document.getElementById('tts-rate').value);
+        const volume = parseFloat(document.getElementById('tts-volume').value);
+        const selectedVoice = document.getElementById('tts-voice-select').value;
         
-        if (window.speechSynthesis.getVoices().length > 0) {
-            setVoice();
-        } else {
-            window.speechSynthesis.onvoiceschanged = setVoice;
+        utterance.rate = rate;
+        utterance.volume = volume;
+        
+        // Выбираем голос
+        if (selectedVoice && availableVoices.length > 0) {
+            const voice = availableVoices.find(v => v.name === selectedVoice);
+            if (voice) utterance.voice = voice;
         }
+        
+        // Если голос не выбран, ищем русский голос по умолчанию
+        if (!utterance.voice && availableVoices.length > 0) {
+            const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
+            if (russianVoice) utterance.voice = russianVoice;
+        }
+        
+        utterance.lang = 'ru-RU';
         
         utterance.onstart = () => {
             document.getElementById('status').innerHTML = '🔊 Озвучивание...';
@@ -735,7 +825,7 @@
             document.getElementById('status').innerHTML = '✅ Готово';
             document.getElementById('status').style.background = '#e8f5e9';
             document.getElementById('status').style.color = '#2e7d32';
-            currentSpeechUtterance = null;
+            currentUtterance = null;
         };
         
         utterance.onerror = (e) => {
@@ -743,7 +833,7 @@
             document.getElementById('status').innerHTML = '❌ Ошибка озвучки';
             document.getElementById('status').style.background = '#ffebee';
             document.getElementById('status').style.color = '#c62828';
-            currentSpeechUtterance = null;
+            currentUtterance = null;
             setTimeout(() => {
                 if (document.getElementById('status').innerHTML === '❌ Ошибка озвучки') {
                     document.getElementById('status').innerHTML = '✅ Готово';
@@ -753,7 +843,7 @@
             }, 2000);
         };
         
-        currentSpeechUtterance = utterance;
+        currentUtterance = utterance;
         window.speechSynthesis.speak(utterance);
     }
     
@@ -1321,14 +1411,20 @@
         }
     }
     
-    // Обработчик для кнопки озвучки текста
-    document.getElementById('speech-text-btn').onclick = () => {
-        if (selectedTextId && texts[selectedTextId]) {
-            const textToSpeak = texts[selectedTextId].text;
-            speakText(textToSpeak);
-        } else {
-            alert("Выберите текстовый элемент для озвучивания");
-        }
+    // --- Кнопка озвучки текста ---
+    document.getElementById('tts-button').onclick = () => {
+        // Очищаем предыдущий текст в модальном окне
+        document.getElementById('tts-text-input').value = '';
+        document.getElementById('tts-modal').style.display = 'block';
+    };
+    
+    document.getElementById('tts-speak-btn').onclick = () => {
+        const text = document.getElementById('tts-text-input').value;
+        speakText(text);
+    };
+    
+    document.getElementById('tts-stop-btn').onclick = () => {
+        stopSpeaking();
     };
     
     document.getElementById('add-text-btn').onclick = () => {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Синхронная озвучка текста</title>
+    <title>Прозрачный холст - Синхронная озвучка с настройками голоса</title>
     <style>
         * {
             margin: 0;
@@ -394,7 +394,7 @@
             z-index: 20000;
             border: 1px solid #ffd966;
             color: white;
-            width: 450px;
+            width: 500px;
             max-width: 90vw;
             max-height: 85vh;
             overflow-y: auto;
@@ -536,6 +536,26 @@
             pointer-events: none;
         }
         
+        .settings-group {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .settings-group label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #ffd966;
+        }
+        
+        .voice-select {
+            background: #444;
+            color: white;
+            padding: 8px;
+        }
+        
         @media (max-width: 700px) {
             .controls-row { gap: 5px; padding: 4px 6px; }
             button { padding: 4px 8px; font-size: 10px; }
@@ -569,16 +589,42 @@
 
 <div id="tts-modal" class="modal">
     <div class="modal-header">
-        <h3>📢 Синхронная озвучка текста (для всех)</h3>
+        <h3>📢 Синхронная озвучка текста</h3>
         <div class="close-btn" onclick="closeModal('tts-modal')">×</div>
     </div>
-    <textarea id="tts-text-input" rows="4" placeholder="Введите текст, который услышат ВСЕ пользователи..."></textarea>
+    
+    <textarea id="tts-text-input" rows="3" placeholder="Введите текст, который услышат ВСЕ пользователи..."></textarea>
+    
+    <div class="settings-group">
+        <label>🎤 Выберите голос:</label>
+        <select id="tts-voice-select" class="voice-select">
+            <option value="">🌐 Голос по умолчанию</option>
+        </select>
+    </div>
+    
+    <div class="settings-group">
+        <label>🔊 Громкость: <span id="volume-value">100</span>%</label>
+        <input type="range" id="tts-volume" min="0" max="100" value="100" step="1">
+    </div>
+    
+    <div class="settings-group">
+        <label>⚡ Скорость речи: <span id="rate-value">0.9</span>x</label>
+        <input type="range" id="tts-rate" min="0.5" max="2" step="0.05" value="0.9">
+    </div>
+    
+    <div class="settings-group">
+        <label>📈 Высота тона: <span id="pitch-value">1.0</span></label>
+        <input type="range" id="tts-pitch" min="0.5" max="2" step="0.05" value="1.0">
+    </div>
+    
     <div style="background: #ffd96622; padding: 10px; border-radius: 8px; margin: 10px 0;">
         <p style="font-size: 12px;">🔊 <strong>Как это работает:</strong></p>
-        <p style="font-size: 11px;">Когда вы нажимаете "Озвучить для всех", текст отправляется в Firebase, и ВСЕ подключенные пользователи одновременно услышат его на своих устройствах.</p>
+        <p style="font-size: 11px;">Когда вы нажимаете "Озвучить для всех", текст и настройки голоса отправляются в Firebase, и ВСЕ подключенные пользователи одновременно услышат его с выбранными вами параметрами громкости, скорости и голоса!</p>
     </div>
+    
     <button id="tts-speak-sync-btn" style="background:#4caf50; width:100%; padding: 10px;">🌍 Озвучить для всех</button>
     <button id="tts-stop-sync-btn" style="background:#f44336; width:100%; margin-top: 8px;">⏹ Остановить для всех</button>
+    <button id="tts-preview-btn" style="background:#2196f3; width:100%; margin-top: 8px;">🎧 Предпросмотр (только для меня)</button>
 </div>
 
 <div id="text-modal" class="modal">
@@ -692,7 +738,7 @@
     const widgetsRef = db.ref('widgets');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
-    const syncTTSRef = db.ref('syncTTS'); // Новая ветка для синхронизации озвучки
+    const syncTTSRef = db.ref('syncTTS');
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
@@ -700,6 +746,7 @@
     
     // TTS variables
     let currentUtterance = null;
+    let availableVoices = [];
     
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
@@ -719,7 +766,39 @@
     let progressInterval = null;
     let audioElement = document.getElementById('audio-element');
     
-    // --- Функции для синхронной TTS через Firebase ---
+    // --- Функции для загрузки голосов ---
+    function loadVoices() {
+        availableVoices = window.speechSynthesis.getVoices();
+        const select = document.getElementById('tts-voice-select');
+        if (select) {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">🌐 Голос по умолчанию (автовыбор)</option>';
+            
+            // Сортируем: сначала русские
+            const russianVoices = availableVoices.filter(v => v.lang.startsWith('ru'));
+            const otherVoices = availableVoices.filter(v => !v.lang.startsWith('ru'));
+            
+            [...russianVoices, ...otherVoices].forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                let flag = voice.lang.startsWith('ru') ? '🇷🇺 ' : '';
+                option.textContent = `${flag}${voice.name} (${voice.lang})`;
+                select.appendChild(option);
+            });
+            
+            if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+                select.value = currentValue;
+            }
+        }
+    }
+    
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        loadVoices();
+        // Повторная загрузка через секунду для надежности
+        setTimeout(loadVoices, 1000);
+    }
+    
     function showNotification(message) {
         const notif = document.getElementById('tts-notification');
         notif.textContent = message;
@@ -736,7 +815,7 @@
         }
     }
     
-    function speakTextLocally(text, voiceName = null) {
+    function speakTextLocally(text, voiceName = null, volume = 1, rate = 0.9, pitch = 1.0) {
         if (!text || text.trim() === "") return;
         
         if (!('speechSynthesis' in window)) {
@@ -748,13 +827,21 @@
         
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'ru-RU';
-        utterance.rate = 0.9;
-        utterance.volume = 1;
+        utterance.rate = rate;
+        utterance.volume = volume;
+        utterance.pitch = pitch;
         
-        // Пытаемся найти русский голос
-        const voices = window.speechSynthesis.getVoices();
-        const russianVoice = voices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
-        if (russianVoice) utterance.voice = russianVoice;
+        // Выбираем голос, если указан
+        if (voiceName && availableVoices.length > 0) {
+            const selectedVoice = availableVoices.find(v => v.name === voiceName);
+            if (selectedVoice) utterance.voice = selectedVoice;
+        }
+        
+        // Если голос не выбран или не найден, ищем русский
+        if (!utterance.voice && availableVoices.length > 0) {
+            const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
+            if (russianVoice) utterance.voice = russianVoice;
+        }
         
         utterance.onstart = () => {
             console.log("Озвучивание началось:", text);
@@ -764,7 +851,6 @@
         };
         
         utterance.onend = () => {
-            console.log("Озвучивание закончилось");
             document.getElementById('status').innerHTML = '✅ Готово';
             document.getElementById('status').style.background = '#e8f5e9';
             document.getElementById('status').style.color = '#2e7d32';
@@ -781,22 +867,25 @@
         window.speechSynthesis.speak(utterance);
     }
     
-    // Отправка команды на озвучку ВСЕМ пользователям
-    function broadcastSpeak(text) {
+    // Отправка команды на озвучку ВСЕМ пользователям с настройками
+    function broadcastSpeak(text, voiceName, volume, rate, pitch) {
         if (!text || text.trim() === "") {
             alert("Введите текст для озвучивания");
             return;
         }
         
-        // Отправляем в Firebase
         syncTTSRef.set({
             action: 'speak',
             text: text,
+            voiceName: voiceName || '',
+            volume: volume,
+            rate: rate,
+            pitch: pitch,
             timestamp: Date.now(),
             sender: 'user_' + Math.random().toString(36).substr(2, 4)
         });
         
-        showNotification(`📢 Вы отправили: "${text.substring(0, 50)}..."`);
+        showNotification(`📢 Вы отправили: "${text.substring(0, 50)}..." (громкость: ${Math.round(volume*100)}%, скорость: ${rate})`);
     }
     
     function broadcastStop() {
@@ -807,16 +896,14 @@
         showNotification(`⏹ Остановка озвучки для всех`);
     }
     
-    // Слушаем команды из Firebase и озвучиваем их
+    // Слушаем команды из Firebase
     syncTTSRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
         
         if (data.action === 'speak' && data.text) {
-            // Показываем уведомление о том, что кто-то что-то сказал
-            showNotification(`🔊 Синхронная озвучка: "${data.text.substring(0, 50)}..."`);
-            // Озвучиваем на этом устройстве
-            speakTextLocally(data.text);
+            showNotification(`🔊 Синхронная озвучка: "${data.text.substring(0, 50)}..." (громкость: ${Math.round((data.volume||1)*100)}%)`);
+            speakTextLocally(data.text, data.voiceName, data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
         } else if (data.action === 'stop') {
             stopLocalSpeaking();
             showNotification(`⏹ Озвучка остановлена`);
@@ -1382,21 +1469,47 @@
         }
     }
     
-    // --- Кнопка синхронной озвучки ---
+    // --- Обновление отображения значений слайдеров ---
+    document.getElementById('tts-volume').addEventListener('input', (e) => {
+        document.getElementById('volume-value').textContent = e.target.value;
+    });
+    document.getElementById('tts-rate').addEventListener('input', (e) => {
+        document.getElementById('rate-value').textContent = e.target.value;
+    });
+    document.getElementById('tts-pitch').addEventListener('input', (e) => {
+        document.getElementById('pitch-value').textContent = e.target.value;
+    });
+    
+    // --- Кнопки синхронной озвучки ---
     document.getElementById('tts-button').onclick = () => {
         document.getElementById('tts-text-input').value = '';
         document.getElementById('tts-modal').style.display = 'block';
+        // Обновляем список голосов при открытии
+        loadVoices();
     };
     
     document.getElementById('tts-speak-sync-btn').onclick = () => {
         const text = document.getElementById('tts-text-input').value;
-        broadcastSpeak(text);
+        const voiceName = document.getElementById('tts-voice-select').value;
+        const volume = document.getElementById('tts-volume').value / 100;
+        const rate = parseFloat(document.getElementById('tts-rate').value);
+        const pitch = parseFloat(document.getElementById('tts-pitch').value);
+        broadcastSpeak(text, voiceName, volume, rate, pitch);
         closeModal('tts-modal');
     };
     
     document.getElementById('tts-stop-sync-btn').onclick = () => {
         broadcastStop();
         closeModal('tts-modal');
+    };
+    
+    document.getElementById('tts-preview-btn').onclick = () => {
+        const text = document.getElementById('tts-text-input').value;
+        const voiceName = document.getElementById('tts-voice-select').value;
+        const volume = document.getElementById('tts-volume').value / 100;
+        const rate = parseFloat(document.getElementById('tts-rate').value);
+        const pitch = parseFloat(document.getElementById('tts-pitch').value);
+        speakTextLocally(text, voiceName, volume, rate, pitch);
     };
     
     document.getElementById('add-text-btn').onclick = () => {

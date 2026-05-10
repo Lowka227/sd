@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Синхронная озвучка с настройками голоса</title>
+    <title>Прозрачный холст - Быстрая синхронная озвучка</title>
     <style>
         * {
             margin: 0;
@@ -520,22 +520,6 @@
             border-radius: 4px;
         }
         
-        .tts-notification {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #ffd966;
-            color: #1e2b6e;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            z-index: 10001;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-        }
-        
         .settings-group {
             background: rgba(255,255,255,0.1);
             border-radius: 8px;
@@ -619,7 +603,7 @@
     
     <div style="background: #ffd96622; padding: 10px; border-radius: 8px; margin: 10px 0;">
         <p style="font-size: 12px;">🔊 <strong>Как это работает:</strong></p>
-        <p style="font-size: 11px;">Когда вы нажимаете "Озвучить для всех", текст и настройки голоса отправляются в Firebase, и ВСЕ подключенные пользователи одновременно услышат его с выбранными вами параметрами громкости, скорости и голоса!</p>
+        <p style="font-size: 11px;">Когда вы нажимаете "Озвучить для всех", текст и настройки отправляются, и ВСЕ подключенные пользователи одновременно услышат его!</p>
     </div>
     
     <button id="tts-speak-sync-btn" style="background:#4caf50; width:100%; padding: 10px;">🌍 Озвучить для всех</button>
@@ -714,8 +698,6 @@
 <input type="file" id="sound-input" accept="audio/*">
 <audio id="audio-element"></audio>
 
-<div id="tts-notification" class="tts-notification"></div>
-
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
 
@@ -747,6 +729,8 @@
     // TTS variables
     let currentUtterance = null;
     let availableVoices = [];
+    let isSpeaking = false;
+    let speechQueue = [];
     
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
@@ -770,11 +754,10 @@
     function loadVoices() {
         availableVoices = window.speechSynthesis.getVoices();
         const select = document.getElementById('tts-voice-select');
-        if (select) {
+        if (select && availableVoices.length > 0) {
             const currentValue = select.value;
             select.innerHTML = '<option value="">🌐 Голос по умолчанию (автовыбор)</option>';
             
-            // Сортируем: сначала русские
             const russianVoices = availableVoices.filter(v => v.lang.startsWith('ru'));
             const otherVoices = availableVoices.filter(v => !v.lang.startsWith('ru'));
             
@@ -795,79 +778,84 @@
     if ('speechSynthesis' in window) {
         window.speechSynthesis.onvoiceschanged = loadVoices;
         loadVoices();
-        // Повторная загрузка через секунду для надежности
-        setTimeout(loadVoices, 1000);
-    }
-    
-    function showNotification(message) {
-        const notif = document.getElementById('tts-notification');
-        notif.textContent = message;
-        notif.style.opacity = '1';
-        setTimeout(() => {
-            notif.style.opacity = '0';
-        }, 3000);
+        setTimeout(loadVoices, 500);
     }
     
     function stopLocalSpeaking() {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
             currentUtterance = null;
+            isSpeaking = false;
+            speechQueue = [];
         }
     }
     
-    function speakTextLocally(text, voiceName = null, volume = 1, rate = 0.9, pitch = 1.0) {
-        if (!text || text.trim() === "") return;
+    function processQueue() {
+        if (speechQueue.length === 0 || isSpeaking) return;
         
-        if (!('speechSynthesis' in window)) {
-            console.log("Браузер не поддерживает синтез речи");
-            return;
-        }
+        const item = speechQueue.shift();
+        isSpeaking = true;
         
-        stopLocalSpeaking();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
+        const utterance = new SpeechSynthesisUtterance(item.text);
         utterance.lang = 'ru-RU';
-        utterance.rate = rate;
-        utterance.volume = volume;
-        utterance.pitch = pitch;
+        utterance.rate = item.rate;
+        utterance.volume = item.volume;
+        utterance.pitch = item.pitch;
         
-        // Выбираем голос, если указан
-        if (voiceName && availableVoices.length > 0) {
-            const selectedVoice = availableVoices.find(v => v.name === voiceName);
+        if (item.voiceName && availableVoices.length > 0) {
+            const selectedVoice = availableVoices.find(v => v.name === item.voiceName);
             if (selectedVoice) utterance.voice = selectedVoice;
         }
         
-        // Если голос не выбран или не найден, ищем русский
         if (!utterance.voice && availableVoices.length > 0) {
             const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
             if (russianVoice) utterance.voice = russianVoice;
         }
         
         utterance.onstart = () => {
-            console.log("Озвучивание началось:", text);
             document.getElementById('status').innerHTML = '🔊 Озвучивание...';
             document.getElementById('status').style.background = '#e3f2fd';
             document.getElementById('status').style.color = '#0d47a1';
         };
         
         utterance.onend = () => {
+            isSpeaking = false;
             document.getElementById('status').innerHTML = '✅ Готово';
             document.getElementById('status').style.background = '#e8f5e9';
             document.getElementById('status').style.color = '#2e7d32';
             currentUtterance = null;
+            processQueue();
         };
         
         utterance.onerror = (e) => {
             console.error('Speech error:', e);
-            document.getElementById('status').innerHTML = '❌ Ошибка';
+            isSpeaking = false;
             currentUtterance = null;
+            document.getElementById('status').innerHTML = '✅ Готово';
+            processQueue();
         };
         
         currentUtterance = utterance;
         window.speechSynthesis.speak(utterance);
     }
     
-    // Отправка команды на озвучку ВСЕМ пользователям с настройками
+    function speakTextLocally(text, voiceName = null, volume = 1, rate = 0.9, pitch = 1.0) {
+        if (!text || text.trim() === "") return;
+        if (!('speechSynthesis' in window)) return;
+        
+        // Добавляем в очередь
+        speechQueue.push({
+            text: text,
+            voiceName: voiceName,
+            volume: volume,
+            rate: rate,
+            pitch: pitch
+        });
+        
+        processQueue();
+    }
+    
+    // Отправка команды на озвучку ВСЕМ
     function broadcastSpeak(text, voiceName, volume, rate, pitch) {
         if (!text || text.trim() === "") {
             alert("Введите текст для озвучивания");
@@ -881,11 +869,8 @@
             volume: volume,
             rate: rate,
             pitch: pitch,
-            timestamp: Date.now(),
-            sender: 'user_' + Math.random().toString(36).substr(2, 4)
+            timestamp: Date.now()
         });
-        
-        showNotification(`📢 Вы отправили: "${text.substring(0, 50)}..." (громкость: ${Math.round(volume*100)}%, скорость: ${rate})`);
     }
     
     function broadcastStop() {
@@ -893,20 +878,17 @@
             action: 'stop',
             timestamp: Date.now()
         });
-        showNotification(`⏹ Остановка озвучки для всех`);
     }
     
-    // Слушаем команды из Firebase
+    // Слушаем команды из Firebase (мгновенно)
     syncTTSRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
         
         if (data.action === 'speak' && data.text) {
-            showNotification(`🔊 Синхронная озвучка: "${data.text.substring(0, 50)}..." (громкость: ${Math.round((data.volume||1)*100)}%)`);
             speakTextLocally(data.text, data.voiceName, data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
         } else if (data.action === 'stop') {
             stopLocalSpeaking();
-            showNotification(`⏹ Озвучка остановлена`);
         }
     });
     
@@ -1484,7 +1466,6 @@
     document.getElementById('tts-button').onclick = () => {
         document.getElementById('tts-text-input').value = '';
         document.getElementById('tts-modal').style.display = 'block';
-        // Обновляем список голосов при открытии
         loadVoices();
     };
     

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Видео и синхронизация</title>
+    <title>Прозрачный холст - Видео и виджеты</title>
     <style>
         * {
             margin: 0;
@@ -653,7 +653,7 @@
         <button class="widgets-tab" data-tab="saved">📦 Сохраненные</button>
     </div>
     <div id="add-widget-content" class="widgets-content active">
-        <input type="text" id="widget-url-input" placeholder="https://example.com" value="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0">
+        <input type="text" id="widget-url-input" placeholder="https://example.com" value="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0&autoplay=0">
         <div style="display: flex; gap: 8px;">
             <input type="number" id="widget-width-input" placeholder="Ширина" value="400" style="width:50%">
             <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width:50%">
@@ -665,7 +665,7 @@
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
     <div id="quick-widgets-content" class="widgets-content">
-        <button class="quick-widget-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0" data-name="YouTube Видео" data-w="560" data-h="315">▶️ YouTube Видео</button>
+        <button class="quick-widget-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0&autoplay=0" data-name="YouTube Видео" data-w="560" data-h="315">▶️ YouTube Видео</button>
         <button class="quick-widget-btn" data-url="https://calendar.google.com/calendar/embed" data-name="Google Календарь" data-w="600" data-h="400">📅 Google Календарь</button>
         <button class="quick-widget-btn" data-url="https://www.timeanddate.com/worldclock/" data-name="Мировые часы" data-w="500" data-h="400">🌍 Мировые часы</button>
     </div>
@@ -759,14 +759,11 @@
     let videoElements = {};
     let audioElements = {};
     let audioPreloaded = {};
+    let isVideoPlaying = {};
     
     // Drag state
     let dragData = null;
-    
-    // Resize state
     let resizeData = null;
-    
-    // Rotate state
     let rotateData = null;
     
     // Crop state
@@ -916,7 +913,7 @@
         }
     });
     
-    // Widget (YouTube) sync functions
+    // Widget (YouTube) sync functions with sound
     function broadcastWidgetPlay(widgetId) {
         if (!widgetId || !widgets[widgetId]) return;
         syncWidgetRef.set({
@@ -946,7 +943,10 @@
             const targetOrigin = '*';
             
             if (data.action === 'play') {
+                // Для YouTube с звуком
                 iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', targetOrigin);
+                // Также пытаемся включить звук
+                iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', targetOrigin);
             } else if (data.action === 'pause') {
                 iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', targetOrigin);
             }
@@ -956,12 +956,18 @@
     // Video sync functions
     function playVideoSync(videoId) {
         if (!videoId || !videos[videoId]) return;
-        syncVideoRef.set({
-            videoId: videoId,
-            action: 'play',
-            timestamp: Date.now(),
-            currentTime: videoElements[videoId]?.currentTime || 0
-        });
+        const videoEl = document.getElementById(videoId);
+        if (videoEl) {
+            const video = videoEl.querySelector('video');
+            if (video) {
+                syncVideoRef.set({
+                    videoId: videoId,
+                    action: 'play',
+                    timestamp: Date.now(),
+                    currentTime: video.currentTime || 0
+                });
+            }
+        }
     }
     
     function pauseVideoSync() {
@@ -980,14 +986,18 @@
             if (videoEl) {
                 const video = videoEl.querySelector('video');
                 if (video) {
-                    if (data.currentTime !== undefined) {
+                    if (data.currentTime !== undefined && data.currentTime > 0) {
                         video.currentTime = data.currentTime;
                     }
-                    video.play().catch(e => console.log(e));
+                    video.play().catch(e => console.log('Video play error:', e));
                 }
             }
         } else if (data.action === 'pause') {
-            document.querySelectorAll('#videos-layer video').forEach(v => v.pause());
+            document.querySelectorAll('#videos-layer video').forEach(v => {
+                if (!v.paused) {
+                    v.pause();
+                }
+            });
         }
     });
     
@@ -1088,7 +1098,7 @@
         el.style.transform = transform.trim();
     }
     
-    // --- Новая система перемещения и изменения размера ---
+    // --- Система перемещения и изменения размера ---
     function startDrag(e, el) {
         if (el.classList.contains('locked')) return;
         if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
@@ -1097,17 +1107,17 @@
         e.stopPropagation();
         
         const rect = el.getBoundingClientRect();
-        const wrapperRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
+        const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
+        const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
         
         dragData = {
             element: el,
-            startX: e.clientX || e.touches?.[0]?.clientX || 0,
-            startY: e.clientY || e.touches?.[0]?.clientY || 0,
+            startX: clientX,
+            startY: clientY,
             startLeft: parseFloat(el.style.left) || 0,
             startTop: parseFloat(el.style.top) || 0,
-            offsetX: (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left,
-            offsetY: (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top,
-            wrapperRect: wrapperRect
+            offsetX: clientX - rect.left,
+            offsetY: clientY - rect.top
         };
         
         mouseDown = true;
@@ -1124,18 +1134,18 @@
         e.preventDefault();
         e.stopPropagation();
         
-        const rect = el.getBoundingClientRect();
+        const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
+        const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
         
         resizeData = {
             element: el,
             dir: dir,
-            startX: e.clientX || e.touches?.[0]?.clientX || 0,
-            startY: e.clientY || e.touches?.[0]?.clientY || 0,
+            startX: clientX,
+            startY: clientY,
             startWidth: el.offsetWidth,
             startHeight: el.offsetHeight,
             startLeft: parseFloat(el.style.left) || 0,
-            startTop: parseFloat(el.style.top) || 0,
-            rect: rect
+            startTop: parseFloat(el.style.top) || 0
         };
         
         mouseDown = true;
@@ -1149,15 +1159,14 @@
         const rect = el.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
+        const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
+        const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
         
         rotateData = {
             element: el,
-            startX: e.clientX || e.touches?.[0]?.clientX || 0,
-            startY: e.clientY || e.touches?.[0]?.clientY || 0,
-            startAngle: Math.atan2(
-                (e.clientY || e.touches?.[0]?.clientY || 0) - centerY,
-                (e.clientX || e.touches?.[0]?.clientX || 0) - centerX
-            ) * 180 / Math.PI,
+            startX: clientX,
+            startY: clientY,
+            startAngle: Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI,
             currentRotation: parseFloat(el.dataset.rotation) || 0,
             centerX: centerX,
             centerY: centerY
@@ -1168,6 +1177,7 @@
     
     function handleMove(e) {
         if (!mouseDown) return;
+        if (!dragData && !resizeData && !rotateData) return;
         
         const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
         const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
@@ -1175,12 +1185,9 @@
         // Drag
         if (dragData) {
             const el = dragData.element;
-            const wrapperRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
-            
             let newLeft = dragData.startLeft + (clientX - dragData.startX);
             let newTop = dragData.startTop + (clientY - dragData.startY);
             
-            // Ограничения
             newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - el.offsetWidth));
             newTop = Math.max(0, Math.min(newTop, canvasRect.height - el.offsetHeight));
             
@@ -1250,15 +1257,16 @@
         }
     }
     
-    function handleEnd() {
+    function handleEnd(e) {
+        if (!mouseDown) return;
         mouseDown = false;
-        dragData = null;
-        resizeData = null;
-        rotateData = null;
         
         if (dragData?.element) {
             dragData.element.style.cursor = 'grab';
         }
+        dragData = null;
+        resizeData = null;
+        rotateData = null;
     }
     
     // Глобальные обработчики
@@ -1273,7 +1281,6 @@
     document.addEventListener('touchend', handleEnd);
     
     function makeDraggable(el) {
-        // Mouse events
         el.addEventListener('mousedown', (e) => {
             if (e.target.classList.contains('resize-handle')) {
                 const dir = e.target.className.match(/resize-(\w+)/)?.[1];
@@ -1287,7 +1294,6 @@
             startDrag(e, el);
         });
         
-        // Touch events
         el.addEventListener('touchstart', (e) => {
             const touch = e.touches[0];
             if (e.target.classList.contains('resize-handle')) {
@@ -1414,11 +1420,13 @@
     
     function addWidgetByUrl(url, name, width, height, customCss) {
         if (!url) return alert('Введите URL');
-        // Добавляем параметры для YouTube API если это YouTube ссылка
         let finalUrl = url.startsWith('http') ? url : 'https://' + url;
         if (finalUrl.includes('youtube.com/embed')) {
             if (!finalUrl.includes('enablejsapi=1')) {
                 finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
+            }
+            if (!finalUrl.includes('autoplay')) {
+                finalUrl += '&autoplay=0';
             }
         }
         const id = createId('widget');
@@ -1509,15 +1517,27 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-widget';
+                // Добавляем allow="autoplay" для звука
                 el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
                 addRotateHandle(el);
                 makeDraggable(el);
+                
+                // Обработчик для перезагрузки виджета
                 el.querySelector('.retry-widget')?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const iframe = el.querySelector('iframe');
-                    if (iframe) iframe.src = iframe.src;
+                    if (iframe) {
+                        // Перезагружаем с параметром autoplay=0 чтобы не было автостарта
+                        let src = iframe.src;
+                        if (src.includes('autoplay=1')) {
+                            src = src.replace('autoplay=1', 'autoplay=0');
+                        } else if (!src.includes('autoplay')) {
+                            src += (src.includes('?') ? '&' : '?') + 'autoplay=0';
+                        }
+                        iframe.src = src;
+                    }
                     el.querySelector('.widget-error').style.display = 'none';
                 });
             }
@@ -1546,6 +1566,7 @@
                 video.src = data.src;
                 video.muted = false;
                 video.loop = data.loop || false;
+                video.playsInline = true;
                 video.style.width = '100%';
                 video.style.height = '100%';
                 video.style.objectFit = 'contain';
@@ -1606,7 +1627,21 @@
             }
         }
     });
-    videosRef.on('value', s => { videos = s.val() || {}; syncElements(); });
+    videosRef.on('value', s => { 
+        videos = s.val() || {}; 
+        syncElements();
+        for (const id in videos) {
+            if (isVideoPlaying[id]) {
+                const videoEl = document.getElementById(id);
+                if (videoEl) {
+                    const video = videoEl.querySelector('video');
+                    if (video) {
+                        video.play().catch(e => console.log(e));
+                    }
+                }
+            }
+        }
+    });
     savedWidgetsRef.on('value', s => { savedWidgets = s.val() || {}; updateSavedList(); });
     
     function updateSavedList() {
@@ -1685,7 +1720,7 @@
     };
     
     document.getElementById('add-widget-btn').onclick = () => {
-        document.getElementById('widget-url-input').value = 'https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0';
+        document.getElementById('widget-url-input').value = 'https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0&autoplay=0';
         document.getElementById('widget-css-input').value = '';
         document.getElementById('widget-modal').style.display = 'block';
     };
@@ -1716,6 +1751,9 @@
             if (url.includes('youtube.com/embed')) {
                 if (!url.includes('enablejsapi=1')) {
                     url += (url.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
+                }
+                if (!url.includes('autoplay')) {
+                    url += '&autoplay=0';
                 }
             }
             addWidgetByUrl(url, btn.dataset.name, parseInt(btn.dataset.w), parseInt(btn.dataset.h), '');
@@ -1775,39 +1813,60 @@
     document.getElementById('video-input').onchange = e => {
         const f = e.target.files[0];
         if (f) {
-            const r = new FileReader();
-            r.onload = ev => {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const videoUrl = ev.target.result;
                 const id = createId('video');
-                const tempVideo = document.createElement('video');
-                tempVideo.src = ev.target.result;
-                tempVideo.onloadedmetadata = () => {
-                    const width = Math.min(400, tempVideo.videoWidth || 640);
-                    const height = Math.min(300, tempVideo.videoHeight || 360);
-                    videosRef.child(id).set({
-                        id, src: ev.target.result, name: f.name,
-                        x: 50, y: 50, width: width, height: height,
-                        display: 'block', locked: false, loop: false,
-                        rotation: 0
-                    });
-                };
-                setTimeout(() => {
-                    if (!videos[id]) {
-                        videosRef.child(id).set({
-                            id, src: ev.target.result, name: f.name,
-                            x: 50, y: 50, width: 400, height: 300,
-                            display: 'block', locked: false, loop: false,
-                            rotation: 0
-                        });
-                    }
-                }, 3000);
+                
+                videosRef.child(id).set({
+                    id: id,
+                    src: videoUrl,
+                    name: f.name,
+                    x: 50,
+                    y: 50,
+                    width: 400,
+                    height: 300,
+                    display: 'block',
+                    locked: false,
+                    loop: false,
+                    rotation: 0
+                }).then(() => {
+                    const videoEl = document.createElement('div');
+                    videoEl.id = id;
+                    videoEl.className = 'draggable-video';
+                    const video = document.createElement('video');
+                    video.src = videoUrl;
+                    video.muted = false;
+                    video.loop = false;
+                    video.playsInline = true;
+                    video.style.width = '100%';
+                    video.style.height = '100%';
+                    video.style.objectFit = 'contain';
+                    videoEl.appendChild(video);
+                    document.getElementById('videos-layer').appendChild(videoEl);
+                    
+                    addResizeHandles(videoEl);
+                    addRotateHandle(videoEl);
+                    makeDraggable(videoEl);
+                    videoElements[id] = video;
+                    
+                    updateThumbnails();
+                    
+                    document.getElementById('status').innerHTML = '✅ Видео загружено';
+                    document.getElementById('status').style.background = '#e8f5e9';
+                    document.getElementById('status').style.color = '#2e7d32';
+                }).catch(err => {
+                    console.error('Error saving video:', err);
+                    alert('Ошибка при загрузке видео. Попробуйте еще раз.');
+                });
             };
-            r.readAsDataURL(f);
+            reader.readAsDataURL(f);
         }
     };
     
     document.getElementById('add-video-btn').onclick = () => document.getElementById('video-input').click();
     
-    // Widget YouTube controls
+    // Widget YouTube controls with sound
     document.getElementById('play-widget-btn').onclick = () => {
         if (selectedWidgetId && widgets[selectedWidgetId]) {
             broadcastWidgetPlay(selectedWidgetId);
@@ -1822,17 +1881,33 @@
     // Video controls
     document.getElementById('play-video-btn').onclick = () => {
         if (selectedVideoId && videos[selectedVideoId]) {
-            playVideoSync(selectedVideoId);
+            const videoEl = document.getElementById(selectedVideoId);
+            if (videoEl) {
+                const video = videoEl.querySelector('video');
+                if (video) {
+                    isVideoPlaying[selectedVideoId] = true;
+                    playVideoSync(selectedVideoId);
+                }
+            }
         }
     };
     document.getElementById('pause-video-btn').onclick = () => {
-        pauseVideoSync();
+        if (selectedVideoId) {
+            isVideoPlaying[selectedVideoId] = false;
+            pauseVideoSync();
+        }
     };
     document.getElementById('hide-video-btn').onclick = () => { if(selectedVideoId) toggleVisibility(selectedVideoId, 'video'); };
-    document.getElementById('delete-video-btn').onclick = () => { if(selectedVideoId) deleteElement(selectedVideoId, 'video'); deselectAll(); };
+    document.getElementById('delete-video-btn').onclick = () => { 
+        if(selectedVideoId) {
+            deleteElement(selectedVideoId, 'video');
+            delete isVideoPlaying[selectedVideoId];
+            deselectAll();
+        }
+    };
     document.getElementById('lock-video-btn').onclick = () => { if(selectedVideoId) { const el = document.getElementById(selectedVideoId); const locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); videosRef.child(selectedVideoId).update({ locked }); } };
     
-    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); videosRef.remove(); } };
+    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); videosRef.remove(); isVideoPlaying = {}; } };
     document.getElementById('delete-btn').onclick = () => { if(selectedImageId) imagesRef.child(selectedImageId).remove(); deselectAll(); };
     document.getElementById('delete-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); };
     document.getElementById('delete-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); };
@@ -1973,7 +2048,21 @@
         if(selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); 
     };
     
-    document.getElementById('reload-widget-btn').onclick = () => { if(selectedWidgetId) { const el = document.getElementById(selectedWidgetId); const iframe = el?.querySelector('iframe'); if(iframe) iframe.src = iframe.src; } };
+    document.getElementById('reload-widget-btn').onclick = () => { 
+        if(selectedWidgetId) { 
+            const el = document.getElementById(selectedWidgetId); 
+            const iframe = el?.querySelector('iframe'); 
+            if(iframe) {
+                let src = iframe.src;
+                if (src.includes('autoplay=1')) {
+                    src = src.replace('autoplay=1', 'autoplay=0');
+                } else if (!src.includes('autoplay')) {
+                    src += (src.includes('?') ? '&' : '?') + 'autoplay=0';
+                }
+                iframe.src = src;
+            }
+        } 
+    };
     document.getElementById('edit-widget-url-btn').onclick = () => {
         if(selectedWidgetId && widgets[selectedWidgetId]) {
             document.getElementById('edit-widget-url').value = widgets[selectedWidgetId].url;
@@ -1982,8 +2071,13 @@
                 const newUrl = document.getElementById('edit-widget-url').value.trim();
                 if(newUrl) {
                     let finalUrl = newUrl.startsWith('http') ? newUrl : 'https://' + newUrl;
-                    if (finalUrl.includes('youtube.com/embed') && !finalUrl.includes('enablejsapi=1')) {
-                        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
+                    if (finalUrl.includes('youtube.com/embed')) {
+                        if (!finalUrl.includes('enablejsapi=1')) {
+                            finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
+                        }
+                        if (!finalUrl.includes('autoplay')) {
+                            finalUrl += '&autoplay=0';
+                        }
                     }
                     widgetsRef.child(selectedWidgetId).update({ url: finalUrl });
                     const el = document.getElementById(selectedWidgetId);

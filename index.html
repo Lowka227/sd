@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Видео и виджеты</title>
+    <title>Прозрачный холст - Синхронное видео</title>
     <style>
         * {
             margin: 0;
@@ -210,6 +210,7 @@
             pointer-events: auto;
             box-sizing: border-box;
             transform-origin: center center;
+            transition: none !important;
         }
         
         .draggable-image:active, .draggable-text:active, .draggable-widget:active, .draggable-video:active {
@@ -756,7 +757,8 @@
     
     // Video sync variables
     let videoElements = {};
-    let widgetPlayers = {};
+    let audioElements = {};
+    let audioPreloaded = {};
     
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
@@ -952,18 +954,32 @@
         }
     });
     
-    // Video sync functions
+    // Video sync functions with improved timing
     function playVideoSync(videoId) {
         if (!videoId || !videos[videoId]) return;
         syncVideoRef.set({
             videoId: videoId,
             action: 'play',
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            currentTime: videoElements[videoId]?.currentTime || 0
         });
     }
     
     function pauseVideoSync() {
-        syncVideoRef.set({ action: 'pause', timestamp: Date.now() });
+        syncVideoRef.set({ 
+            action: 'pause', 
+            timestamp: Date.now() 
+        });
+    }
+    
+    function seekVideoSync(videoId, time) {
+        if (!videoId || !videos[videoId]) return;
+        syncVideoRef.set({
+            videoId: videoId,
+            action: 'seek',
+            time: time,
+            timestamp: Date.now()
+        });
     }
     
     syncVideoRef.on('value', (snapshot) => {
@@ -975,11 +991,107 @@
             if (videoEl) {
                 const video = videoEl.querySelector('video');
                 if (video) {
+                    // Синхронизация времени для точного старта
+                    if (data.currentTime !== undefined) {
+                        video.currentTime = data.currentTime;
+                    }
                     video.play().catch(e => console.log(e));
                 }
             }
         } else if (data.action === 'pause') {
             document.querySelectorAll('#videos-layer video').forEach(v => v.pause());
+        } else if (data.action === 'seek' && data.videoId && videos[data.videoId]) {
+            const videoEl = document.getElementById(data.videoId);
+            if (videoEl) {
+                const video = videoEl.querySelector('video');
+                if (video && data.time !== undefined) {
+                    video.currentTime = data.time;
+                }
+            }
+        }
+    });
+    
+    // Audio sync with preloading
+    function preloadAudio(soundId) {
+        if (audioPreloaded[soundId]) return;
+        const data = sounds[soundId];
+        if (!data) return;
+        
+        const audio = new Audio();
+        audio.src = data.src;
+        audio.preload = 'auto';
+        audio.load();
+        audioElements[soundId] = audio;
+        audioPreloaded[soundId] = true;
+        
+        audio.addEventListener('canplaythrough', () => {
+            console.log('Audio preloaded:', soundId);
+        });
+    }
+    
+    function playSoundSync(soundId) {
+        if (!soundId || !sounds[soundId]) return;
+        
+        // Предзагрузка если еще не загружено
+        if (!audioPreloaded[soundId]) {
+            preloadAudio(soundId);
+        }
+        
+        syncSoundRef.set({
+            soundId: soundId,
+            action: 'play',
+            timestamp: Date.now(),
+            volume: sounds[soundId].volume || 100,
+            currentTime: audioElements[soundId]?.currentTime || 0
+        });
+    }
+    
+    function pauseSoundSync() {
+        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
+    }
+    
+    syncSoundRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
+            let audio;
+            if (audioElements[data.soundId]) {
+                audio = audioElements[data.soundId];
+            } else {
+                audio = new Audio();
+                audio.src = sounds[data.soundId].src;
+                audio.preload = 'auto';
+                audio.load();
+                audioElements[data.soundId] = audio;
+                audioPreloaded[data.soundId] = true;
+            }
+            
+            audio.volume = (data.volume || 100) / 100;
+            if (data.currentTime !== undefined) {
+                audio.currentTime = data.currentTime;
+            }
+            audio.play().catch(e => console.log(e));
+            
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                if (audio.paused || audio.ended) {
+                    if (audio.ended) {
+                        document.getElementById('sound-progress').style.width = '0%';
+                        clearInterval(progressInterval);
+                    }
+                } else {
+                    let percent = (audio.currentTime / audio.duration) * 100;
+                    document.getElementById('sound-progress').style.width = percent + '%';
+                }
+            }, 100);
+        } else if (data.action === 'pause') {
+            if (audioElements[data.soundId]) {
+                audioElements[data.soundId].pause();
+            } else {
+                document.querySelectorAll('audio').forEach(a => a.pause());
+            }
+            if (progressInterval) clearInterval(progressInterval);
         }
     });
     
@@ -1002,49 +1114,6 @@
         if (el.dataset.flipV === 'true') transform += 'scaleY(-1) ';
         el.style.transform = transform.trim();
     }
-    
-    // Синхронизация звука
-    function playSoundSync(soundId) {
-        if (!soundId || !sounds[soundId]) return;
-        syncSoundRef.set({
-            soundId: soundId,
-            action: 'play',
-            timestamp: Date.now(),
-            volume: sounds[soundId].volume || 100
-        });
-    }
-    
-    function pauseSoundSync() {
-        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
-    }
-    
-    syncSoundRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
-            audioElement.src = sounds[data.soundId].src;
-            audioElement.volume = (data.volume || 100) / 100;
-            audioElement.currentTime = 0;
-            audioElement.play().catch(e => console.log(e));
-            
-            if (progressInterval) clearInterval(progressInterval);
-            progressInterval = setInterval(() => {
-                if (audioElement.paused || audioElement.ended) {
-                    if (audioElement.ended) {
-                        document.getElementById('sound-progress').style.width = '0%';
-                        clearInterval(progressInterval);
-                    }
-                } else {
-                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
-                    document.getElementById('sound-progress').style.width = percent + '%';
-                }
-            }, 100);
-        } else if (data.action === 'pause') {
-            audioElement.pause();
-            if (progressInterval) clearInterval(progressInterval);
-        }
-    });
     
     // Глобальные обработчики
     let moveFrame = null;
@@ -1405,7 +1474,8 @@
         widgetsRef.child(id).set({
             id, url: finalUrl, name: name || 'Виджет',
             x: 50, y: 50, width: width || 400, height: height || 300,
-            opacity: 1, locked: false, display: 'block', customCss: customCss || ''
+            opacity: 1, locked: false, display: 'block', customCss: customCss || '',
+            rotation: 0
         });
         closeModal('widget-modal');
     }
@@ -1576,7 +1646,16 @@
     imagesRef.on('value', s => { images = s.val() || {}; syncElements(); });
     textsRef.on('value', s => { texts = s.val() || {}; syncElements(); });
     widgetsRef.on('value', s => { widgets = s.val() || {}; syncElements(); });
-    soundsRef.on('value', s => { sounds = s.val() || {}; updateThumbnails(); });
+    soundsRef.on('value', s => { 
+        sounds = s.val() || {}; 
+        updateThumbnails();
+        // Предзагружаем звуки
+        for (const id in sounds) {
+            if (!audioPreloaded[id]) {
+                preloadAudio(id);
+            }
+        }
+    });
     videosRef.on('value', s => { videos = s.val() || {}; syncElements(); });
     savedWidgetsRef.on('value', s => { savedWidgets = s.val() || {}; updateSavedList(); });
     
@@ -1705,7 +1784,8 @@
                     imagesRef.child(id).set({
                         id, src: ev.target.result, x: 50, y: 50,
                         width: Math.min(400, img.width), height: Math.min(300, img.height),
-                        opacity: 1, brightness: 100, display: 'block', locked: false
+                        opacity: 1, brightness: 100, display: 'block', locked: false,
+                        rotation: 0
                     });
                 };
                 img.src = ev.target.result;
@@ -1720,7 +1800,16 @@
             const r = new FileReader();
             r.onload = ev => {
                 const id = createId('sound');
-                soundsRef.child(id).set({ id, src: ev.target.result, name: f.name, volume: 100, display: 'block' });
+                const data = { 
+                    id, 
+                    src: ev.target.result, 
+                    name: f.name, 
+                    volume: 100, 
+                    display: 'block' 
+                };
+                soundsRef.child(id).set(data);
+                // Предзагрузка звука
+                setTimeout(() => preloadAudio(id), 100);
             };
             r.readAsDataURL(f);
         }
@@ -1732,11 +1821,28 @@
             const r = new FileReader();
             r.onload = ev => {
                 const id = createId('video');
-                videosRef.child(id).set({
-                    id, src: ev.target.result, name: f.name,
-                    x: 50, y: 50, width: 400, height: 300,
-                    display: 'block', locked: false, loop: false
-                });
+                const tempVideo = document.createElement('video');
+                tempVideo.src = ev.target.result;
+                tempVideo.onloadedmetadata = () => {
+                    const width = Math.min(400, tempVideo.videoWidth || 640);
+                    const height = Math.min(300, tempVideo.videoHeight || 360);
+                    videosRef.child(id).set({
+                        id, src: ev.target.result, name: f.name,
+                        x: 50, y: 50, width: width, height: height,
+                        display: 'block', locked: false, loop: false,
+                        rotation: 0
+                    });
+                };
+                setTimeout(() => {
+                    if (!videos[id]) {
+                        videosRef.child(id).set({
+                            id, src: ev.target.result, name: f.name,
+                            x: 50, y: 50, width: 400, height: 300,
+                            display: 'block', locked: false, loop: false,
+                            rotation: 0
+                        });
+                    }
+                }, 3000);
             };
             r.readAsDataURL(f);
         }

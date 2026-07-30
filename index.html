@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Синхронное видео</title>
+    <title>Прозрачный холст - Видео и синхронизация</title>
     <style>
         * {
             margin: 0;
@@ -210,7 +210,7 @@
             pointer-events: auto;
             box-sizing: border-box;
             transform-origin: center center;
-            transition: none !important;
+            will-change: transform, left, top, width, height;
         }
         
         .draggable-image:active, .draggable-text:active, .draggable-widget:active, .draggable-video:active {
@@ -303,14 +303,14 @@
         
         .resize-handle {
             position: absolute;
-            width: 12px;
-            height: 12px;
+            width: 14px;
+            height: 14px;
             background: #ffd966;
             border: 2px solid #1e2b6e;
             border-radius: 50%;
             z-index: 20;
             opacity: 0;
-            transition: opacity 0.15s, transform 0.1s;
+            transition: opacity 0.15s;
             pointer-events: auto;
         }
         
@@ -336,7 +336,7 @@
             color: white;
             font-size: 14px;
             pointer-events: auto;
-            transition: opacity 0.15s, transform 0.1s;
+            transition: opacity 0.15s;
         }
         
         .rotate-corner:hover {
@@ -349,14 +349,14 @@
         
         .rotate-corner::after { content: "↻"; }
         
-        .resize-n { top: -6px; left: 50%; margin-left: -6px; cursor: n-resize; }
-        .resize-ne { top: -6px; right: -6px; cursor: ne-resize; }
-        .resize-e { top: 50%; right: -6px; margin-top: -6px; cursor: e-resize; }
-        .resize-se { bottom: -6px; right: -6px; cursor: se-resize; }
-        .resize-s { bottom: -6px; left: 50%; margin-left: -6px; cursor: s-resize; }
-        .resize-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
-        .resize-w { top: 50%; left: -6px; margin-top: -6px; cursor: w-resize; }
-        .resize-nw { top: -6px; left: -6px; cursor: nw-resize; }
+        .resize-n { top: -7px; left: 50%; margin-left: -7px; cursor: n-resize; }
+        .resize-ne { top: -7px; right: -7px; cursor: ne-resize; }
+        .resize-e { top: 50%; right: -7px; margin-top: -7px; cursor: e-resize; }
+        .resize-se { bottom: -7px; right: -7px; cursor: se-resize; }
+        .resize-s { bottom: -7px; left: 50%; margin-left: -7px; cursor: s-resize; }
+        .resize-sw { bottom: -7px; left: -7px; cursor: sw-resize; }
+        .resize-w { top: 50%; left: -7px; margin-top: -7px; cursor: w-resize; }
+        .resize-nw { top: -7px; left: -7px; cursor: nw-resize; }
         
         .selected:not(.locked) .resize-handle,
         .selected:not(.locked) .rotate-corner {
@@ -653,7 +653,7 @@
         <button class="widgets-tab" data-tab="saved">📦 Сохраненные</button>
     </div>
     <div id="add-widget-content" class="widgets-content active">
-        <input type="text" id="widget-url-input" placeholder="https://example.com" value="https://www.youtube.com/embed/dQw4w9WgXcQ">
+        <input type="text" id="widget-url-input" placeholder="https://example.com" value="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0">
         <div style="display: flex; gap: 8px;">
             <input type="number" id="widget-width-input" placeholder="Ширина" value="400" style="width:50%">
             <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width:50%">
@@ -665,7 +665,7 @@
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
     <div id="quick-widgets-content" class="widgets-content">
-        <button class="quick-widget-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ" data-name="YouTube Видео" data-w="560" data-h="315">▶️ YouTube Видео</button>
+        <button class="quick-widget-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0" data-name="YouTube Видео" data-w="560" data-h="315">▶️ YouTube Видео</button>
         <button class="quick-widget-btn" data-url="https://calendar.google.com/calendar/embed" data-name="Google Календарь" data-w="600" data-h="400">📅 Google Календарь</button>
         <button class="quick-widget-btn" data-url="https://www.timeanddate.com/worldclock/" data-name="Мировые часы" data-w="500" data-h="400">🌍 Мировые часы</button>
     </div>
@@ -761,14 +761,13 @@
     let audioPreloaded = {};
     
     // Drag state
-    let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
+    let dragData = null;
     
     // Resize state
-    let resizeActive = false, resizeElement = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0;
-    let resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0;
+    let resizeData = null;
     
     // Rotate state
-    let rotateActive = false, rotateElement = null, rotateStartAngle = 0, rotateCurrentRot = 0, rotateCenterX = 0, rotateCenterY = 0;
+    let rotateData = null;
     
     // Crop state
     let cropActive = false, cropOverlay = null, cropElement = null, cropType = null;
@@ -954,7 +953,7 @@
         }
     });
     
-    // Video sync functions with improved timing
+    // Video sync functions
     function playVideoSync(videoId) {
         if (!videoId || !videos[videoId]) return;
         syncVideoRef.set({
@@ -972,16 +971,6 @@
         });
     }
     
-    function seekVideoSync(videoId, time) {
-        if (!videoId || !videos[videoId]) return;
-        syncVideoRef.set({
-            videoId: videoId,
-            action: 'seek',
-            time: time,
-            timestamp: Date.now()
-        });
-    }
-    
     syncVideoRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -991,7 +980,6 @@
             if (videoEl) {
                 const video = videoEl.querySelector('video');
                 if (video) {
-                    // Синхронизация времени для точного старта
                     if (data.currentTime !== undefined) {
                         video.currentTime = data.currentTime;
                     }
@@ -1000,14 +988,6 @@
             }
         } else if (data.action === 'pause') {
             document.querySelectorAll('#videos-layer video').forEach(v => v.pause());
-        } else if (data.action === 'seek' && data.videoId && videos[data.videoId]) {
-            const videoEl = document.getElementById(data.videoId);
-            if (videoEl) {
-                const video = videoEl.querySelector('video');
-                if (video && data.time !== undefined) {
-                    video.currentTime = data.time;
-                }
-            }
         }
     });
     
@@ -1023,16 +1003,11 @@
         audio.load();
         audioElements[soundId] = audio;
         audioPreloaded[soundId] = true;
-        
-        audio.addEventListener('canplaythrough', () => {
-            console.log('Audio preloaded:', soundId);
-        });
     }
     
     function playSoundSync(soundId) {
         if (!soundId || !sounds[soundId]) return;
         
-        // Предзагрузка если еще не загружено
         if (!audioPreloaded[soundId]) {
             preloadAudio(soundId);
         }
@@ -1088,8 +1063,6 @@
         } else if (data.action === 'pause') {
             if (audioElements[data.soundId]) {
                 audioElements[data.soundId].pause();
-            } else {
-                document.querySelectorAll('audio').forEach(a => a.pause());
             }
             if (progressInterval) clearInterval(progressInterval);
         }
@@ -1115,168 +1088,218 @@
         el.style.transform = transform.trim();
     }
     
-    // Глобальные обработчики
-    let moveFrame = null;
-    document.addEventListener('mousemove', (e) => {
-        if (!mouseDown) return;
-        if (moveFrame) cancelAnimationFrame(moveFrame);
-        moveFrame = requestAnimationFrame(() => {
-            if (dragActive && dragElement) {
-                let newLeft = dragStartLeft + (e.clientX - dragStartX);
-                let newTop = dragStartTop + (e.clientY - dragStartY);
-                newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
-                newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
-                dragElement.style.left = newLeft + 'px';
-                dragElement.style.top = newTop + 'px';
-                const id = dragElement.id;
-                if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
-                else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
-                else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
-                else if (videos[id]) videosRef.child(id).update({ x: newLeft, y: newTop });
-            }
-            
-            if (resizeActive && resizeElement && !cropActive) {
-                let dx = e.clientX - resizeStartX;
-                let dy = e.clientY - resizeStartY;
-                let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
-                
-                switch(resizeDir) {
-                    case 'e': newW = Math.max(50, resizeStartW + dx); break;
-                    case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
-                    case 's': newH = Math.max(50, resizeStartH + dy); break;
-                    case 'n': newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
-                    case 'se': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH + dy); break;
-                    case 'sw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH + dy); newL = resizeStartL + (resizeStartW - newW); break;
-                    case 'ne': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
-                    case 'nw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH - dy); newL = resizeStartL + (resizeStartW - newW); newT = resizeStartT + (resizeStartH - newH); break;
-                }
-                newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
-                newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
-                resizeElement.style.width = newW + 'px';
-                resizeElement.style.height = newH + 'px';
-                resizeElement.style.left = newL + 'px';
-                resizeElement.style.top = newT + 'px';
-            }
-            
-            if (rotateActive && rotateElement) {
-                let currX = e.clientX;
-                let currY = e.clientY;
-                let currAngle = Math.atan2(currY - rotateCenterY, currX - rotateCenterX) * 180 / Math.PI;
-                let delta = currAngle - rotateStartAngle;
-                let newRot = rotateCurrentRot + delta;
-                rotateElement.dataset.rotation = newRot;
-                applyTransform(rotateElement);
-                const id = rotateElement.id;
-                if (images[id]) imagesRef.child(id).update({ rotation: newRot });
-                if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
-                if (videos[id]) videosRef.child(id).update({ rotation: newRot });
-            }
-            
-            if (cropActive && cropOverlay && resizeElement) {
-                let dx = e.clientX - cropStartX;
-                let dy = e.clientY - cropStartY;
-                let newW = Math.max(30, cropStartW + dx);
-                let newH = Math.max(30, cropStartH + dy);
-                cropOverlay.style.width = newW + 'px';
-                cropOverlay.style.height = newH + 'px';
-            }
-            moveFrame = null;
-        });
-    });
-    
-    document.addEventListener('mouseup', () => {
-        if (!mouseDown) return;
-        mouseDown = false;
+    // --- Новая система перемещения и изменения размера ---
+    function startDrag(e, el) {
+        if (el.classList.contains('locked')) return;
+        if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
         
-        if (resizeActive && resizeElement && !cropActive) {
-            const id = resizeElement.id;
-            let newL = parseFloat(resizeElement.style.left);
-            let newT = parseFloat(resizeElement.style.top);
-            let newW = parseFloat(resizeElement.style.width);
-            let newH = parseFloat(resizeElement.style.height);
-            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (videos[id]) videosRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-        }
+        e.preventDefault();
+        e.stopPropagation();
         
-        dragActive = false;
-        resizeActive = false;
-        rotateActive = false;
-        dragElement = null;
-        resizeElement = null;
-        rotateElement = null;
-        if (moveFrame) cancelAnimationFrame(moveFrame);
-    });
+        const rect = el.getBoundingClientRect();
+        const wrapperRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
+        
+        dragData = {
+            element: el,
+            startX: e.clientX || e.touches?.[0]?.clientX || 0,
+            startY: e.clientY || e.touches?.[0]?.clientY || 0,
+            startLeft: parseFloat(el.style.left) || 0,
+            startTop: parseFloat(el.style.top) || 0,
+            offsetX: (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left,
+            offsetY: (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top,
+            wrapperRect: wrapperRect
+        };
+        
+        mouseDown = true;
+        el.style.cursor = 'grabbing';
+        
+        if (el.id.startsWith('img')) selectImage(el.id);
+        else if (el.id.startsWith('text')) selectText(el.id);
+        else if (el.id.startsWith('widget')) selectWidget(el.id);
+        else if (el.id.startsWith('video')) selectVideo(el.id);
+    }
     
-    document.addEventListener('touchmove', (e) => {
+    function startResize(e, el, dir) {
+        if (el.classList.contains('locked')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const rect = el.getBoundingClientRect();
+        
+        resizeData = {
+            element: el,
+            dir: dir,
+            startX: e.clientX || e.touches?.[0]?.clientX || 0,
+            startY: e.clientY || e.touches?.[0]?.clientY || 0,
+            startWidth: el.offsetWidth,
+            startHeight: el.offsetHeight,
+            startLeft: parseFloat(el.style.left) || 0,
+            startTop: parseFloat(el.style.top) || 0,
+            rect: rect
+        };
+        
+        mouseDown = true;
+    }
+    
+    function startRotate(e, el) {
+        if (el.classList.contains('locked')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        rotateData = {
+            element: el,
+            startX: e.clientX || e.touches?.[0]?.clientX || 0,
+            startY: e.clientY || e.touches?.[0]?.clientY || 0,
+            startAngle: Math.atan2(
+                (e.clientY || e.touches?.[0]?.clientY || 0) - centerY,
+                (e.clientX || e.touches?.[0]?.clientX || 0) - centerX
+            ) * 180 / Math.PI,
+            currentRotation: parseFloat(el.dataset.rotation) || 0,
+            centerX: centerX,
+            centerY: centerY
+        };
+        
+        mouseDown = true;
+    }
+    
+    function handleMove(e) {
         if (!mouseDown) return;
-        if (dragActive && dragElement) {
-            e.preventDefault();
-            const touch = e.touches[0];
-            let newLeft = dragStartLeft + (touch.clientX - dragStartX);
-            let newTop = dragStartTop + (touch.clientY - dragStartY);
-            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
-            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
-            dragElement.style.left = newLeft + 'px';
-            dragElement.style.top = newTop + 'px';
-            const id = dragElement.id;
+        
+        const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
+        const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
+        
+        // Drag
+        if (dragData) {
+            const el = dragData.element;
+            const wrapperRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
+            
+            let newLeft = dragData.startLeft + (clientX - dragData.startX);
+            let newTop = dragData.startTop + (clientY - dragData.startY);
+            
+            // Ограничения
+            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - el.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, canvasRect.height - el.offsetHeight));
+            
+            el.style.left = newLeft + 'px';
+            el.style.top = newTop + 'px';
+            
+            const id = el.id;
             if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
             else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
             else if (videos[id]) videosRef.child(id).update({ x: newLeft, y: newTop });
         }
-    });
-    document.addEventListener('touchend', () => {
+        
+        // Resize
+        if (resizeData) {
+            const el = resizeData.element;
+            let dx = clientX - resizeData.startX;
+            let dy = clientY - resizeData.startY;
+            let newW = resizeData.startWidth;
+            let newH = resizeData.startHeight;
+            let newL = resizeData.startLeft;
+            let newT = resizeData.startTop;
+            
+            const dir = resizeData.dir;
+            
+            switch(dir) {
+                case 'e': newW = Math.max(50, resizeData.startWidth + dx); break;
+                case 'w': newW = Math.max(50, resizeData.startWidth - dx); newL = resizeData.startLeft + (resizeData.startWidth - newW); break;
+                case 's': newH = Math.max(50, resizeData.startHeight + dy); break;
+                case 'n': newH = Math.max(50, resizeData.startHeight - dy); newT = resizeData.startTop + (resizeData.startHeight - newH); break;
+                case 'se': newW = Math.max(50, resizeData.startWidth + dx); newH = Math.max(50, resizeData.startHeight + dy); break;
+                case 'sw': newW = Math.max(50, resizeData.startWidth - dx); newH = Math.max(50, resizeData.startHeight + dy); newL = resizeData.startLeft + (resizeData.startWidth - newW); break;
+                case 'ne': newW = Math.max(50, resizeData.startWidth + dx); newH = Math.max(50, resizeData.startHeight - dy); newT = resizeData.startTop + (resizeData.startHeight - newH); break;
+                case 'nw': newW = Math.max(50, resizeData.startWidth - dx); newH = Math.max(50, resizeData.startHeight - dy); newL = resizeData.startLeft + (resizeData.startWidth - newW); newT = resizeData.startTop + (resizeData.startHeight - newH); break;
+            }
+            
+            newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
+            newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
+            
+            el.style.width = newW + 'px';
+            el.style.height = newH + 'px';
+            el.style.left = newL + 'px';
+            el.style.top = newT + 'px';
+            
+            const id = el.id;
+            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+            else if (videos[id]) videosRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+        }
+        
+        // Rotate
+        if (rotateData) {
+            const el = rotateData.element;
+            const dx = clientX - rotateData.centerX;
+            const dy = clientY - rotateData.centerY;
+            const currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+            const delta = currentAngle - rotateData.startAngle;
+            const newRot = rotateData.currentRotation + delta;
+            
+            el.dataset.rotation = newRot;
+            applyTransform(el);
+            
+            const id = el.id;
+            if (images[id]) imagesRef.child(id).update({ rotation: newRot });
+            else if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
+            else if (videos[id]) videosRef.child(id).update({ rotation: newRot });
+        }
+    }
+    
+    function handleEnd() {
         mouseDown = false;
-        dragActive = false;
-        resizeActive = false;
-        rotateActive = false;
-        dragElement = null;
-        resizeElement = null;
-        rotateElement = null;
+        dragData = null;
+        resizeData = null;
+        rotateData = null;
+        
+        if (dragData?.element) {
+            dragData.element.style.cursor = 'grab';
+        }
+    }
+    
+    // Глобальные обработчики
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', (e) => {
+        if (mouseDown) {
+            e.preventDefault();
+            handleMove(e);
+        }
     });
+    document.addEventListener('touchend', handleEnd);
     
     function makeDraggable(el) {
+        // Mouse events
         el.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
-            if (el.classList.contains('locked')) return;
-            if (resizeActive || rotateActive) return;
-            e.preventDefault();
-            e.stopPropagation();
-            mouseDown = true;
-            
-            if (el.id.startsWith('img')) selectImage(el.id);
-            else if (el.id.startsWith('text')) selectText(el.id);
-            else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('video')) selectVideo(el.id);
-            
-            dragActive = true;
-            dragElement = el;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            dragStartLeft = parseFloat(el.style.left) || 0;
-            dragStartTop = parseFloat(el.style.top) || 0;
+            if (e.target.classList.contains('resize-handle')) {
+                const dir = e.target.className.match(/resize-(\w+)/)?.[1];
+                if (dir) startResize(e, el, dir);
+                return;
+            }
+            if (e.target.classList.contains('rotate-corner')) {
+                startRotate(e, el);
+                return;
+            }
+            startDrag(e, el);
         });
         
+        // Touch events
         el.addEventListener('touchstart', (e) => {
-            if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
-            if (el.classList.contains('locked')) return;
-            e.preventDefault();
-            e.stopPropagation();
-            mouseDown = true;
-            
-            if (el.id.startsWith('img')) selectImage(el.id);
-            else if (el.id.startsWith('text')) selectText(el.id);
-            else if (el.id.startsWith('widget')) selectWidget(el.id);
-            else if (el.id.startsWith('video')) selectVideo(el.id);
-            
-            dragActive = true;
-            dragElement = el;
             const touch = e.touches[0];
-            dragStartX = touch.clientX;
-            dragStartY = touch.clientY;
-            dragStartLeft = parseFloat(el.style.left) || 0;
-            dragStartTop = parseFloat(el.style.top) || 0;
+            if (e.target.classList.contains('resize-handle')) {
+                const dir = e.target.className.match(/resize-(\w+)/)?.[1];
+                if (dir) startResize(e, el, dir);
+                return;
+            }
+            if (e.target.classList.contains('rotate-corner')) {
+                startRotate(e, el);
+                return;
+            }
+            startDrag(e, el);
         });
     }
     
@@ -1285,44 +1308,6 @@
         dirs.forEach(dir => {
             let handle = document.createElement('div');
             handle.className = `resize-handle resize-${dir}`;
-            handle.addEventListener('mousedown', (e) => {
-                if (el.classList.contains('locked')) return;
-                e.stopPropagation();
-                e.preventDefault();
-                mouseDown = true;
-                resizeActive = true;
-                resizeElement = el;
-                resizeDir = dir;
-                resizeStartX = e.clientX;
-                resizeStartY = e.clientY;
-                resizeStartW = el.offsetWidth;
-                resizeStartH = el.offsetHeight;
-                resizeStartL = parseFloat(el.style.left) || 0;
-                resizeStartT = parseFloat(el.style.top) || 0;
-                
-                if (cropActive && cropOverlay) {
-                    cropStartX = e.clientX;
-                    cropStartY = e.clientY;
-                    cropStartW = parseFloat(cropOverlay.style.width) || resizeStartW;
-                    cropStartH = parseFloat(cropOverlay.style.height) || resizeStartH;
-                }
-            });
-            handle.addEventListener('touchstart', (e) => {
-                if (el.classList.contains('locked')) return;
-                e.stopPropagation();
-                e.preventDefault();
-                mouseDown = true;
-                resizeActive = true;
-                resizeElement = el;
-                resizeDir = dir;
-                const touch = e.touches[0];
-                resizeStartX = touch.clientX;
-                resizeStartY = touch.clientY;
-                resizeStartW = el.offsetWidth;
-                resizeStartH = el.offsetHeight;
-                resizeStartL = parseFloat(el.style.left) || 0;
-                resizeStartT = parseFloat(el.style.top) || 0;
-            });
             el.appendChild(handle);
         });
     }
@@ -1331,46 +1316,6 @@
         let rot = document.createElement('div');
         rot.className = 'rotate-corner';
         rot.innerHTML = '↻';
-        rot.addEventListener('mousedown', (e) => {
-            if (el.classList.contains('locked')) return;
-            e.stopPropagation();
-            e.preventDefault();
-            mouseDown = true;
-            rotateActive = true;
-            rotateElement = el;
-            
-            let rect = el.getBoundingClientRect();
-            rotateCenterX = rect.left + rect.width / 2;
-            rotateCenterY = rect.top + rect.height / 2;
-            rotateStartAngle = Math.atan2(e.clientY - rotateCenterY, e.clientX - rotateCenterX) * 180 / Math.PI;
-            rotateCurrentRot = parseFloat(el.dataset.rotation) || 0;
-            
-            function stopRotate() {
-                mouseDown = false;
-                rotateActive = false;
-                rotateElement = null;
-                document.removeEventListener('mousemove', onRotate);
-                document.removeEventListener('mouseup', stopRotate);
-            }
-            
-            function onRotate(moveEv) {
-                if (!mouseDown || !rotateElement) return;
-                let currX = moveEv.clientX;
-                let currY = moveEv.clientY;
-                let currAngle = Math.atan2(currY - rotateCenterY, currX - rotateCenterX) * 180 / Math.PI;
-                let delta = currAngle - rotateStartAngle;
-                let newRot = rotateCurrentRot + delta;
-                rotateElement.dataset.rotation = newRot;
-                applyTransform(rotateElement);
-                const id = rotateElement.id;
-                if (images[id]) imagesRef.child(id).update({ rotation: newRot });
-                if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
-                if (videos[id]) videosRef.child(id).update({ rotation: newRot });
-            }
-            
-            document.addEventListener('mousemove', onRotate);
-            document.addEventListener('mouseup', stopRotate);
-        });
         el.appendChild(rot);
     }
     
@@ -1469,7 +1414,13 @@
     
     function addWidgetByUrl(url, name, width, height, customCss) {
         if (!url) return alert('Введите URL');
-        const finalUrl = url.startsWith('http') ? url : 'https://' + url;
+        // Добавляем параметры для YouTube API если это YouTube ссылка
+        let finalUrl = url.startsWith('http') ? url : 'https://' + url;
+        if (finalUrl.includes('youtube.com/embed')) {
+            if (!finalUrl.includes('enablejsapi=1')) {
+                finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
+            }
+        }
         const id = createId('widget');
         widgetsRef.child(id).set({
             id, url: finalUrl, name: name || 'Виджет',
@@ -1558,7 +1509,7 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-widget';
-                el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
+                el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
                 addRotateHandle(el);
@@ -1649,7 +1600,6 @@
     soundsRef.on('value', s => { 
         sounds = s.val() || {}; 
         updateThumbnails();
-        // Предзагружаем звуки
         for (const id in sounds) {
             if (!audioPreloaded[id]) {
                 preloadAudio(id);
@@ -1735,7 +1685,7 @@
     };
     
     document.getElementById('add-widget-btn').onclick = () => {
-        document.getElementById('widget-url-input').value = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
+        document.getElementById('widget-url-input').value = 'https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0';
         document.getElementById('widget-css-input').value = '';
         document.getElementById('widget-modal').style.display = 'block';
     };
@@ -1761,7 +1711,15 @@
     };
     
     document.querySelectorAll('.quick-widget-btn').forEach(btn => {
-        btn.onclick = () => addWidgetByUrl(btn.dataset.url, btn.dataset.name, parseInt(btn.dataset.w), parseInt(btn.dataset.h), '');
+        btn.onclick = () => {
+            let url = btn.dataset.url;
+            if (url.includes('youtube.com/embed')) {
+                if (!url.includes('enablejsapi=1')) {
+                    url += (url.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
+                }
+            }
+            addWidgetByUrl(url, btn.dataset.name, parseInt(btn.dataset.w), parseInt(btn.dataset.h), '');
+        };
     });
     
     document.querySelectorAll('.widgets-tab').forEach(tab => {
@@ -1808,7 +1766,6 @@
                     display: 'block' 
                 };
                 soundsRef.child(id).set(data);
-                // Предзагрузка звука
                 setTimeout(() => preloadAudio(id), 100);
             };
             r.readAsDataURL(f);
@@ -2024,7 +1981,10 @@
             document.getElementById('apply-url-btn').onclick = () => {
                 const newUrl = document.getElementById('edit-widget-url').value.trim();
                 if(newUrl) {
-                    const finalUrl = newUrl.startsWith('http') ? newUrl : 'https://' + newUrl;
+                    let finalUrl = newUrl.startsWith('http') ? newUrl : 'https://' + newUrl;
+                    if (finalUrl.includes('youtube.com/embed') && !finalUrl.includes('enablejsapi=1')) {
+                        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
+                    }
                     widgetsRef.child(selectedWidgetId).update({ url: finalUrl });
                     const el = document.getElementById(selectedWidgetId);
                     if(el) { const iframe = el.querySelector('iframe'); if(iframe) iframe.src = finalUrl; }

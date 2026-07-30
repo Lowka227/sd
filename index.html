@@ -210,7 +210,6 @@
             pointer-events: auto;
             box-sizing: border-box;
             transform-origin: center center;
-            will-change: transform, left, top, width, height;
         }
         
         .draggable-image:active, .draggable-text:active, .draggable-widget:active, .draggable-video:active {
@@ -762,15 +761,38 @@
     let isVideoPlaying = {};
     
     // Drag state
-    let dragData = null;
-    let resizeData = null;
-    let rotateData = null;
+    let isDragging = false;
+    let dragTarget = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragElementLeft = 0;
+    let dragElementTop = 0;
+    
+    // Resize state
+    let isResizing = false;
+    let resizeTarget = null;
+    let resizeDir = null;
+    let resizeStartX = 0;
+    let resizeStartY = 0;
+    let resizeStartWidth = 0;
+    let resizeStartHeight = 0;
+    let resizeStartLeft = 0;
+    let resizeStartTop = 0;
+    
+    // Rotate state
+    let isRotating = false;
+    let rotateTarget = null;
+    let rotateStartAngle = 0;
+    let rotateCurrentAngle = 0;
+    let rotateCenterX = 0;
+    let rotateCenterY = 0;
     
     // Crop state
     let cropActive = false, cropOverlay = null, cropElement = null, cropType = null;
     let cropStartW = 0, cropStartH = 0, cropStartX = 0, cropStartY = 0;
     
-    let mouseDown = false;
     let progressInterval = null;
     let audioElement = document.getElementById('audio-element');
     
@@ -943,9 +965,7 @@
             const targetOrigin = '*';
             
             if (data.action === 'play') {
-                // Для YouTube с звуком
                 iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', targetOrigin);
-                // Также пытаемся включить звук
                 iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', targetOrigin);
             } else if (data.action === 'pause') {
                 iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', targetOrigin);
@@ -1098,7 +1118,9 @@
         el.style.transform = transform.trim();
     }
     
-    // --- Система перемещения и изменения размера ---
+    // --- Новая система перемещения и изменения размера ---
+    
+    // Начало перетаскивания
     function startDrag(e, el) {
         if (el.classList.contains('locked')) return;
         if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
@@ -1110,25 +1132,26 @@
         const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
         const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
         
-        dragData = {
-            element: el,
-            startX: clientX,
-            startY: clientY,
-            startLeft: parseFloat(el.style.left) || 0,
-            startTop: parseFloat(el.style.top) || 0,
-            offsetX: clientX - rect.left,
-            offsetY: clientY - rect.top
-        };
+        isDragging = true;
+        dragTarget = el;
+        dragOffsetX = clientX - rect.left;
+        dragOffsetY = clientY - rect.top;
+        dragStartX = clientX;
+        dragStartY = clientY;
+        dragElementLeft = parseFloat(el.style.left) || 0;
+        dragElementTop = parseFloat(el.style.top) || 0;
         
-        mouseDown = true;
         el.style.cursor = 'grabbing';
+        el.style.zIndex = 1000;
         
+        // Выбираем элемент
         if (el.id.startsWith('img')) selectImage(el.id);
         else if (el.id.startsWith('text')) selectText(el.id);
         else if (el.id.startsWith('widget')) selectWidget(el.id);
         else if (el.id.startsWith('video')) selectVideo(el.id);
     }
     
+    // Начало изменения размера
     function startResize(e, el, dir) {
         if (el.classList.contains('locked')) return;
         e.preventDefault();
@@ -1137,20 +1160,20 @@
         const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
         const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
         
-        resizeData = {
-            element: el,
-            dir: dir,
-            startX: clientX,
-            startY: clientY,
-            startWidth: el.offsetWidth,
-            startHeight: el.offsetHeight,
-            startLeft: parseFloat(el.style.left) || 0,
-            startTop: parseFloat(el.style.top) || 0
-        };
+        isResizing = true;
+        resizeTarget = el;
+        resizeDir = dir;
+        resizeStartX = clientX;
+        resizeStartY = clientY;
+        resizeStartWidth = el.offsetWidth;
+        resizeStartHeight = el.offsetHeight;
+        resizeStartLeft = parseFloat(el.style.left) || 0;
+        resizeStartTop = parseFloat(el.style.top) || 0;
         
-        mouseDown = true;
+        el.style.zIndex = 1000;
     }
     
+    // Начало вращения
     function startRotate(e, el) {
         if (el.classList.contains('locked')) return;
         e.preventDefault();
@@ -1162,118 +1185,124 @@
         const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
         const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
         
-        rotateData = {
-            element: el,
-            startX: clientX,
-            startY: clientY,
-            startAngle: Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI,
-            currentRotation: parseFloat(el.dataset.rotation) || 0,
-            centerX: centerX,
-            centerY: centerY
-        };
+        isRotating = true;
+        rotateTarget = el;
+        rotateStartAngle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
+        rotateCurrentAngle = parseFloat(el.dataset.rotation) || 0;
+        rotateCenterX = centerX;
+        rotateCenterY = centerY;
         
-        mouseDown = true;
+        el.style.zIndex = 1000;
     }
     
+    // Обработка движения
     function handleMove(e) {
-        if (!mouseDown) return;
-        if (!dragData && !resizeData && !rotateData) return;
+        if (!isDragging && !isResizing && !isRotating) return;
         
         const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
         const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
         
-        // Drag
-        if (dragData) {
-            const el = dragData.element;
-            let newLeft = dragData.startLeft + (clientX - dragData.startX);
-            let newTop = dragData.startTop + (clientY - dragData.startY);
+        // Перетаскивание
+        if (isDragging && dragTarget) {
+            const wrapperRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
             
-            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - el.offsetWidth));
-            newTop = Math.max(0, Math.min(newTop, canvasRect.height - el.offsetHeight));
+            let newLeft = clientX - wrapperRect.left - dragOffsetX;
+            let newTop = clientY - wrapperRect.top - dragOffsetY;
             
-            el.style.left = newLeft + 'px';
-            el.style.top = newTop + 'px';
+            // Ограничения
+            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragTarget.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragTarget.offsetHeight));
             
-            const id = el.id;
+            dragTarget.style.left = newLeft + 'px';
+            dragTarget.style.top = newTop + 'px';
+            
+            const id = dragTarget.id;
             if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
             else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
             else if (videos[id]) videosRef.child(id).update({ x: newLeft, y: newTop });
         }
         
-        // Resize
-        if (resizeData) {
-            const el = resizeData.element;
-            let dx = clientX - resizeData.startX;
-            let dy = clientY - resizeData.startY;
-            let newW = resizeData.startWidth;
-            let newH = resizeData.startHeight;
-            let newL = resizeData.startLeft;
-            let newT = resizeData.startTop;
+        // Изменение размера
+        if (isResizing && resizeTarget) {
+            let dx = clientX - resizeStartX;
+            let dy = clientY - resizeStartY;
+            let newW = resizeStartWidth;
+            let newH = resizeStartHeight;
+            let newL = resizeStartLeft;
+            let newT = resizeStartTop;
             
-            const dir = resizeData.dir;
-            
-            switch(dir) {
-                case 'e': newW = Math.max(50, resizeData.startWidth + dx); break;
-                case 'w': newW = Math.max(50, resizeData.startWidth - dx); newL = resizeData.startLeft + (resizeData.startWidth - newW); break;
-                case 's': newH = Math.max(50, resizeData.startHeight + dy); break;
-                case 'n': newH = Math.max(50, resizeData.startHeight - dy); newT = resizeData.startTop + (resizeData.startHeight - newH); break;
-                case 'se': newW = Math.max(50, resizeData.startWidth + dx); newH = Math.max(50, resizeData.startHeight + dy); break;
-                case 'sw': newW = Math.max(50, resizeData.startWidth - dx); newH = Math.max(50, resizeData.startHeight + dy); newL = resizeData.startLeft + (resizeData.startWidth - newW); break;
-                case 'ne': newW = Math.max(50, resizeData.startWidth + dx); newH = Math.max(50, resizeData.startHeight - dy); newT = resizeData.startTop + (resizeData.startHeight - newH); break;
-                case 'nw': newW = Math.max(50, resizeData.startWidth - dx); newH = Math.max(50, resizeData.startHeight - dy); newL = resizeData.startLeft + (resizeData.startWidth - newW); newT = resizeData.startTop + (resizeData.startHeight - newH); break;
+            switch(resizeDir) {
+                case 'e': newW = Math.max(50, resizeStartWidth + dx); break;
+                case 'w': newW = Math.max(50, resizeStartWidth - dx); newL = resizeStartLeft + (resizeStartWidth - newW); break;
+                case 's': newH = Math.max(50, resizeStartHeight + dy); break;
+                case 'n': newH = Math.max(50, resizeStartHeight - dy); newT = resizeStartTop + (resizeStartHeight - newH); break;
+                case 'se': newW = Math.max(50, resizeStartWidth + dx); newH = Math.max(50, resizeStartHeight + dy); break;
+                case 'sw': newW = Math.max(50, resizeStartWidth - dx); newH = Math.max(50, resizeStartHeight + dy); newL = resizeStartLeft + (resizeStartWidth - newW); break;
+                case 'ne': newW = Math.max(50, resizeStartWidth + dx); newH = Math.max(50, resizeStartHeight - dy); newT = resizeStartTop + (resizeStartHeight - newH); break;
+                case 'nw': newW = Math.max(50, resizeStartWidth - dx); newH = Math.max(50, resizeStartHeight - dy); newL = resizeStartLeft + (resizeStartWidth - newW); newT = resizeStartTop + (resizeStartHeight - newH); break;
             }
             
             newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
             newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
             
-            el.style.width = newW + 'px';
-            el.style.height = newH + 'px';
-            el.style.left = newL + 'px';
-            el.style.top = newT + 'px';
+            resizeTarget.style.width = newW + 'px';
+            resizeTarget.style.height = newH + 'px';
+            resizeTarget.style.left = newL + 'px';
+            resizeTarget.style.top = newT + 'px';
             
-            const id = el.id;
+            const id = resizeTarget.id;
             if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
             else if (videos[id]) videosRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
         
-        // Rotate
-        if (rotateData) {
-            const el = rotateData.element;
-            const dx = clientX - rotateData.centerX;
-            const dy = clientY - rotateData.centerY;
+        // Вращение
+        if (isRotating && rotateTarget) {
+            const dx = clientX - rotateCenterX;
+            const dy = clientY - rotateCenterY;
             const currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-            const delta = currentAngle - rotateData.startAngle;
-            const newRot = rotateData.currentRotation + delta;
+            const delta = currentAngle - rotateStartAngle;
+            const newRot = rotateCurrentAngle + delta;
             
-            el.dataset.rotation = newRot;
-            applyTransform(el);
+            rotateTarget.dataset.rotation = newRot;
+            applyTransform(rotateTarget);
             
-            const id = el.id;
+            const id = rotateTarget.id;
             if (images[id]) imagesRef.child(id).update({ rotation: newRot });
             else if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
             else if (videos[id]) videosRef.child(id).update({ rotation: newRot });
         }
     }
     
+    // Завершение действия
     function handleEnd(e) {
-        if (!mouseDown) return;
-        mouseDown = false;
-        
-        if (dragData?.element) {
-            dragData.element.style.cursor = 'grab';
+        if (isDragging && dragTarget) {
+            dragTarget.style.cursor = 'grab';
+            dragTarget.style.zIndex = '';
         }
-        dragData = null;
-        resizeData = null;
-        rotateData = null;
+        
+        if (isResizing && resizeTarget) {
+            resizeTarget.style.zIndex = '';
+        }
+        
+        if (isRotating && rotateTarget) {
+            rotateTarget.style.zIndex = '';
+        }
+        
+        isDragging = false;
+        isResizing = false;
+        isRotating = false;
+        dragTarget = null;
+        resizeTarget = null;
+        rotateTarget = null;
     }
     
     // Глобальные обработчики
     document.addEventListener('mousemove', handleMove);
     document.addEventListener('mouseup', handleEnd);
     document.addEventListener('touchmove', (e) => {
-        if (mouseDown) {
+        if (isDragging || isResizing || isRotating) {
             e.preventDefault();
             handleMove(e);
         }
@@ -1517,19 +1546,16 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-widget';
-                // Добавляем allow="autoplay" для звука
                 el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
                 addRotateHandle(el);
                 makeDraggable(el);
                 
-                // Обработчик для перезагрузки виджета
                 el.querySelector('.retry-widget')?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const iframe = el.querySelector('iframe');
                     if (iframe) {
-                        // Перезагружаем с параметром autoplay=0 чтобы не было автостарта
                         let src = iframe.src;
                         if (src.includes('autoplay=1')) {
                             src = src.replace('autoplay=1', 'autoplay=0');
@@ -1866,7 +1892,7 @@
     
     document.getElementById('add-video-btn').onclick = () => document.getElementById('video-input').click();
     
-    // Widget YouTube controls with sound
+    // Widget YouTube controls
     document.getElementById('play-widget-btn').onclick = () => {
         if (selectedWidgetId && widgets[selectedWidgetId]) {
             broadcastWidgetPlay(selectedWidgetId);

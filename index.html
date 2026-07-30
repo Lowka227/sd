@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Видео и виджеты</title>
+    <title>Прозрачный холст - Быстрая синхронная озвучка</title>
     <style>
         * {
             margin: 0;
@@ -92,7 +92,7 @@
             object-fit: cover;
         }
         
-        .text-thumbnail, .sound-thumbnail, .widget-thumbnail, .video-thumbnail {
+        .text-thumbnail, .sound-thumbnail, .widget-thumbnail {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -109,7 +109,6 @@
         
         .sound-thumbnail { background: #e3f2fd; }
         .widget-thumbnail { background: #e8f5e9; color: #2e7d32; font-weight: bold; }
-        .video-thumbnail { background: #fce4ec; color: #c62828; font-weight: bold; }
         
         .thumbnail.selected {
             border-color: #ffd966;
@@ -156,7 +155,7 @@
             border: 1px solid white;
         }
         
-        #image-controls, #text-controls, #sound-controls, #widget-controls, #video-controls {
+        #image-controls, #text-controls, #sound-controls, #widget-controls {
             display: none;
             gap: 6px;
             align-items: center;
@@ -189,7 +188,7 @@
             background: transparent !important;
         }
         
-        #images-layer, #texts-layer, #widgets-layer, #videos-layer {
+        #images-layer, #texts-layer, #widgets-layer {
             position: absolute;
             top: 0;
             left: 0;
@@ -201,9 +200,8 @@
         #images-layer { z-index: 2; }
         #texts-layer { z-index: 3; }
         #widgets-layer { z-index: 4; }
-        #videos-layer { z-index: 5; }
         
-        .draggable-image, .draggable-text, .draggable-widget, .draggable-video {
+        .draggable-image, .draggable-text, .draggable-widget {
             position: absolute;
             cursor: grab;
             touch-action: none;
@@ -212,7 +210,7 @@
             transform-origin: center center;
         }
         
-        .draggable-image:active, .draggable-text:active, .draggable-widget:active, .draggable-video:active {
+        .draggable-image:active, .draggable-text:active, .draggable-widget:active {
             cursor: grabbing;
         }
         
@@ -257,20 +255,6 @@
             background: white;
         }
         
-        .draggable-video {
-            background: #000;
-            overflow: hidden;
-            border-radius: 8px;
-        }
-        
-        .draggable-video video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            pointer-events: none;
-            display: block;
-        }
-        
         .widget-error {
             width: 100%;
             height: 100%;
@@ -302,14 +286,14 @@
         
         .resize-handle {
             position: absolute;
-            width: 14px;
-            height: 14px;
+            width: 12px;
+            height: 12px;
             background: #ffd966;
             border: 2px solid #1e2b6e;
             border-radius: 50%;
             z-index: 20;
             opacity: 0;
-            transition: opacity 0.15s;
+            transition: opacity 0.15s, transform 0.1s;
             pointer-events: auto;
         }
         
@@ -335,7 +319,7 @@
             color: white;
             font-size: 14px;
             pointer-events: auto;
-            transition: opacity 0.15s;
+            transition: opacity 0.15s, transform 0.1s;
         }
         
         .rotate-corner:hover {
@@ -348,14 +332,14 @@
         
         .rotate-corner::after { content: "↻"; }
         
-        .resize-n { top: -7px; left: 50%; margin-left: -7px; cursor: n-resize; }
-        .resize-ne { top: -7px; right: -7px; cursor: ne-resize; }
-        .resize-e { top: 50%; right: -7px; margin-top: -7px; cursor: e-resize; }
-        .resize-se { bottom: -7px; right: -7px; cursor: se-resize; }
-        .resize-s { bottom: -7px; left: 50%; margin-left: -7px; cursor: s-resize; }
-        .resize-sw { bottom: -7px; left: -7px; cursor: sw-resize; }
-        .resize-w { top: 50%; left: -7px; margin-top: -7px; cursor: w-resize; }
-        .resize-nw { top: -7px; left: -7px; cursor: nw-resize; }
+        .resize-n { top: -6px; left: 50%; margin-left: -6px; cursor: n-resize; }
+        .resize-ne { top: -6px; right: -6px; cursor: ne-resize; }
+        .resize-e { top: 50%; right: -6px; margin-top: -6px; cursor: e-resize; }
+        .resize-se { bottom: -6px; right: -6px; cursor: se-resize; }
+        .resize-s { bottom: -6px; left: 50%; margin-left: -6px; cursor: s-resize; }
+        .resize-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+        .resize-w { top: 50%; left: -6px; margin-top: -6px; cursor: w-resize; }
+        .resize-nw { top: -6px; left: -6px; cursor: nw-resize; }
         
         .selected:not(.locked) .resize-handle,
         .selected:not(.locked) .rotate-corner {
@@ -385,7 +369,7 @@
             background: linear-gradient(135deg, #ab47bc, #7b1fa2);
         }
         
-        #file-input, #sound-input, #video-input { display: none; }
+        #file-input, #sound-input { display: none; }
         
         #status {
             margin-left: auto;
@@ -571,7 +555,6 @@
         <button onclick="document.getElementById('file-input').click()">🖼 Изображение</button>
         <button id="add-text-btn">📝 Текст</button>
         <button id="add-sound-btn">🔊 Звук</button>
-        <button id="add-video-btn">🎬 Видео</button>
         <button id="add-widget-btn">🧩 Виджет</button>
         <button id="clear-btn">🗑 Очистить</button>
         <button id="tts-button" class="tts-btn">📢 Синхронная озвучка</button>
@@ -584,10 +567,9 @@
     <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button><button id="crop-image-btn" style="background:#ff9800;">✂ Обрезать</button></div>
     <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
-    <div id="widget-controls"><span class="panel-title">🧩</span><button id="play-widget-btn">▶</button><button id="pause-widget-btn">⏸</button><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
-    <div id="video-controls"><span class="panel-title">🎬</span><button id="play-video-btn">▶</button><button id="pause-video-btn">⏸</button><button id="hide-video-btn">👁 Скрыть</button><button id="delete-video-btn">🗑 Удалить</button><button id="lock-video-btn">🔒 Закрепить</button></div>
+    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
 </div>
-<div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div><div id="videos-layer"></div></div></div>
+<div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
 
 <div id="tts-modal" class="modal">
     <div class="modal-header">
@@ -652,7 +634,7 @@
         <button class="widgets-tab" data-tab="saved">📦 Сохраненные</button>
     </div>
     <div id="add-widget-content" class="widgets-content active">
-        <input type="text" id="widget-url-input" placeholder="https://example.com" value="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0&autoplay=0">
+        <input type="text" id="widget-url-input" placeholder="https://example.com" value="https://www.youtube.com/embed/dQw4w9WgXcQ">
         <div style="display: flex; gap: 8px;">
             <input type="number" id="widget-width-input" placeholder="Ширина" value="400" style="width:50%">
             <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width:50%">
@@ -664,7 +646,7 @@
         <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
     </div>
     <div id="quick-widgets-content" class="widgets-content">
-        <button class="quick-widget-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0&autoplay=0" data-name="YouTube Видео" data-w="560" data-h="315">▶️ YouTube Видео</button>
+        <button class="quick-widget-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ" data-name="YouTube Видео" data-w="560" data-h="315">▶️ YouTube Видео</button>
         <button class="quick-widget-btn" data-url="https://calendar.google.com/calendar/embed" data-name="Google Календарь" data-w="600" data-h="400">📅 Google Календарь</button>
         <button class="quick-widget-btn" data-url="https://www.timeanddate.com/worldclock/" data-name="Мировые часы" data-w="500" data-h="400">🌍 Мировые часы</button>
     </div>
@@ -714,7 +696,6 @@
 
 <input type="file" id="file-input" accept="image/*">
 <input type="file" id="sound-input" accept="audio/*">
-<input type="file" id="video-input" accept="video/*">
 <audio id="audio-element"></audio>
 
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
@@ -737,15 +718,12 @@
     const textsRef = db.ref('texts');
     const soundsRef = db.ref('sounds');
     const widgetsRef = db.ref('widgets');
-    const videosRef = db.ref('videos');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
     const syncTTSRef = db.ref('syncTTS');
-    const syncVideoRef = db.ref('syncVideo');
-    const syncWidgetRef = db.ref('syncWidget');
     
-    let images = {}, texts = {}, sounds = {}, widgets = {}, videos = {}, savedWidgets = {};
-    let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null, selectedVideoId = null;
+    let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
+    let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
     
     // TTS variables
@@ -754,45 +732,21 @@
     let isSpeaking = false;
     let speechQueue = [];
     
-    // Video sync variables
-    let videoElements = {};
-    let audioElements = {};
-    let audioPreloaded = {};
-    let isVideoPlaying = {};
-    
     // Drag state
-    let isDragging = false;
-    let dragTarget = null;
-    let dragOffsetX = 0;
-    let dragOffsetY = 0;
-    let dragStartX = 0;
-    let dragStartY = 0;
-    let dragElementLeft = 0;
-    let dragElementTop = 0;
+    let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
     
     // Resize state
-    let isResizing = false;
-    let resizeTarget = null;
-    let resizeDir = null;
-    let resizeStartX = 0;
-    let resizeStartY = 0;
-    let resizeStartWidth = 0;
-    let resizeStartHeight = 0;
-    let resizeStartLeft = 0;
-    let resizeStartTop = 0;
+    let resizeActive = false, resizeElement = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0;
+    let resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0;
     
     // Rotate state
-    let isRotating = false;
-    let rotateTarget = null;
-    let rotateStartAngle = 0;
-    let rotateCurrentAngle = 0;
-    let rotateCenterX = 0;
-    let rotateCenterY = 0;
+    let rotateActive = false, rotateElement = null, rotateStartAngle = 0, rotateCurrentRot = 0, rotateCenterX = 0, rotateCenterY = 0;
     
     // Crop state
     let cropActive = false, cropOverlay = null, cropElement = null, cropType = null;
     let cropStartW = 0, cropStartH = 0, cropStartX = 0, cropStartY = 0;
     
+    let mouseDown = false;
     let progressInterval = null;
     let audioElement = document.getElementById('audio-element');
     
@@ -889,6 +843,7 @@
         if (!text || text.trim() === "") return;
         if (!('speechSynthesis' in window)) return;
         
+        // Добавляем в очередь
         speechQueue.push({
             text: text,
             voiceName: voiceName,
@@ -900,6 +855,7 @@
         processQueue();
     }
     
+    // Отправка команды на озвучку ВСЕМ
     function broadcastSpeak(text, voiceName, volume, rate, pitch) {
         if (!text || text.trim() === "") {
             alert("Введите текст для озвучивания");
@@ -924,6 +880,7 @@
         });
     }
     
+    // Слушаем команды из Firebase (мгновенно)
     syncTTSRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -932,169 +889,6 @@
             speakTextLocally(data.text, data.voiceName, data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
         } else if (data.action === 'stop') {
             stopLocalSpeaking();
-        }
-    });
-    
-    // Widget (YouTube) sync functions with sound
-    function broadcastWidgetPlay(widgetId) {
-        if (!widgetId || !widgets[widgetId]) return;
-        syncWidgetRef.set({
-            widgetId: widgetId,
-            action: 'play',
-            timestamp: Date.now()
-        });
-    }
-    
-    function broadcastWidgetPause(widgetId) {
-        if (!widgetId || !widgets[widgetId]) return;
-        syncWidgetRef.set({
-            widgetId: widgetId,
-            action: 'pause',
-            timestamp: Date.now()
-        });
-    }
-    
-    syncWidgetRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        if (data.widgetId && widgets[data.widgetId]) {
-            const iframe = document.querySelector(`#${data.widgetId} iframe`);
-            if (!iframe) return;
-            
-            const targetOrigin = '*';
-            
-            if (data.action === 'play') {
-                iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', targetOrigin);
-                iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', targetOrigin);
-            } else if (data.action === 'pause') {
-                iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', targetOrigin);
-            }
-        }
-    });
-    
-    // Video sync functions
-    function playVideoSync(videoId) {
-        if (!videoId || !videos[videoId]) return;
-        const videoEl = document.getElementById(videoId);
-        if (videoEl) {
-            const video = videoEl.querySelector('video');
-            if (video) {
-                syncVideoRef.set({
-                    videoId: videoId,
-                    action: 'play',
-                    timestamp: Date.now(),
-                    currentTime: video.currentTime || 0
-                });
-            }
-        }
-    }
-    
-    function pauseVideoSync() {
-        syncVideoRef.set({ 
-            action: 'pause', 
-            timestamp: Date.now() 
-        });
-    }
-    
-    syncVideoRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        if (data.action === 'play' && data.videoId && videos[data.videoId]) {
-            const videoEl = document.getElementById(data.videoId);
-            if (videoEl) {
-                const video = videoEl.querySelector('video');
-                if (video) {
-                    if (data.currentTime !== undefined && data.currentTime > 0) {
-                        video.currentTime = data.currentTime;
-                    }
-                    video.play().catch(e => console.log('Video play error:', e));
-                }
-            }
-        } else if (data.action === 'pause') {
-            document.querySelectorAll('#videos-layer video').forEach(v => {
-                if (!v.paused) {
-                    v.pause();
-                }
-            });
-        }
-    });
-    
-    // Audio sync with preloading
-    function preloadAudio(soundId) {
-        if (audioPreloaded[soundId]) return;
-        const data = sounds[soundId];
-        if (!data) return;
-        
-        const audio = new Audio();
-        audio.src = data.src;
-        audio.preload = 'auto';
-        audio.load();
-        audioElements[soundId] = audio;
-        audioPreloaded[soundId] = true;
-    }
-    
-    function playSoundSync(soundId) {
-        if (!soundId || !sounds[soundId]) return;
-        
-        if (!audioPreloaded[soundId]) {
-            preloadAudio(soundId);
-        }
-        
-        syncSoundRef.set({
-            soundId: soundId,
-            action: 'play',
-            timestamp: Date.now(),
-            volume: sounds[soundId].volume || 100,
-            currentTime: audioElements[soundId]?.currentTime || 0
-        });
-    }
-    
-    function pauseSoundSync() {
-        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
-    }
-    
-    syncSoundRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
-            let audio;
-            if (audioElements[data.soundId]) {
-                audio = audioElements[data.soundId];
-            } else {
-                audio = new Audio();
-                audio.src = sounds[data.soundId].src;
-                audio.preload = 'auto';
-                audio.load();
-                audioElements[data.soundId] = audio;
-                audioPreloaded[data.soundId] = true;
-            }
-            
-            audio.volume = (data.volume || 100) / 100;
-            if (data.currentTime !== undefined) {
-                audio.currentTime = data.currentTime;
-            }
-            audio.play().catch(e => console.log(e));
-            
-            if (progressInterval) clearInterval(progressInterval);
-            progressInterval = setInterval(() => {
-                if (audio.paused || audio.ended) {
-                    if (audio.ended) {
-                        document.getElementById('sound-progress').style.width = '0%';
-                        clearInterval(progressInterval);
-                    }
-                } else {
-                    let percent = (audio.currentTime / audio.duration) * 100;
-                    document.getElementById('sound-progress').style.width = percent + '%';
-                }
-            }, 100);
-        } else if (data.action === 'pause') {
-            if (audioElements[data.soundId]) {
-                audioElements[data.soundId].pause();
-            }
-            if (progressInterval) clearInterval(progressInterval);
         }
     });
     
@@ -1118,223 +912,205 @@
         el.style.transform = transform.trim();
     }
     
-    // --- Новая система перемещения и изменения размера ---
-    
-    // Начало перетаскивания
-    function startDrag(e, el) {
-        if (el.classList.contains('locked')) return;
-        if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const rect = el.getBoundingClientRect();
-        const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
-        const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
-        
-        isDragging = true;
-        dragTarget = el;
-        dragOffsetX = clientX - rect.left;
-        dragOffsetY = clientY - rect.top;
-        dragStartX = clientX;
-        dragStartY = clientY;
-        dragElementLeft = parseFloat(el.style.left) || 0;
-        dragElementTop = parseFloat(el.style.top) || 0;
-        
-        el.style.cursor = 'grabbing';
-        el.style.zIndex = 1000;
-        
-        // Выбираем элемент
-        if (el.id.startsWith('img')) selectImage(el.id);
-        else if (el.id.startsWith('text')) selectText(el.id);
-        else if (el.id.startsWith('widget')) selectWidget(el.id);
-        else if (el.id.startsWith('video')) selectVideo(el.id);
+    // Синхронизация звука
+    function playSoundSync(soundId) {
+        if (!soundId || !sounds[soundId]) return;
+        syncSoundRef.set({
+            soundId: soundId,
+            action: 'play',
+            timestamp: Date.now(),
+            volume: sounds[soundId].volume || 100
+        });
     }
     
-    // Начало изменения размера
-    function startResize(e, el, dir) {
-        if (el.classList.contains('locked')) return;
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
-        const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
-        
-        isResizing = true;
-        resizeTarget = el;
-        resizeDir = dir;
-        resizeStartX = clientX;
-        resizeStartY = clientY;
-        resizeStartWidth = el.offsetWidth;
-        resizeStartHeight = el.offsetHeight;
-        resizeStartLeft = parseFloat(el.style.left) || 0;
-        resizeStartTop = parseFloat(el.style.top) || 0;
-        
-        el.style.zIndex = 1000;
+    function pauseSoundSync() {
+        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
     }
     
-    // Начало вращения
-    function startRotate(e, el) {
-        if (el.classList.contains('locked')) return;
-        e.preventDefault();
-        e.stopPropagation();
+    syncSoundRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
         
-        const rect = el.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
-        const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
-        
-        isRotating = true;
-        rotateTarget = el;
-        rotateStartAngle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
-        rotateCurrentAngle = parseFloat(el.dataset.rotation) || 0;
-        rotateCenterX = centerX;
-        rotateCenterY = centerY;
-        
-        el.style.zIndex = 1000;
-    }
+        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
+            audioElement.src = sounds[data.soundId].src;
+            audioElement.volume = (data.volume || 100) / 100;
+            audioElement.currentTime = 0;
+            audioElement.play().catch(e => console.log(e));
+            
+            if (progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                if (audioElement.paused || audioElement.ended) {
+                    if (audioElement.ended) {
+                        document.getElementById('sound-progress').style.width = '0%';
+                        clearInterval(progressInterval);
+                    }
+                } else {
+                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
+                    document.getElementById('sound-progress').style.width = percent + '%';
+                }
+            }, 100);
+        } else if (data.action === 'pause') {
+            audioElement.pause();
+            if (progressInterval) clearInterval(progressInterval);
+        }
+    });
     
-    // Обработка движения
-    function handleMove(e) {
-        if (!isDragging && !isResizing && !isRotating) return;
+    // Глобальные обработчики
+    let moveFrame = null;
+    document.addEventListener('mousemove', (e) => {
+        if (!mouseDown) return;
+        if (moveFrame) cancelAnimationFrame(moveFrame);
+        moveFrame = requestAnimationFrame(() => {
+            if (dragActive && dragElement) {
+                let newLeft = dragStartLeft + (e.clientX - dragStartX);
+                let newTop = dragStartTop + (e.clientY - dragStartY);
+                newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
+                newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
+                dragElement.style.left = newLeft + 'px';
+                dragElement.style.top = newTop + 'px';
+                const id = dragElement.id;
+                if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
+                else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
+                else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
+            }
+            
+            if (resizeActive && resizeElement && !cropActive) {
+                let dx = e.clientX - resizeStartX;
+                let dy = e.clientY - resizeStartY;
+                let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
+                
+                switch(resizeDir) {
+                    case 'e': newW = Math.max(50, resizeStartW + dx); break;
+                    case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
+                    case 's': newH = Math.max(50, resizeStartH + dy); break;
+                    case 'n': newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
+                    case 'se': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH + dy); break;
+                    case 'sw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH + dy); newL = resizeStartL + (resizeStartW - newW); break;
+                    case 'ne': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
+                    case 'nw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH - dy); newL = resizeStartL + (resizeStartW - newW); newT = resizeStartT + (resizeStartH - newH); break;
+                }
+                newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
+                newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
+                resizeElement.style.width = newW + 'px';
+                resizeElement.style.height = newH + 'px';
+                resizeElement.style.left = newL + 'px';
+                resizeElement.style.top = newT + 'px';
+            }
+            
+            if (rotateActive && rotateElement) {
+                let currX = e.clientX;
+                let currY = e.clientY;
+                let currAngle = Math.atan2(currY - rotateCenterY, currX - rotateCenterX) * 180 / Math.PI;
+                let delta = currAngle - rotateStartAngle;
+                let newRot = rotateCurrentRot + delta;
+                rotateElement.dataset.rotation = newRot;
+                applyTransform(rotateElement);
+                const id = rotateElement.id;
+                if (images[id]) imagesRef.child(id).update({ rotation: newRot });
+                if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
+            }
+            
+            if (cropActive && cropOverlay && resizeElement) {
+                let dx = e.clientX - cropStartX;
+                let dy = e.clientY - cropStartY;
+                let newW = Math.max(30, cropStartW + dx);
+                let newH = Math.max(30, cropStartH + dy);
+                cropOverlay.style.width = newW + 'px';
+                cropOverlay.style.height = newH + 'px';
+            }
+            moveFrame = null;
+        });
+    });
+    
+    document.addEventListener('mouseup', () => {
+        if (!mouseDown) return;
+        mouseDown = false;
         
-        const clientX = e.clientX || e.touches?.[0]?.clientX || 0;
-        const clientY = e.clientY || e.touches?.[0]?.clientY || 0;
+        if (resizeActive && resizeElement && !cropActive) {
+            const id = resizeElement.id;
+            let newL = parseFloat(resizeElement.style.left);
+            let newT = parseFloat(resizeElement.style.top);
+            let newW = parseFloat(resizeElement.style.width);
+            let newH = parseFloat(resizeElement.style.height);
+            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+        }
         
-        // Перетаскивание
-        if (isDragging && dragTarget) {
-            const wrapperRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
-            
-            let newLeft = clientX - wrapperRect.left - dragOffsetX;
-            let newTop = clientY - wrapperRect.top - dragOffsetY;
-            
-            // Ограничения
-            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragTarget.offsetWidth));
-            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragTarget.offsetHeight));
-            
-            dragTarget.style.left = newLeft + 'px';
-            dragTarget.style.top = newTop + 'px';
-            
-            const id = dragTarget.id;
+        dragActive = false;
+        resizeActive = false;
+        rotateActive = false;
+        dragElement = null;
+        resizeElement = null;
+        rotateElement = null;
+        if (moveFrame) cancelAnimationFrame(moveFrame);
+    });
+    
+    document.addEventListener('touchmove', (e) => {
+        if (!mouseDown) return;
+        if (dragActive && dragElement) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            let newLeft = dragStartLeft + (touch.clientX - dragStartX);
+            let newTop = dragStartTop + (touch.clientY - dragStartY);
+            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
+            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
+            dragElement.style.left = newLeft + 'px';
+            dragElement.style.top = newTop + 'px';
+            const id = dragElement.id;
             if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
             else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
-            else if (videos[id]) videosRef.child(id).update({ x: newLeft, y: newTop });
-        }
-        
-        // Изменение размера
-        if (isResizing && resizeTarget) {
-            let dx = clientX - resizeStartX;
-            let dy = clientY - resizeStartY;
-            let newW = resizeStartWidth;
-            let newH = resizeStartHeight;
-            let newL = resizeStartLeft;
-            let newT = resizeStartTop;
-            
-            switch(resizeDir) {
-                case 'e': newW = Math.max(50, resizeStartWidth + dx); break;
-                case 'w': newW = Math.max(50, resizeStartWidth - dx); newL = resizeStartLeft + (resizeStartWidth - newW); break;
-                case 's': newH = Math.max(50, resizeStartHeight + dy); break;
-                case 'n': newH = Math.max(50, resizeStartHeight - dy); newT = resizeStartTop + (resizeStartHeight - newH); break;
-                case 'se': newW = Math.max(50, resizeStartWidth + dx); newH = Math.max(50, resizeStartHeight + dy); break;
-                case 'sw': newW = Math.max(50, resizeStartWidth - dx); newH = Math.max(50, resizeStartHeight + dy); newL = resizeStartLeft + (resizeStartWidth - newW); break;
-                case 'ne': newW = Math.max(50, resizeStartWidth + dx); newH = Math.max(50, resizeStartHeight - dy); newT = resizeStartTop + (resizeStartHeight - newH); break;
-                case 'nw': newW = Math.max(50, resizeStartWidth - dx); newH = Math.max(50, resizeStartHeight - dy); newL = resizeStartLeft + (resizeStartWidth - newW); newT = resizeStartTop + (resizeStartHeight - newH); break;
-            }
-            
-            newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
-            newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
-            
-            resizeTarget.style.width = newW + 'px';
-            resizeTarget.style.height = newH + 'px';
-            resizeTarget.style.left = newL + 'px';
-            resizeTarget.style.top = newT + 'px';
-            
-            const id = resizeTarget.id;
-            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (videos[id]) videosRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-        }
-        
-        // Вращение
-        if (isRotating && rotateTarget) {
-            const dx = clientX - rotateCenterX;
-            const dy = clientY - rotateCenterY;
-            const currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-            const delta = currentAngle - rotateStartAngle;
-            const newRot = rotateCurrentAngle + delta;
-            
-            rotateTarget.dataset.rotation = newRot;
-            applyTransform(rotateTarget);
-            
-            const id = rotateTarget.id;
-            if (images[id]) imagesRef.child(id).update({ rotation: newRot });
-            else if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
-            else if (videos[id]) videosRef.child(id).update({ rotation: newRot });
-        }
-    }
-    
-    // Завершение действия
-    function handleEnd(e) {
-        if (isDragging && dragTarget) {
-            dragTarget.style.cursor = 'grab';
-            dragTarget.style.zIndex = '';
-        }
-        
-        if (isResizing && resizeTarget) {
-            resizeTarget.style.zIndex = '';
-        }
-        
-        if (isRotating && rotateTarget) {
-            rotateTarget.style.zIndex = '';
-        }
-        
-        isDragging = false;
-        isResizing = false;
-        isRotating = false;
-        dragTarget = null;
-        resizeTarget = null;
-        rotateTarget = null;
-    }
-    
-    // Глобальные обработчики
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleEnd);
-    document.addEventListener('touchmove', (e) => {
-        if (isDragging || isResizing || isRotating) {
-            e.preventDefault();
-            handleMove(e);
         }
     });
-    document.addEventListener('touchend', handleEnd);
+    document.addEventListener('touchend', () => {
+        mouseDown = false;
+        dragActive = false;
+        resizeActive = false;
+        rotateActive = false;
+        dragElement = null;
+        resizeElement = null;
+        rotateElement = null;
+    });
     
     function makeDraggable(el) {
         el.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('resize-handle')) {
-                const dir = e.target.className.match(/resize-(\w+)/)?.[1];
-                if (dir) startResize(e, el, dir);
-                return;
-            }
-            if (e.target.classList.contains('rotate-corner')) {
-                startRotate(e, el);
-                return;
-            }
-            startDrag(e, el);
+            if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
+            if (el.classList.contains('locked')) return;
+            if (resizeActive || rotateActive) return;
+            e.preventDefault();
+            e.stopPropagation();
+            mouseDown = true;
+            
+            if (el.id.startsWith('img')) selectImage(el.id);
+            else if (el.id.startsWith('text')) selectText(el.id);
+            else if (el.id.startsWith('widget')) selectWidget(el.id);
+            
+            dragActive = true;
+            dragElement = el;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragStartLeft = parseFloat(el.style.left) || 0;
+            dragStartTop = parseFloat(el.style.top) || 0;
         });
         
         el.addEventListener('touchstart', (e) => {
+            if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
+            if (el.classList.contains('locked')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            mouseDown = true;
+            
+            if (el.id.startsWith('img')) selectImage(el.id);
+            else if (el.id.startsWith('text')) selectText(el.id);
+            else if (el.id.startsWith('widget')) selectWidget(el.id);
+            
+            dragActive = true;
+            dragElement = el;
             const touch = e.touches[0];
-            if (e.target.classList.contains('resize-handle')) {
-                const dir = e.target.className.match(/resize-(\w+)/)?.[1];
-                if (dir) startResize(e, el, dir);
-                return;
-            }
-            if (e.target.classList.contains('rotate-corner')) {
-                startRotate(e, el);
-                return;
-            }
-            startDrag(e, el);
+            dragStartX = touch.clientX;
+            dragStartY = touch.clientY;
+            dragStartLeft = parseFloat(el.style.left) || 0;
+            dragStartTop = parseFloat(el.style.top) || 0;
         });
     }
     
@@ -1343,6 +1119,44 @@
         dirs.forEach(dir => {
             let handle = document.createElement('div');
             handle.className = `resize-handle resize-${dir}`;
+            handle.addEventListener('mousedown', (e) => {
+                if (el.classList.contains('locked')) return;
+                e.stopPropagation();
+                e.preventDefault();
+                mouseDown = true;
+                resizeActive = true;
+                resizeElement = el;
+                resizeDir = dir;
+                resizeStartX = e.clientX;
+                resizeStartY = e.clientY;
+                resizeStartW = el.offsetWidth;
+                resizeStartH = el.offsetHeight;
+                resizeStartL = parseFloat(el.style.left) || 0;
+                resizeStartT = parseFloat(el.style.top) || 0;
+                
+                if (cropActive && cropOverlay) {
+                    cropStartX = e.clientX;
+                    cropStartY = e.clientY;
+                    cropStartW = parseFloat(cropOverlay.style.width) || resizeStartW;
+                    cropStartH = parseFloat(cropOverlay.style.height) || resizeStartH;
+                }
+            });
+            handle.addEventListener('touchstart', (e) => {
+                if (el.classList.contains('locked')) return;
+                e.stopPropagation();
+                e.preventDefault();
+                mouseDown = true;
+                resizeActive = true;
+                resizeElement = el;
+                resizeDir = dir;
+                const touch = e.touches[0];
+                resizeStartX = touch.clientX;
+                resizeStartY = touch.clientY;
+                resizeStartW = el.offsetWidth;
+                resizeStartH = el.offsetHeight;
+                resizeStartL = parseFloat(el.style.left) || 0;
+                resizeStartT = parseFloat(el.style.top) || 0;
+            });
             el.appendChild(handle);
         });
     }
@@ -1351,6 +1165,45 @@
         let rot = document.createElement('div');
         rot.className = 'rotate-corner';
         rot.innerHTML = '↻';
+        rot.addEventListener('mousedown', (e) => {
+            if (el.classList.contains('locked')) return;
+            e.stopPropagation();
+            e.preventDefault();
+            mouseDown = true;
+            rotateActive = true;
+            rotateElement = el;
+            
+            let rect = el.getBoundingClientRect();
+            rotateCenterX = rect.left + rect.width / 2;
+            rotateCenterY = rect.top + rect.height / 2;
+            rotateStartAngle = Math.atan2(e.clientY - rotateCenterY, e.clientX - rotateCenterX) * 180 / Math.PI;
+            rotateCurrentRot = parseFloat(el.dataset.rotation) || 0;
+            
+            function stopRotate() {
+                mouseDown = false;
+                rotateActive = false;
+                rotateElement = null;
+                document.removeEventListener('mousemove', onRotate);
+                document.removeEventListener('mouseup', stopRotate);
+            }
+            
+            function onRotate(moveEv) {
+                if (!mouseDown || !rotateElement) return;
+                let currX = moveEv.clientX;
+                let currY = moveEv.clientY;
+                let currAngle = Math.atan2(currY - rotateCenterY, currX - rotateCenterX) * 180 / Math.PI;
+                let delta = currAngle - rotateStartAngle;
+                let newRot = rotateCurrentRot + delta;
+                rotateElement.dataset.rotation = newRot;
+                applyTransform(rotateElement);
+                const id = rotateElement.id;
+                if (images[id]) imagesRef.child(id).update({ rotation: newRot });
+                if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
+            }
+            
+            document.addEventListener('mousemove', onRotate);
+            document.addEventListener('mouseup', stopRotate);
+        });
         el.appendChild(rot);
     }
     
@@ -1358,7 +1211,6 @@
     function selectText(id) { deselectAll(); selectedTextId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('text-controls').style.display = 'flex'; } updateThumbnails(); }
     function selectWidget(id) { deselectAll(); selectedWidgetId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('widget-controls').style.display = 'flex'; } updateThumbnails(); }
     function selectSound(id) { deselectAll(); selectedSoundId = id; document.getElementById('sound-controls').style.display = 'flex'; updateThumbnails(); }
-    function selectVideo(id) { deselectAll(); selectedVideoId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('video-controls').style.display = 'flex'; } updateThumbnails(); }
     
     function deselectAll() {
         document.querySelectorAll('.selected').forEach(e => e.classList.remove('selected'));
@@ -1366,8 +1218,7 @@
         document.getElementById('text-controls').style.display = 'none';
         document.getElementById('sound-controls').style.display = 'none';
         document.getElementById('widget-controls').style.display = 'none';
-        document.getElementById('video-controls').style.display = 'none';
-        selectedImageId = selectedTextId = selectedSoundId = selectedWidgetId = selectedVideoId = null;
+        selectedImageId = selectedTextId = selectedSoundId = selectedWidgetId = null;
     }
     
     function toggleVisibility(id, type) {
@@ -1379,7 +1230,6 @@
         else if (type === 'text') textsRef.child(id).update({ display: newDisplay });
         else if (type === 'widget') widgetsRef.child(id).update({ display: newDisplay });
         else if (type === 'sound') soundsRef.child(id).update({ display: newDisplay });
-        else if (type === 'video') videosRef.child(id).update({ display: newDisplay });
         updateThumbnails();
     }
     
@@ -1388,17 +1238,16 @@
         else if (type === 'text') textsRef.child(id).remove();
         else if (type === 'widget') widgetsRef.child(id).remove();
         else if (type === 'sound') soundsRef.child(id).remove();
-        else if (type === 'video') videosRef.child(id).remove();
         const el = document.getElementById(id);
         if (el) el.remove();
-        if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedSoundId === id || selectedVideoId === id) deselectAll();
+        if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedSoundId === id) deselectAll();
         updateThumbnails();
     }
     
     function createThumbnail(id, type, preview, name) {
         const thumb = document.createElement('div');
         thumb.className = 'thumbnail';
-        const data = images[id] || texts[id] || widgets[id] || sounds[id] || videos[id];
+        const data = images[id] || texts[id] || widgets[id] || sounds[id];
         if (data && data.display === 'none') thumb.classList.add('thumbnail-hidden');
         
         const previewDiv = document.createElement('div');
@@ -1406,9 +1255,6 @@
             const img = document.createElement('img');
             img.src = preview;
             previewDiv.appendChild(img);
-        } else if (type === 'video') {
-            previewDiv.className = 'video-thumbnail';
-            previewDiv.textContent = '🎬';
         } else {
             previewDiv.className = type === 'text' ? 'text-thumbnail' : (type === 'widget' ? 'widget-thumbnail' : 'sound-thumbnail');
             previewDiv.textContent = name ? name.substring(0, 6) : (type === 'text' ? '📝' : (type === 'widget' ? '🧩' : '🔊'));
@@ -1432,7 +1278,6 @@
             else if (type === 'text') selectText(id);
             else if (type === 'widget') selectWidget(id);
             else if (type === 'sound') selectSound(id);
-            else if (type === 'video') selectVideo(id);
         };
         return thumb;
     }
@@ -1444,26 +1289,16 @@
         for (const id in texts) container.appendChild(createThumbnail(id, 'text', null, texts[id].text));
         for (const id in widgets) container.appendChild(createThumbnail(id, 'widget', null, widgets[id].name));
         for (const id in sounds) container.appendChild(createThumbnail(id, 'sound', null, sounds[id].name));
-        for (const id in videos) container.appendChild(createThumbnail(id, 'video', null, videos[id].name));
     }
     
     function addWidgetByUrl(url, name, width, height, customCss) {
         if (!url) return alert('Введите URL');
-        let finalUrl = url.startsWith('http') ? url : 'https://' + url;
-        if (finalUrl.includes('youtube.com/embed')) {
-            if (!finalUrl.includes('enablejsapi=1')) {
-                finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
-            }
-            if (!finalUrl.includes('autoplay')) {
-                finalUrl += '&autoplay=0';
-            }
-        }
+        const finalUrl = url.startsWith('http') ? url : 'https://' + url;
         const id = createId('widget');
         widgetsRef.child(id).set({
             id, url: finalUrl, name: name || 'Виджет',
             x: 50, y: 50, width: width || 400, height: height || 300,
-            opacity: 1, locked: false, display: 'block', customCss: customCss || '',
-            rotation: 0
+            opacity: 1, locked: false, display: 'block', customCss: customCss || ''
         });
         closeModal('widget-modal');
     }
@@ -1476,9 +1311,9 @@
     function syncElements() {
         updateCanvasSize();
         
-        document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget, .draggable-video').forEach(el => {
+        document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
             const id = el.id;
-            if (!images[id] && !texts[id] && !widgets[id] && !videos[id]) {
+            if (!images[id] && !texts[id] && !widgets[id]) {
                 el.remove();
             }
         });
@@ -1546,24 +1381,14 @@
                 el = document.createElement('div');
                 el.id = id;
                 el.className = 'draggable-widget';
-                el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
+                el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
-                addRotateHandle(el);
                 makeDraggable(el);
-                
                 el.querySelector('.retry-widget')?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const iframe = el.querySelector('iframe');
-                    if (iframe) {
-                        let src = iframe.src;
-                        if (src.includes('autoplay=1')) {
-                            src = src.replace('autoplay=1', 'autoplay=0');
-                        } else if (!src.includes('autoplay')) {
-                            src += (src.includes('?') ? '&' : '?') + 'autoplay=0';
-                        }
-                        iframe.src = src;
-                    }
+                    if (iframe) iframe.src = iframe.src;
                     el.querySelector('.widget-error').style.display = 'none';
                 });
             }
@@ -1577,41 +1402,6 @@
             if (data.customCss) applyWidgetCss(el, data.customCss);
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
-            if (data.rotation) el.dataset.rotation = data.rotation;
-            applyTransform(el);
-        }
-        
-        for (const id in videos) {
-            const data = videos[id];
-            let el = document.getElementById(id);
-            if (!el) {
-                el = document.createElement('div');
-                el.id = id;
-                el.className = 'draggable-video';
-                const video = document.createElement('video');
-                video.src = data.src;
-                video.muted = false;
-                video.loop = data.loop || false;
-                video.playsInline = true;
-                video.style.width = '100%';
-                video.style.height = '100%';
-                video.style.objectFit = 'contain';
-                el.appendChild(video);
-                document.getElementById('videos-layer').appendChild(el);
-                addResizeHandles(el);
-                addRotateHandle(el);
-                makeDraggable(el);
-                videoElements[id] = video;
-            }
-            el.style.left = data.x + 'px';
-            el.style.top = data.y + 'px';
-            el.style.width = data.width + 'px';
-            el.style.height = data.height + 'px';
-            el.style.display = data.display === 'none' ? 'none' : 'block';
-            if (data.locked) el.classList.add('locked');
-            else el.classList.remove('locked');
-            if (data.rotation) el.dataset.rotation = data.rotation;
-            applyTransform(el);
         }
         updateThumbnails();
     }
@@ -1644,30 +1434,7 @@
     imagesRef.on('value', s => { images = s.val() || {}; syncElements(); });
     textsRef.on('value', s => { texts = s.val() || {}; syncElements(); });
     widgetsRef.on('value', s => { widgets = s.val() || {}; syncElements(); });
-    soundsRef.on('value', s => { 
-        sounds = s.val() || {}; 
-        updateThumbnails();
-        for (const id in sounds) {
-            if (!audioPreloaded[id]) {
-                preloadAudio(id);
-            }
-        }
-    });
-    videosRef.on('value', s => { 
-        videos = s.val() || {}; 
-        syncElements();
-        for (const id in videos) {
-            if (isVideoPlaying[id]) {
-                const videoEl = document.getElementById(id);
-                if (videoEl) {
-                    const video = videoEl.querySelector('video');
-                    if (video) {
-                        video.play().catch(e => console.log(e));
-                    }
-                }
-            }
-        }
-    });
+    soundsRef.on('value', s => { sounds = s.val() || {}; updateThumbnails(); });
     savedWidgetsRef.on('value', s => { savedWidgets = s.val() || {}; updateSavedList(); });
     
     function updateSavedList() {
@@ -1684,6 +1451,7 @@
         }
     }
     
+    // --- Обновление отображения значений слайдеров ---
     document.getElementById('tts-volume').addEventListener('input', (e) => {
         document.getElementById('volume-value').textContent = e.target.value;
     });
@@ -1694,6 +1462,7 @@
         document.getElementById('pitch-value').textContent = e.target.value;
     });
     
+    // --- Кнопки синхронной озвучки ---
     document.getElementById('tts-button').onclick = () => {
         document.getElementById('tts-text-input').value = '';
         document.getElementById('tts-modal').style.display = 'block';
@@ -1746,7 +1515,7 @@
     };
     
     document.getElementById('add-widget-btn').onclick = () => {
-        document.getElementById('widget-url-input').value = 'https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1&rel=0&autoplay=0';
+        document.getElementById('widget-url-input').value = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
         document.getElementById('widget-css-input').value = '';
         document.getElementById('widget-modal').style.display = 'block';
     };
@@ -1772,18 +1541,7 @@
     };
     
     document.querySelectorAll('.quick-widget-btn').forEach(btn => {
-        btn.onclick = () => {
-            let url = btn.dataset.url;
-            if (url.includes('youtube.com/embed')) {
-                if (!url.includes('enablejsapi=1')) {
-                    url += (url.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
-                }
-                if (!url.includes('autoplay')) {
-                    url += '&autoplay=0';
-                }
-            }
-            addWidgetByUrl(url, btn.dataset.name, parseInt(btn.dataset.w), parseInt(btn.dataset.h), '');
-        };
+        btn.onclick = () => addWidgetByUrl(btn.dataset.url, btn.dataset.name, parseInt(btn.dataset.w), parseInt(btn.dataset.h), '');
     });
     
     document.querySelectorAll('.widgets-tab').forEach(tab => {
@@ -1806,8 +1564,7 @@
                     imagesRef.child(id).set({
                         id, src: ev.target.result, x: 50, y: 50,
                         width: Math.min(400, img.width), height: Math.min(300, img.height),
-                        opacity: 1, brightness: 100, display: 'block', locked: false,
-                        rotation: 0
+                        opacity: 1, brightness: 100, display: 'block', locked: false
                     });
                 };
                 img.src = ev.target.result;
@@ -1822,118 +1579,13 @@
             const r = new FileReader();
             r.onload = ev => {
                 const id = createId('sound');
-                const data = { 
-                    id, 
-                    src: ev.target.result, 
-                    name: f.name, 
-                    volume: 100, 
-                    display: 'block' 
-                };
-                soundsRef.child(id).set(data);
-                setTimeout(() => preloadAudio(id), 100);
+                soundsRef.child(id).set({ id, src: ev.target.result, name: f.name, volume: 100, display: 'block' });
             };
             r.readAsDataURL(f);
         }
     };
     
-    document.getElementById('video-input').onchange = e => {
-        const f = e.target.files[0];
-        if (f) {
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                const videoUrl = ev.target.result;
-                const id = createId('video');
-                
-                videosRef.child(id).set({
-                    id: id,
-                    src: videoUrl,
-                    name: f.name,
-                    x: 50,
-                    y: 50,
-                    width: 400,
-                    height: 300,
-                    display: 'block',
-                    locked: false,
-                    loop: false,
-                    rotation: 0
-                }).then(() => {
-                    const videoEl = document.createElement('div');
-                    videoEl.id = id;
-                    videoEl.className = 'draggable-video';
-                    const video = document.createElement('video');
-                    video.src = videoUrl;
-                    video.muted = false;
-                    video.loop = false;
-                    video.playsInline = true;
-                    video.style.width = '100%';
-                    video.style.height = '100%';
-                    video.style.objectFit = 'contain';
-                    videoEl.appendChild(video);
-                    document.getElementById('videos-layer').appendChild(videoEl);
-                    
-                    addResizeHandles(videoEl);
-                    addRotateHandle(videoEl);
-                    makeDraggable(videoEl);
-                    videoElements[id] = video;
-                    
-                    updateThumbnails();
-                    
-                    document.getElementById('status').innerHTML = '✅ Видео загружено';
-                    document.getElementById('status').style.background = '#e8f5e9';
-                    document.getElementById('status').style.color = '#2e7d32';
-                }).catch(err => {
-                    console.error('Error saving video:', err);
-                    alert('Ошибка при загрузке видео. Попробуйте еще раз.');
-                });
-            };
-            reader.readAsDataURL(f);
-        }
-    };
-    
-    document.getElementById('add-video-btn').onclick = () => document.getElementById('video-input').click();
-    
-    // Widget YouTube controls
-    document.getElementById('play-widget-btn').onclick = () => {
-        if (selectedWidgetId && widgets[selectedWidgetId]) {
-            broadcastWidgetPlay(selectedWidgetId);
-        }
-    };
-    document.getElementById('pause-widget-btn').onclick = () => {
-        if (selectedWidgetId && widgets[selectedWidgetId]) {
-            broadcastWidgetPause(selectedWidgetId);
-        }
-    };
-    
-    // Video controls
-    document.getElementById('play-video-btn').onclick = () => {
-        if (selectedVideoId && videos[selectedVideoId]) {
-            const videoEl = document.getElementById(selectedVideoId);
-            if (videoEl) {
-                const video = videoEl.querySelector('video');
-                if (video) {
-                    isVideoPlaying[selectedVideoId] = true;
-                    playVideoSync(selectedVideoId);
-                }
-            }
-        }
-    };
-    document.getElementById('pause-video-btn').onclick = () => {
-        if (selectedVideoId) {
-            isVideoPlaying[selectedVideoId] = false;
-            pauseVideoSync();
-        }
-    };
-    document.getElementById('hide-video-btn').onclick = () => { if(selectedVideoId) toggleVisibility(selectedVideoId, 'video'); };
-    document.getElementById('delete-video-btn').onclick = () => { 
-        if(selectedVideoId) {
-            deleteElement(selectedVideoId, 'video');
-            delete isVideoPlaying[selectedVideoId];
-            deselectAll();
-        }
-    };
-    document.getElementById('lock-video-btn').onclick = () => { if(selectedVideoId) { const el = document.getElementById(selectedVideoId); const locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); videosRef.child(selectedVideoId).update({ locked }); } };
-    
-    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); videosRef.remove(); isVideoPlaying = {}; } };
+    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); } };
     document.getElementById('delete-btn').onclick = () => { if(selectedImageId) imagesRef.child(selectedImageId).remove(); deselectAll(); };
     document.getElementById('delete-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); };
     document.getElementById('delete-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); };
@@ -2074,21 +1726,7 @@
         if(selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); 
     };
     
-    document.getElementById('reload-widget-btn').onclick = () => { 
-        if(selectedWidgetId) { 
-            const el = document.getElementById(selectedWidgetId); 
-            const iframe = el?.querySelector('iframe'); 
-            if(iframe) {
-                let src = iframe.src;
-                if (src.includes('autoplay=1')) {
-                    src = src.replace('autoplay=1', 'autoplay=0');
-                } else if (!src.includes('autoplay')) {
-                    src += (src.includes('?') ? '&' : '?') + 'autoplay=0';
-                }
-                iframe.src = src;
-            }
-        } 
-    };
+    document.getElementById('reload-widget-btn').onclick = () => { if(selectedWidgetId) { const el = document.getElementById(selectedWidgetId); const iframe = el?.querySelector('iframe'); if(iframe) iframe.src = iframe.src; } };
     document.getElementById('edit-widget-url-btn').onclick = () => {
         if(selectedWidgetId && widgets[selectedWidgetId]) {
             document.getElementById('edit-widget-url').value = widgets[selectedWidgetId].url;
@@ -2096,15 +1734,7 @@
             document.getElementById('apply-url-btn').onclick = () => {
                 const newUrl = document.getElementById('edit-widget-url').value.trim();
                 if(newUrl) {
-                    let finalUrl = newUrl.startsWith('http') ? newUrl : 'https://' + newUrl;
-                    if (finalUrl.includes('youtube.com/embed')) {
-                        if (!finalUrl.includes('enablejsapi=1')) {
-                            finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'enablejsapi=1&rel=0';
-                        }
-                        if (!finalUrl.includes('autoplay')) {
-                            finalUrl += '&autoplay=0';
-                        }
-                    }
+                    const finalUrl = newUrl.startsWith('http') ? newUrl : 'https://' + newUrl;
                     widgetsRef.child(selectedWidgetId).update({ url: finalUrl });
                     const el = document.getElementById(selectedWidgetId);
                     if(el) { const iframe = el.querySelector('iframe'); if(iframe) iframe.src = finalUrl; }

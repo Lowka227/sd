@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Быстрая синхронная озвучка</title>
+    <title>Прозрачный холст - Видео и синхронная озвучка</title>
     <style>
         * {
             margin: 0;
@@ -92,7 +92,7 @@
             object-fit: cover;
         }
         
-        .text-thumbnail, .sound-thumbnail, .widget-thumbnail {
+        .text-thumbnail, .sound-thumbnail, .widget-thumbnail, .video-thumbnail {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -109,6 +109,7 @@
         
         .sound-thumbnail { background: #e3f2fd; }
         .widget-thumbnail { background: #e8f5e9; color: #2e7d32; font-weight: bold; }
+        .video-thumbnail { background: #fce4ec; color: #c62828; font-weight: bold; }
         
         .thumbnail.selected {
             border-color: #ffd966;
@@ -155,7 +156,7 @@
             border: 1px solid white;
         }
         
-        #image-controls, #text-controls, #sound-controls, #widget-controls {
+        #image-controls, #text-controls, #sound-controls, #widget-controls, #video-controls {
             display: none;
             gap: 6px;
             align-items: center;
@@ -188,7 +189,7 @@
             background: transparent !important;
         }
         
-        #images-layer, #texts-layer, #widgets-layer {
+        #images-layer, #texts-layer, #widgets-layer, #videos-layer {
             position: absolute;
             top: 0;
             left: 0;
@@ -200,8 +201,9 @@
         #images-layer { z-index: 2; }
         #texts-layer { z-index: 3; }
         #widgets-layer { z-index: 4; }
+        #videos-layer { z-index: 5; }
         
-        .draggable-image, .draggable-text, .draggable-widget {
+        .draggable-image, .draggable-text, .draggable-widget, .draggable-video {
             position: absolute;
             cursor: grab;
             touch-action: none;
@@ -210,7 +212,7 @@
             transform-origin: center center;
         }
         
-        .draggable-image:active, .draggable-text:active, .draggable-widget:active {
+        .draggable-image:active, .draggable-text:active, .draggable-widget:active, .draggable-video:active {
             cursor: grabbing;
         }
         
@@ -253,6 +255,20 @@
             border: none;
             pointer-events: auto;
             background: white;
+        }
+        
+        .draggable-video {
+            background: #000;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        
+        .draggable-video video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+            display: block;
         }
         
         .widget-error {
@@ -369,7 +385,7 @@
             background: linear-gradient(135deg, #ab47bc, #7b1fa2);
         }
         
-        #file-input, #sound-input { display: none; }
+        #file-input, #sound-input, #video-input { display: none; }
         
         #status {
             margin-left: auto;
@@ -555,6 +571,7 @@
         <button onclick="document.getElementById('file-input').click()">🖼 Изображение</button>
         <button id="add-text-btn">📝 Текст</button>
         <button id="add-sound-btn">🔊 Звук</button>
+        <button id="add-video-btn">🎬 Видео</button>
         <button id="add-widget-btn">🧩 Виджет</button>
         <button id="clear-btn">🗑 Очистить</button>
         <button id="tts-button" class="tts-btn">📢 Синхронная озвучка</button>
@@ -568,8 +585,9 @@
     <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
     <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
+    <div id="video-controls"><span class="panel-title">🎬</span><button id="play-video-btn">▶</button><button id="pause-video-btn">⏸</button><button id="hide-video-btn">👁 Скрыть</button><button id="delete-video-btn">🗑 Удалить</button><button id="lock-video-btn">🔒 Закрепить</button></div>
 </div>
-<div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
+<div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div><div id="videos-layer"></div></div></div>
 
 <div id="tts-modal" class="modal">
     <div class="modal-header">
@@ -696,6 +714,7 @@
 
 <input type="file" id="file-input" accept="image/*">
 <input type="file" id="sound-input" accept="audio/*">
+<input type="file" id="video-input" accept="video/*">
 <audio id="audio-element"></audio>
 
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
@@ -718,12 +737,14 @@
     const textsRef = db.ref('texts');
     const soundsRef = db.ref('sounds');
     const widgetsRef = db.ref('widgets');
+    const videosRef = db.ref('videos');
     const savedWidgetsRef = db.ref('savedWidgets');
     const syncSoundRef = db.ref('syncSound');
     const syncTTSRef = db.ref('syncTTS');
+    const syncVideoRef = db.ref('syncVideo');
     
-    let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
-    let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
+    let images = {}, texts = {}, sounds = {}, widgets = {}, videos = {}, savedWidgets = {};
+    let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null, selectedVideoId = null;
     let canvasRect = { width: 0, height: 0 };
     
     // TTS variables
@@ -731,6 +752,9 @@
     let availableVoices = [];
     let isSpeaking = false;
     let speechQueue = [];
+    
+    // Video sync variables
+    let videoElements = {};
     
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
@@ -843,7 +867,6 @@
         if (!text || text.trim() === "") return;
         if (!('speechSynthesis' in window)) return;
         
-        // Добавляем в очередь
         speechQueue.push({
             text: text,
             voiceName: voiceName,
@@ -855,7 +878,6 @@
         processQueue();
     }
     
-    // Отправка команды на озвучку ВСЕМ
     function broadcastSpeak(text, voiceName, volume, rate, pitch) {
         if (!text || text.trim() === "") {
             alert("Введите текст для озвучивания");
@@ -880,7 +902,6 @@
         });
     }
     
-    // Слушаем команды из Firebase (мгновенно)
     syncTTSRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
@@ -889,6 +910,37 @@
             speakTextLocally(data.text, data.voiceName, data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
         } else if (data.action === 'stop') {
             stopLocalSpeaking();
+        }
+    });
+    
+    // Video sync functions
+    function playVideoSync(videoId) {
+        if (!videoId || !videos[videoId]) return;
+        syncVideoRef.set({
+            videoId: videoId,
+            action: 'play',
+            timestamp: Date.now()
+        });
+    }
+    
+    function pauseVideoSync() {
+        syncVideoRef.set({ action: 'pause', timestamp: Date.now() });
+    }
+    
+    syncVideoRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        if (data.action === 'play' && data.videoId && videos[data.videoId]) {
+            const videoEl = document.getElementById(data.videoId);
+            if (videoEl) {
+                const video = videoEl.querySelector('video');
+                if (video) {
+                    video.play().catch(e => console.log(e));
+                }
+            }
+        } else if (data.action === 'pause') {
+            document.querySelectorAll('#videos-layer video').forEach(v => v.pause());
         }
     });
     
@@ -972,6 +1024,7 @@
                 if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
                 else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
                 else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
+                else if (videos[id]) videosRef.child(id).update({ x: newLeft, y: newTop });
             }
             
             if (resizeActive && resizeElement && !cropActive) {
@@ -1008,6 +1061,7 @@
                 const id = rotateElement.id;
                 if (images[id]) imagesRef.child(id).update({ rotation: newRot });
                 if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
+                if (videos[id]) videosRef.child(id).update({ rotation: newRot });
             }
             
             if (cropActive && cropOverlay && resizeElement) {
@@ -1034,6 +1088,7 @@
             let newH = parseFloat(resizeElement.style.height);
             if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
+            else if (videos[id]) videosRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
         
         dragActive = false;
@@ -1060,6 +1115,7 @@
             if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
             else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
+            else if (videos[id]) videosRef.child(id).update({ x: newLeft, y: newTop });
         }
     });
     document.addEventListener('touchend', () => {
@@ -1084,6 +1140,7 @@
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
+            else if (el.id.startsWith('video')) selectVideo(el.id);
             
             dragActive = true;
             dragElement = el;
@@ -1103,6 +1160,7 @@
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
+            else if (el.id.startsWith('video')) selectVideo(el.id);
             
             dragActive = true;
             dragElement = el;
@@ -1199,6 +1257,7 @@
                 const id = rotateElement.id;
                 if (images[id]) imagesRef.child(id).update({ rotation: newRot });
                 if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
+                if (videos[id]) videosRef.child(id).update({ rotation: newRot });
             }
             
             document.addEventListener('mousemove', onRotate);
@@ -1211,6 +1270,7 @@
     function selectText(id) { deselectAll(); selectedTextId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('text-controls').style.display = 'flex'; } updateThumbnails(); }
     function selectWidget(id) { deselectAll(); selectedWidgetId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('widget-controls').style.display = 'flex'; } updateThumbnails(); }
     function selectSound(id) { deselectAll(); selectedSoundId = id; document.getElementById('sound-controls').style.display = 'flex'; updateThumbnails(); }
+    function selectVideo(id) { deselectAll(); selectedVideoId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('video-controls').style.display = 'flex'; } updateThumbnails(); }
     
     function deselectAll() {
         document.querySelectorAll('.selected').forEach(e => e.classList.remove('selected'));
@@ -1218,7 +1278,8 @@
         document.getElementById('text-controls').style.display = 'none';
         document.getElementById('sound-controls').style.display = 'none';
         document.getElementById('widget-controls').style.display = 'none';
-        selectedImageId = selectedTextId = selectedSoundId = selectedWidgetId = null;
+        document.getElementById('video-controls').style.display = 'none';
+        selectedImageId = selectedTextId = selectedSoundId = selectedWidgetId = selectedVideoId = null;
     }
     
     function toggleVisibility(id, type) {
@@ -1230,6 +1291,7 @@
         else if (type === 'text') textsRef.child(id).update({ display: newDisplay });
         else if (type === 'widget') widgetsRef.child(id).update({ display: newDisplay });
         else if (type === 'sound') soundsRef.child(id).update({ display: newDisplay });
+        else if (type === 'video') videosRef.child(id).update({ display: newDisplay });
         updateThumbnails();
     }
     
@@ -1238,16 +1300,17 @@
         else if (type === 'text') textsRef.child(id).remove();
         else if (type === 'widget') widgetsRef.child(id).remove();
         else if (type === 'sound') soundsRef.child(id).remove();
+        else if (type === 'video') videosRef.child(id).remove();
         const el = document.getElementById(id);
         if (el) el.remove();
-        if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedSoundId === id) deselectAll();
+        if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedSoundId === id || selectedVideoId === id) deselectAll();
         updateThumbnails();
     }
     
     function createThumbnail(id, type, preview, name) {
         const thumb = document.createElement('div');
         thumb.className = 'thumbnail';
-        const data = images[id] || texts[id] || widgets[id] || sounds[id];
+        const data = images[id] || texts[id] || widgets[id] || sounds[id] || videos[id];
         if (data && data.display === 'none') thumb.classList.add('thumbnail-hidden');
         
         const previewDiv = document.createElement('div');
@@ -1255,6 +1318,9 @@
             const img = document.createElement('img');
             img.src = preview;
             previewDiv.appendChild(img);
+        } else if (type === 'video') {
+            previewDiv.className = 'video-thumbnail';
+            previewDiv.textContent = '🎬';
         } else {
             previewDiv.className = type === 'text' ? 'text-thumbnail' : (type === 'widget' ? 'widget-thumbnail' : 'sound-thumbnail');
             previewDiv.textContent = name ? name.substring(0, 6) : (type === 'text' ? '📝' : (type === 'widget' ? '🧩' : '🔊'));
@@ -1278,6 +1344,7 @@
             else if (type === 'text') selectText(id);
             else if (type === 'widget') selectWidget(id);
             else if (type === 'sound') selectSound(id);
+            else if (type === 'video') selectVideo(id);
         };
         return thumb;
     }
@@ -1289,6 +1356,7 @@
         for (const id in texts) container.appendChild(createThumbnail(id, 'text', null, texts[id].text));
         for (const id in widgets) container.appendChild(createThumbnail(id, 'widget', null, widgets[id].name));
         for (const id in sounds) container.appendChild(createThumbnail(id, 'sound', null, sounds[id].name));
+        for (const id in videos) container.appendChild(createThumbnail(id, 'video', null, videos[id].name));
     }
     
     function addWidgetByUrl(url, name, width, height, customCss) {
@@ -1311,9 +1379,9 @@
     function syncElements() {
         updateCanvasSize();
         
-        document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
+        document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget, .draggable-video').forEach(el => {
             const id = el.id;
-            if (!images[id] && !texts[id] && !widgets[id]) {
+            if (!images[id] && !texts[id] && !widgets[id] && !videos[id]) {
                 el.remove();
             }
         });
@@ -1403,6 +1471,38 @@
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
+        
+        for (const id in videos) {
+            const data = videos[id];
+            let el = document.getElementById(id);
+            if (!el) {
+                el = document.createElement('div');
+                el.id = id;
+                el.className = 'draggable-video';
+                const video = document.createElement('video');
+                video.src = data.src;
+                video.muted = false;
+                video.loop = data.loop || false;
+                video.style.width = '100%';
+                video.style.height = '100%';
+                video.style.objectFit = 'contain';
+                el.appendChild(video);
+                document.getElementById('videos-layer').appendChild(el);
+                addResizeHandles(el);
+                addRotateHandle(el);
+                makeDraggable(el);
+                videoElements[id] = video;
+            }
+            el.style.left = data.x + 'px';
+            el.style.top = data.y + 'px';
+            el.style.width = data.width + 'px';
+            el.style.height = data.height + 'px';
+            el.style.display = data.display === 'none' ? 'none' : 'block';
+            if (data.locked) el.classList.add('locked');
+            else el.classList.remove('locked');
+            if (data.rotation) el.dataset.rotation = data.rotation;
+            applyTransform(el);
+        }
         updateThumbnails();
     }
     
@@ -1435,6 +1535,7 @@
     textsRef.on('value', s => { texts = s.val() || {}; syncElements(); });
     widgetsRef.on('value', s => { widgets = s.val() || {}; syncElements(); });
     soundsRef.on('value', s => { sounds = s.val() || {}; updateThumbnails(); });
+    videosRef.on('value', s => { videos = s.val() || {}; syncElements(); });
     savedWidgetsRef.on('value', s => { savedWidgets = s.val() || {}; updateSavedList(); });
     
     function updateSavedList() {
@@ -1451,7 +1552,6 @@
         }
     }
     
-    // --- Обновление отображения значений слайдеров ---
     document.getElementById('tts-volume').addEventListener('input', (e) => {
         document.getElementById('volume-value').textContent = e.target.value;
     });
@@ -1462,7 +1562,6 @@
         document.getElementById('pitch-value').textContent = e.target.value;
     });
     
-    // --- Кнопки синхронной озвучки ---
     document.getElementById('tts-button').onclick = () => {
         document.getElementById('tts-text-input').value = '';
         document.getElementById('tts-modal').style.display = 'block';
@@ -1585,7 +1684,38 @@
         }
     };
     
-    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); } };
+    document.getElementById('video-input').onchange = e => {
+        const f = e.target.files[0];
+        if (f) {
+            const r = new FileReader();
+            r.onload = ev => {
+                const id = createId('video');
+                videosRef.child(id).set({
+                    id, src: ev.target.result, name: f.name,
+                    x: 50, y: 50, width: 400, height: 300,
+                    display: 'block', locked: false, loop: false
+                });
+            };
+            r.readAsDataURL(f);
+        }
+    };
+    
+    document.getElementById('add-video-btn').onclick = () => document.getElementById('video-input').click();
+    
+    // Video controls
+    document.getElementById('play-video-btn').onclick = () => {
+        if (selectedVideoId && videos[selectedVideoId]) {
+            playVideoSync(selectedVideoId);
+        }
+    };
+    document.getElementById('pause-video-btn').onclick = () => {
+        pauseVideoSync();
+    };
+    document.getElementById('hide-video-btn').onclick = () => { if(selectedVideoId) toggleVisibility(selectedVideoId, 'video'); };
+    document.getElementById('delete-video-btn').onclick = () => { if(selectedVideoId) deleteElement(selectedVideoId, 'video'); deselectAll(); };
+    document.getElementById('lock-video-btn').onclick = () => { if(selectedVideoId) { const el = document.getElementById(selectedVideoId); const locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); videosRef.child(selectedVideoId).update({ locked }); } };
+    
+    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); videosRef.remove(); } };
     document.getElementById('delete-btn').onclick = () => { if(selectedImageId) imagesRef.child(selectedImageId).remove(); deselectAll(); };
     document.getElementById('delete-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); };
     document.getElementById('delete-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); };

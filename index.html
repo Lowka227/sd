@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Видео и синхронная озвучка</title>
+    <title>Прозрачный холст - Видео и виджеты</title>
     <style>
         * {
             margin: 0;
@@ -584,7 +584,7 @@
     <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button><button id="crop-image-btn" style="background:#ff9800;">✂ Обрезать</button></div>
     <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
     <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
-    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
+    <div id="widget-controls"><span class="panel-title">🧩</span><button id="play-widget-btn">▶</button><button id="pause-widget-btn">⏸</button><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
     <div id="video-controls"><span class="panel-title">🎬</span><button id="play-video-btn">▶</button><button id="pause-video-btn">⏸</button><button id="hide-video-btn">👁 Скрыть</button><button id="delete-video-btn">🗑 Удалить</button><button id="lock-video-btn">🔒 Закрепить</button></div>
 </div>
 <div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div><div id="videos-layer"></div></div></div>
@@ -742,6 +742,7 @@
     const syncSoundRef = db.ref('syncSound');
     const syncTTSRef = db.ref('syncTTS');
     const syncVideoRef = db.ref('syncVideo');
+    const syncWidgetRef = db.ref('syncWidget');
     
     let images = {}, texts = {}, sounds = {}, widgets = {}, videos = {}, savedWidgets = {};
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null, selectedVideoId = null;
@@ -755,6 +756,7 @@
     
     // Video sync variables
     let videoElements = {};
+    let widgetPlayers = {};
     
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
@@ -910,6 +912,43 @@
             speakTextLocally(data.text, data.voiceName, data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
         } else if (data.action === 'stop') {
             stopLocalSpeaking();
+        }
+    });
+    
+    // Widget (YouTube) sync functions
+    function broadcastWidgetPlay(widgetId) {
+        if (!widgetId || !widgets[widgetId]) return;
+        syncWidgetRef.set({
+            widgetId: widgetId,
+            action: 'play',
+            timestamp: Date.now()
+        });
+    }
+    
+    function broadcastWidgetPause(widgetId) {
+        if (!widgetId || !widgets[widgetId]) return;
+        syncWidgetRef.set({
+            widgetId: widgetId,
+            action: 'pause',
+            timestamp: Date.now()
+        });
+    }
+    
+    syncWidgetRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        if (data.widgetId && widgets[data.widgetId]) {
+            const iframe = document.querySelector(`#${data.widgetId} iframe`);
+            if (!iframe) return;
+            
+            const targetOrigin = '*';
+            
+            if (data.action === 'play') {
+                iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', targetOrigin);
+            } else if (data.action === 'pause') {
+                iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', targetOrigin);
+            }
         }
     });
     
@@ -1452,6 +1491,7 @@
                 el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
                 document.getElementById('widgets-layer').appendChild(el);
                 addResizeHandles(el);
+                addRotateHandle(el);
                 makeDraggable(el);
                 el.querySelector('.retry-widget')?.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1470,6 +1510,8 @@
             if (data.customCss) applyWidgetCss(el, data.customCss);
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
+            if (data.rotation) el.dataset.rotation = data.rotation;
+            applyTransform(el);
         }
         
         for (const id in videos) {
@@ -1701,6 +1743,18 @@
     };
     
     document.getElementById('add-video-btn').onclick = () => document.getElementById('video-input').click();
+    
+    // Widget YouTube controls
+    document.getElementById('play-widget-btn').onclick = () => {
+        if (selectedWidgetId && widgets[selectedWidgetId]) {
+            broadcastWidgetPlay(selectedWidgetId);
+        }
+    };
+    document.getElementById('pause-widget-btn').onclick = () => {
+        if (selectedWidgetId && widgets[selectedWidgetId]) {
+            broadcastWidgetPause(selectedWidgetId);
+        }
+    };
     
     // Video controls
     document.getElementById('play-video-btn').onclick = () => {

@@ -3,335 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Быстрая синхронная озвучка</title>
+    <title>Прозрачный холст - Синхронная озвучка</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-        }
-        
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: transparent !important;
-        }
-        
-        body {
-            font-family: system-ui, 'Segoe UI', Arial, sans-serif;
-            background: transparent !important;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-        }
-        
-        #controls {
-            background: linear-gradient(135deg, #1e2b6e 0%, #2a3f8a 100%);
-            padding: 6px 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            z-index: 10000;
-            width: 100%;
-            border-bottom: 2px solid #ffd966;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.25);
-            flex-shrink: 0;
-        }
-        
-        .controls-row {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            flex-wrap: wrap;
-            width: 100%;
-            padding: 4px 10px;
-            background: rgba(255, 255, 255, 0.96);
-            border-left: 4px solid #ffd966;
-        }
-        
-        #thumbnails-container {
-            display: flex;
-            align-items: center;
-            overflow-x: auto;
-            height: 48px;
-            background: rgba(255, 255, 255, 0.98);
-            padding: 4px 8px;
-            flex: 1;
-            min-width: 160px;
-        }
-        
-        #thumbnails {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .thumbnail {
-            position: relative;
-            width: 40px;
-            height: 40px;
-            flex-shrink: 0;
-            border: 2px solid transparent;
-            cursor: pointer;
-            overflow: hidden;
-            background: white;
-            transition: all 0.15s ease;
-        }
-        
-        .thumbnail:hover {
-            transform: scale(1.05);
-            border-color: #ffd966;
-        }
-        
-        .thumbnail img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .text-thumbnail, .sound-thumbnail, .widget-thumbnail {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #f0f2f5;
-            font-size: 10px;
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            padding: 0 4px;
-            text-align: center;
-            width: 100%;
-            height: 100%;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
+        body { font-family: system-ui, 'Segoe UI', Arial, sans-serif; background: transparent !important; display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden; }
+        #controls { background: linear-gradient(135deg, #1e2b6e 0%, #2a3f8a 100%); padding: 6px 12px; display: flex; flex-direction: column; gap: 6px; z-index: 10000; width: 100%; border-bottom: 2px solid #ffd966; box-shadow: 0 2px 12px rgba(0,0,0,0.25); flex-shrink: 0; }
+        .controls-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; width: 100%; padding: 4px 10px; background: rgba(255, 255, 255, 0.96); border-left: 4px solid #ffd966; }
+        #thumbnails-container { display: flex; align-items: center; overflow-x: auto; height: 48px; background: rgba(255, 255, 255, 0.98); padding: 4px 8px; flex: 1; min-width: 160px; }
+        #thumbnails { display: flex; gap: 8px; }
+        .thumbnail { position: relative; width: 40px; height: 40px; flex-shrink: 0; border: 2px solid transparent; cursor: pointer; overflow: hidden; background: white; transition: all 0.15s ease; }
+        .thumbnail:hover { transform: scale(1.05); border-color: #ffd966; }
+        .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+        .text-thumbnail, .sound-thumbnail, .widget-thumbnail { display: flex; align-items: center; justify-content: center; background: #f0f2f5; font-size: 10px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; text-align: center; width: 100%; height: 100%; }
         .sound-thumbnail { background: #e3f2fd; }
         .widget-thumbnail { background: #e8f5e9; color: #2e7d32; font-weight: bold; }
-        
-        .thumbnail.selected {
-            border-color: #ffd966;
-            box-shadow: 0 0 0 2px #ffb347;
-        }
-        
+        .thumbnail.selected { border-color: #ffd966; box-shadow: 0 0 0 2px #ffb347; }
         .thumbnail-hidden { opacity: 0.5; }
-        
-        .thumbnail-eye {
-            position: absolute;
-            bottom: -4px;
-            right: -4px;
-            width: 18px;
-            height: 18px;
-            background: #4caf50;
-            color: white;
-            font-size: 10px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            font-weight: bold;
-            border: 1px solid white;
-        }
-        
+        .thumbnail-eye { position: absolute; bottom: -4px; right: -4px; width: 18px; height: 18px; background: #4caf50; color: white; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; font-weight: bold; border: 1px solid white; }
         .thumbnail-eye.hidden { background: #f44336; }
-        
-        .thumbnail-delete {
-            position: absolute;
-            top: -4px;
-            right: -4px;
-            width: 18px;
-            height: 18px;
-            background: #f44336;
-            color: white;
-            font-size: 10px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            font-weight: bold;
-            border: 1px solid white;
-        }
-        
-        #image-controls, #text-controls, #sound-controls, #widget-controls {
-            display: none;
-            gap: 6px;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.98);
-            padding: 4px 10px;
-            border-left: 4px solid #ffd966;
-            flex-wrap: wrap;
-        }
-        
-        .panel-title {
-            font-weight: bold;
-            color: #1e2b6e;
-            margin-right: 6px;
-            font-size: 11px;
-        }
-        
-        #canvas-wrapper {
-            flex: 1;
-            width: 100%;
-            position: relative;
-            overflow: auto;
-            background: transparent !important;
-            min-height: 0;
-        }
-        
-        .canvas-content {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background: transparent !important;
-        }
-        
-        #images-layer, #texts-layer, #widgets-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        
+        .thumbnail-delete { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; background: #f44336; color: white; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; font-weight: bold; border: 1px solid white; }
+        #image-controls, #text-controls, #sound-controls, #widget-controls { display: none; gap: 6px; align-items: center; background: rgba(255, 255, 255, 0.98); padding: 4px 10px; border-left: 4px solid #ffd966; flex-wrap: wrap; }
+        .panel-title { font-weight: bold; color: #1e2b6e; margin-right: 6px; font-size: 11px; }
+        #canvas-wrapper { flex: 1; width: 100%; position: relative; overflow: auto; background: transparent !important; min-height: 0; }
+        .canvas-content { position: relative; width: 100%; height: 100%; background: transparent !important; }
+        #images-layer, #texts-layer, #widgets-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         #images-layer { z-index: 2; }
         #texts-layer { z-index: 3; }
         #widgets-layer { z-index: 4; }
-        
-        .draggable-image, .draggable-text, .draggable-widget {
-            position: absolute;
-            cursor: grab;
-            touch-action: none;
-            pointer-events: auto;
-            box-sizing: border-box;
-            transform-origin: center center;
-        }
-        
-        .draggable-image:active, .draggable-text:active, .draggable-widget:active {
-            cursor: grabbing;
-        }
-        
-        .draggable-image {
-            background: transparent;
-            overflow: hidden;
-        }
-        
-        .draggable-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            pointer-events: none;
-            display: block;
-        }
-        
-        .draggable-text {
-            background: transparent !important;
-            padding: 4px 8px;
-            border: none !important;
-            white-space: pre-wrap;
-        }
-        
-        .draggable-widget {
-            background: #f5f5f5;
-            display: flex;
-            flex-direction: column;
-            cursor: grab;
-            overflow: hidden !important;
-            border-radius: 8px;
-        }
-        
-        .draggable-widget:active {
-            cursor: grabbing;
-        }
-        
-        .draggable-widget iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            pointer-events: auto;
-            background: white;
-        }
-        
-        .widget-error {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: #fff3e0;
-            color: #e65100;
-            padding: 10px;
-            text-align: center;
-            font-size: 12px;
-        }
-        
-        .selected {
-            outline: 3px solid #ffd966;
-            outline-offset: 2px;
-            z-index: 999 !important;
-        }
-        
-        .locked {
-            outline: 2px solid #ff4444 !important;
-            cursor: default !important;
-        }
-        
-        .locked:active {
-            cursor: default !important;
-        }
-        
-        .resize-handle {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: #ffd966;
-            border: 2px solid #1e2b6e;
-            border-radius: 50%;
-            z-index: 20;
-            opacity: 0;
-            transition: opacity 0.15s, transform 0.1s;
-            pointer-events: auto;
-        }
-        
-        .resize-handle:hover {
-            transform: scale(1.2);
-        }
-        
-        .rotate-corner {
-            position: absolute;
-            width: 24px;
-            height: 24px;
-            background: #4caf50;
-            border: 2px solid white;
-            border-radius: 50%;
-            z-index: 20;
-            opacity: 0;
-            cursor: grab;
-            top: -28px;
-            right: -28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            pointer-events: auto;
-            transition: opacity 0.15s, transform 0.1s;
-        }
-        
-        .rotate-corner:hover {
-            transform: scale(1.1);
-        }
-        
-        .rotate-corner:active {
-            cursor: grabbing;
-        }
-        
+        .draggable-image, .draggable-text, .draggable-widget { position: absolute; cursor: grab; touch-action: none; pointer-events: auto; box-sizing: border-box; transform-origin: center center; }
+        .draggable-image:active, .draggable-text:active, .draggable-widget:active { cursor: grabbing; }
+        .draggable-image { background: transparent; overflow: hidden; }
+        .draggable-image img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+        .draggable-text { background: transparent !important; padding: 4px 8px; border: none !important; white-space: pre-wrap; }
+        .draggable-widget { background: #f5f5f5; display: flex; flex-direction: column; cursor: grab; overflow: hidden !important; border-radius: 8px; }
+        .draggable-widget:active { cursor: grabbing; }
+        .draggable-widget iframe { width: 100%; height: 100%; border: none; pointer-events: auto; background: white; }
+        .widget-error { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff3e0; color: #e65100; padding: 10px; text-align: center; font-size: 12px; }
+        .selected { outline: 3px solid #ffd966; outline-offset: 2px; z-index: 999 !important; }
+        .locked { outline: 2px solid #ff4444 !important; cursor: default !important; }
+        .locked:active { cursor: default !important; }
+        .resize-handle { position: absolute; width: 12px; height: 12px; background: #ffd966; border: 2px solid #1e2b6e; border-radius: 50%; z-index: 20; opacity: 0; transition: opacity 0.15s, transform 0.1s; pointer-events: auto; }
+        .resize-handle:hover { transform: scale(1.2); }
+        .rotate-corner { position: absolute; width: 24px; height: 24px; background: #4caf50; border: 2px solid white; border-radius: 50%; z-index: 20; opacity: 0; cursor: grab; top: -28px; right: -28px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; pointer-events: auto; transition: opacity 0.15s, transform 0.1s; }
+        .rotate-corner:hover { transform: scale(1.1); }
+        .rotate-corner:active { cursor: grabbing; }
         .rotate-corner::after { content: "↻"; }
-        
         .resize-n { top: -6px; left: 50%; margin-left: -6px; cursor: n-resize; }
         .resize-ne { top: -6px; right: -6px; cursor: ne-resize; }
         .resize-e { top: 50%; right: -6px; margin-top: -6px; cursor: e-resize; }
@@ -340,212 +57,35 @@
         .resize-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
         .resize-w { top: 50%; left: -6px; margin-top: -6px; cursor: w-resize; }
         .resize-nw { top: -6px; left: -6px; cursor: nw-resize; }
-        
-        .selected:not(.locked) .resize-handle,
-        .selected:not(.locked) .rotate-corner {
-            opacity: 1;
-        }
-        
-        button {
-            padding: 5px 12px;
-            border: none;
-            background: linear-gradient(135deg, #2a3f8a, #1e2b6e);
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.1s;
-            white-space: nowrap;
-            border-radius: 20px;
-        }
-        
+        .selected:not(.locked) .resize-handle, .selected:not(.locked) .rotate-corner { opacity: 1; }
+        button { padding: 5px 12px; border: none; background: linear-gradient(135deg, #2a3f8a, #1e2b6e); color: white; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.1s; white-space: nowrap; border-radius: 20px; }
         button:hover { transform: translateY(-1px); filter: brightness(1.05); }
         button:active { transform: translateY(0); }
-        
-        .tts-btn {
-            background: linear-gradient(135deg, #9c27b0, #6a1b9a);
-        }
-        .tts-btn:hover {
-            background: linear-gradient(135deg, #ab47bc, #7b1fa2);
-        }
-        
+        .tts-btn { background: linear-gradient(135deg, #9c27b0, #6a1b9a); }
+        .tts-btn:hover { background: linear-gradient(135deg, #ab47bc, #7b1fa2); }
         #file-input, #sound-input { display: none; }
-        
-        #status {
-            margin-left: auto;
-            font-size: 11px;
-            color: #2e7d32;
-            background: #e8f5e9;
-            padding: 4px 10px;
-            font-weight: bold;
-            border-radius: 20px;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(30, 30, 40, 0.98);
-            backdrop-filter: blur(12px);
-            padding: 20px;
-            box-shadow: 0 20px 35px rgba(0,0,0,0.4);
-            z-index: 20000;
-            border: 1px solid #ffd966;
-            color: white;
-            width: 500px;
-            max-width: 90vw;
-            max-height: 85vh;
-            overflow-y: auto;
-            border-radius: 16px;
-        }
-        
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .close-btn {
-            background: #f44336;
-            width: 28px;
-            height: 28px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 18px;
-            border-radius: 50%;
-        }
-        
-        textarea, input, select {
-            background: rgba(255,255,255,0.9);
-            border: none;
-            padding: 8px;
-            font-size: 12px;
-            margin: 5px 0;
-            width: 100%;
-            box-sizing: border-box;
-            border-radius: 8px;
-        }
-        
-        textarea {
-            font-family: monospace;
-            resize: vertical;
-        }
-        
-        .widgets-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-        
-        .widgets-tab {
-            background: #444;
-            padding: 5px 12px;
-            cursor: pointer;
-            border: none;
-            color: white;
-            border-radius: 20px;
-        }
-        
-        .widgets-tab.active {
-            background: #ffd966;
-            color: #1e2b6e;
-        }
-        
-        .widgets-content {
-            display: none;
-        }
-        
-        .widgets-content.active {
-            display: block;
-        }
-        
-        .quick-widget-btn {
-            background: #4caf50;
-            padding: 10px;
-            margin: 8px 0;
-            width: 100%;
-            text-align: center;
-            font-size: 14px;
-            border-radius: 8px;
-        }
-        
-        .saved-widget-item {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-            padding: 8px;
-            background: rgba(255,255,255,0.2);
-            align-items: center;
-            border-radius: 8px;
-        }
-        
-        .sound-visualization {
-            width: 100px;
-            height: 24px;
-            background: #ddd;
-            overflow: hidden;
-            border-radius: 12px;
-        }
-        
-        .sound-progress {
-            height: 100%;
-            background: #2a3f8a;
-            width: 0%;
-        }
-        
-        .volume-slider {
-            width: 70px;
-        }
-        
-        .crop-overlay {
-            position: absolute;
-            border: 2px dashed #ff4444;
-            background: rgba(255, 68, 68, 0.2);
-            pointer-events: none;
-            z-index: 1000;
-        }
-        
-        .css-example {
-            font-size: 11px;
-            color: #aaa;
-            margin-top: 5px;
-            padding: 5px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 4px;
-        }
-        
-        .settings-group {
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-            padding: 10px;
-            margin: 10px 0;
-        }
-        
-        .settings-group label {
-            display: block;
-            font-size: 12px;
-            margin-bottom: 5px;
-            color: #ffd966;
-        }
-        
-        .voice-select {
-            background: #444;
-            color: white;
-            padding: 8px;
-        }
-        
-        @media (max-width: 700px) {
-            .controls-row { gap: 5px; padding: 4px 6px; }
-            button { padding: 4px 8px; font-size: 10px; }
-            .thumbnail { width: 35px; height: 35px; }
-            .resize-handle { width: 10px; height: 10px; }
-        }
+        #status { margin-left: auto; font-size: 11px; color: #2e7d32; background: #e8f5e9; padding: 4px 10px; font-weight: bold; border-radius: 20px; }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(30, 30, 40, 0.98); backdrop-filter: blur(12px); padding: 20px; box-shadow: 0 20px 35px rgba(0,0,0,0.4); z-index: 20000; border: 1px solid #ffd966; color: white; width: 500px; max-width: 90vw; max-height: 85vh; overflow-y: auto; border-radius: 16px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .close-btn { background: #f44336; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; border-radius: 50%; }
+        textarea, input, select { background: rgba(255,255,255,0.9); border: none; padding: 8px; font-size: 12px; margin: 5px 0; width: 100%; box-sizing: border-box; border-radius: 8px; }
+        textarea { font-family: monospace; resize: vertical; }
+        .widgets-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .widgets-tab { background: #444; padding: 5px 12px; cursor: pointer; border: none; color: white; border-radius: 20px; }
+        .widgets-tab.active { background: #ffd966; color: #1e2b6e; }
+        .widgets-content { display: none; }
+        .widgets-content.active { display: block; }
+        .quick-widget-btn { background: #4caf50; padding: 10px; margin: 8px 0; width: 100%; text-align: center; font-size: 14px; border-radius: 8px; }
+        .saved-widget-item { display: flex; justify-content: space-between; margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.2); align-items: center; border-radius: 8px; }
+        .sound-visualization { width: 100px; height: 24px; background: #ddd; overflow: hidden; border-radius: 12px; }
+        .sound-progress { height: 100%; background: #2a3f8a; width: 0%; }
+        .volume-slider { width: 70px; }
+        .crop-overlay { position: absolute; border: 2px dashed #ff4444; background: rgba(255, 68, 68, 0.2); pointer-events: none; z-index: 1000; }
+        .css-example { font-size: 11px; color: #aaa; margin-top: 5px; padding: 5px; background: rgba(0,0,0,0.3); border-radius: 4px; }
+        .settings-group { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; margin: 10px 0; }
+        .settings-group label { display: block; font-size: 12px; margin-bottom: 5px; color: #ffd966; }
+        .voice-select { background: #444; color: white; padding: 8px; }
+        @media (max-width: 700px) { .controls-row { gap: 5px; padding: 4px 6px; } button { padding: 4px 8px; font-size: 10px; } .thumbnail { width: 35px; height: 35px; } .resize-handle { width: 10px; height: 10px; } }
     </style>
 </head>
 <body>
@@ -576,35 +116,29 @@
         <h3>📢 Синхронная озвучка текста</h3>
         <div class="close-btn" onclick="closeModal('tts-modal')">×</div>
     </div>
-    
-    <textarea id="tts-text-input" rows="3" placeholder="Введите текст, который услышат ВСЕ пользователи..."></textarea>
-    
+    <textarea id="tts-text-input" rows="3" placeholder="Введите текст..."></textarea>
     <div class="settings-group">
-        <label>🎤 Выберите голос:</label>
+        <label>🎤 Выберите голос (будет у ВСЕХ!):</label>
         <select id="tts-voice-select" class="voice-select">
             <option value="">🌐 Голос по умолчанию</option>
         </select>
-        <div style="font-size: 11px; color: #4caf50; margin-top: 5px;">✅ Выберите голос - он будет у ВСЕХ пользователей!</div>
+        <div style="font-size: 12px; color: #4caf50; margin-top: 5px;">✅ ВСЕ пользователи услышат ЭТОТ же голос!</div>
     </div>
-    
     <div class="settings-group">
         <label>🔊 Громкость: <span id="volume-value">100</span>%</label>
         <input type="range" id="tts-volume" min="0" max="100" value="100" step="1">
     </div>
-    
     <div class="settings-group">
-        <label>⚡ Скорость речи: <span id="rate-value">0.9</span>x</label>
+        <label>⚡ Скорость: <span id="rate-value">0.9</span>x</label>
         <input type="range" id="tts-rate" min="0.5" max="2" step="0.05" value="0.9">
     </div>
-    
     <div class="settings-group">
-        <label>📈 Высота тона: <span id="pitch-value">1.0</span></label>
+        <label>📈 Тон: <span id="pitch-value">1.0</span></label>
         <input type="range" id="tts-pitch" min="0.5" max="2" step="0.05" value="1.0">
     </div>
-    
     <button id="tts-speak-sync-btn" style="background:#4caf50; width:100%; padding: 12px; font-size: 14px;">🌍 Озвучить для всех</button>
     <button id="tts-stop-sync-btn" style="background:#f44336; width:100%; margin-top: 8px; padding: 12px; font-size: 14px;">⏹ Остановить для всех</button>
-    <button id="tts-preview-btn" style="background:#2196f3; width:100%; margin-top: 8px; padding: 12px; font-size: 14px;">🎧 Предпросмотр (только для меня)</button>
+    <button id="tts-preview-btn" style="background:#2196f3; width:100%; margin-top: 8px; padding: 12px; font-size: 14px;">🎧 Предпросмотр</button>
 </div>
 
 <div id="text-modal" class="modal">
@@ -722,32 +256,22 @@
     let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
     let canvasRect = { width: 0, height: 0 };
     
-    // TTS variables
     let currentUtterance = null;
     let availableVoices = [];
     let isSpeaking = false;
     let speechQueue = [];
     let lastProcessedTimestamp = 0;
     
-    // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
-    
-    // Resize state
     let resizeActive = false, resizeElement = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0;
     let resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0;
-    
-    // Rotate state
     let rotateActive = false, rotateElement = null, rotateStartAngle = 0, rotateCurrentRot = 0, rotateCenterX = 0, rotateCenterY = 0;
-    
-    // Crop state
     let cropActive = false, cropOverlay = null, cropElement = null, cropType = null;
     let cropStartW = 0, cropStartH = 0, cropStartX = 0, cropStartY = 0;
-    
     let mouseDown = false;
     let progressInterval = null;
     let audioElement = document.getElementById('audio-element');
     
-    // --- Функции для загрузки голосов ---
     function loadVoices() {
         availableVoices = window.speechSynthesis.getVoices();
         const select = document.getElementById('tts-voice-select');
@@ -778,27 +302,60 @@
         setTimeout(loadVoices, 500);
     }
     
-    // --- Поиск голоса по языку ---
-    function findVoiceByLanguage(lang) {
-        if (!lang || lang === '') {
-            const ru = availableVoices.find(v => v.lang.startsWith('ru'));
-            return ru || (availableVoices.length > 0 ? availableVoices[0] : null);
+    // --- ГЛАВНАЯ ФУНКЦИЯ: поиск голоса ---
+    function findVoice(voiceName, voiceLang) {
+        console.log('🔍 Ищем голос:', voiceName, voiceLang);
+        
+        if (availableVoices.length === 0) {
+            console.log('❌ Нет голосов');
+            return null;
         }
         
-        // Точное совпадение
-        let voice = availableVoices.find(v => v.lang === lang);
-        if (voice) return voice;
+        // 1. Пытаемся найти точное совпадение по имени
+        if (voiceName) {
+            let found = availableVoices.find(v => v.name === voiceName);
+            if (found) {
+                console.log('✅ Найден точный голос по имени:', found.name);
+                return found;
+            }
+            
+            // Ищем частичное совпадение по имени (без учета регистра)
+            const nameLower = voiceName.toLowerCase();
+            found = availableVoices.find(v => v.name.toLowerCase().includes(nameLower) || nameLower.includes(v.name.toLowerCase()));
+            if (found) {
+                console.log('✅ Найден похожий голос по имени:', found.name);
+                return found;
+            }
+        }
         
-        // По префиксу (ru -> ru-RU)
-        const prefix = lang.split('-')[0];
-        voice = availableVoices.find(v => v.lang.startsWith(prefix));
-        if (voice) return voice;
+        // 2. Ищем по языку
+        if (voiceLang) {
+            // Точное совпадение языка
+            let found = availableVoices.find(v => v.lang === voiceLang);
+            if (found) {
+                console.log('✅ Найден голос по точному языку:', found.name);
+                return found;
+            }
+            
+            // Частичное совпадение (ru -> ru-RU)
+            const prefix = voiceLang.split('-')[0];
+            found = availableVoices.find(v => v.lang.startsWith(prefix));
+            if (found) {
+                console.log('✅ Найден голос по частичному языку:', found.name);
+                return found;
+            }
+        }
         
-        // Русский
+        // 3. Ищем русский голос
         const ru = availableVoices.find(v => v.lang.startsWith('ru'));
-        if (ru) return ru;
+        if (ru) {
+            console.log('✅ Используем русский голос:', ru.name);
+            return ru;
+        }
         
-        return availableVoices.length > 0 ? availableVoices[0] : null;
+        // 4. Берем первый доступный
+        console.log('✅ Используем первый доступный голос:', availableVoices[0].name);
+        return availableVoices[0];
     }
     
     function stopLocalSpeaking() {
@@ -822,11 +379,13 @@
         utterance.volume = item.volume;
         utterance.pitch = item.pitch;
         
-        // Ищем голос по языку
-        const voice = findVoiceByLanguage(item.language);
+        // Ищем голос
+        const voice = findVoice(item.voiceName, item.language);
         if (voice) {
             utterance.voice = voice;
-            console.log('✅ Голос:', voice.name, voice.lang);
+            console.log('🎤 ИСПОЛЬЗУЕТСЯ ГОЛОС:', voice.name, voice.lang);
+        } else {
+            console.log('⚠️ Голос не найден, используем системный');
         }
         
         utterance.onstart = () => {
@@ -856,16 +415,19 @@
         window.speechSynthesis.speak(utterance);
     }
     
-    function speakTextLocally(text, language = 'ru-RU', volume = 1, rate = 0.9, pitch = 1.0) {
+    function speakTextLocally(text, voiceName, language, volume, rate, pitch) {
         if (!text || text.trim() === "") return;
         if (!('speechSynthesis' in window)) return;
         
+        console.log('📢 Локальное озвучивание:', { text, voiceName, language });
+        
         speechQueue.push({
             text: text,
-            language: language,
-            volume: volume,
-            rate: rate,
-            pitch: pitch
+            voiceName: voiceName,
+            language: language || 'ru-RU',
+            volume: volume || 1,
+            rate: rate || 0.9,
+            pitch: pitch || 1.0
         });
         
         processQueue();
@@ -878,17 +440,29 @@
             return;
         }
         
-        // Извлекаем язык из voiceData (формат: имя|язык)
+        let voiceName = '';
         let language = 'ru-RU';
+        
+        // Разбираем voiceData (формат: имя|язык)
         if (voiceData && voiceData.includes('|')) {
-            language = voiceData.split('|')[1] || 'ru-RU';
+            const parts = voiceData.split('|');
+            voiceName = parts[0] || '';
+            language = parts[1] || 'ru-RU';
+        } else if (voiceData) {
+            voiceName = voiceData;
+            // Ищем голос по имени, чтобы получить язык
+            const found = availableVoices.find(v => v.name === voiceName);
+            if (found) {
+                language = found.lang;
+            }
         }
         
-        console.log('🎤 Отправка с языком:', language);
+        console.log('📤 ОТПРАВКА ВСЕМ:', { text, voiceName, language, volume, rate, pitch });
         
         syncTTSRef.set({
             action: 'speak',
             text: text,
+            voiceName: voiceName,
             language: language,
             volume: volume,
             rate: rate,
@@ -898,6 +472,7 @@
     }
     
     function broadcastStop() {
+        console.log('⏹ Остановка для всех');
         syncTTSRef.set({
             action: 'stop',
             timestamp: Date.now()
@@ -909,8 +484,11 @@
         const data = snapshot.val();
         if (!data) return;
         
+        console.log('📥 ПОЛУЧЕНО ИЗ FIREBASE:', data);
+        
         // Проверяем, не было ли уже обработано
         if (data.timestamp && data.timestamp <= lastProcessedTimestamp) {
+            console.log('⏭️ Пропускаем (уже обработано)');
             return;
         }
         
@@ -918,9 +496,15 @@
             if (data.timestamp) {
                 lastProcessedTimestamp = data.timestamp;
             }
-            const lang = data.language || 'ru-RU';
-            console.log('🔊 Получено с языком:', lang);
-            speakTextLocally(data.text, lang, data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
+            console.log('🔊 ВОСПРОИЗВЕДЕНИЕ У ВСЕХ с голосом:', data.voiceName, data.language);
+            speakTextLocally(
+                data.text,
+                data.voiceName || '',
+                data.language || 'ru-RU',
+                data.volume || 1,
+                data.rate || 0.9,
+                data.pitch || 1.0
+            );
         } else if (data.action === 'stop') {
             if (data.timestamp) {
                 lastProcessedTimestamp = data.timestamp;
@@ -966,13 +550,11 @@
     syncSoundRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-        
         if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
             audioElement.src = sounds[data.soundId].src;
             audioElement.volume = (data.volume || 100) / 100;
             audioElement.currentTime = 0;
             audioElement.play().catch(e => console.log(e));
-            
             if (progressInterval) clearInterval(progressInterval);
             progressInterval = setInterval(() => {
                 if (audioElement.paused || audioElement.ended) {
@@ -1008,12 +590,10 @@
                 else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
                 else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
             }
-            
             if (resizeActive && resizeElement && !cropActive) {
                 let dx = e.clientX - resizeStartX;
                 let dy = e.clientY - resizeStartY;
                 let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
-                
                 switch(resizeDir) {
                     case 'e': newW = Math.max(50, resizeStartW + dx); break;
                     case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
@@ -1031,7 +611,6 @@
                 resizeElement.style.left = newL + 'px';
                 resizeElement.style.top = newT + 'px';
             }
-            
             if (rotateActive && rotateElement) {
                 let currX = e.clientX;
                 let currY = e.clientY;
@@ -1044,7 +623,6 @@
                 if (images[id]) imagesRef.child(id).update({ rotation: newRot });
                 if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
             }
-            
             if (cropActive && cropOverlay && resizeElement) {
                 let dx = e.clientX - cropStartX;
                 let dy = e.clientY - cropStartY;
@@ -1060,7 +638,6 @@
     document.addEventListener('mouseup', () => {
         if (!mouseDown) return;
         mouseDown = false;
-        
         if (resizeActive && resizeElement && !cropActive) {
             const id = resizeElement.id;
             let newL = parseFloat(resizeElement.style.left);
@@ -1070,7 +647,6 @@
             if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
             else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
         }
-        
         dragActive = false;
         resizeActive = false;
         rotateActive = false;
@@ -1115,11 +691,9 @@
             e.preventDefault();
             e.stopPropagation();
             mouseDown = true;
-            
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            
             dragActive = true;
             dragElement = el;
             dragStartX = e.clientX;
@@ -1127,18 +701,15 @@
             dragStartLeft = parseFloat(el.style.left) || 0;
             dragStartTop = parseFloat(el.style.top) || 0;
         });
-        
         el.addEventListener('touchstart', (e) => {
             if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
             if (el.classList.contains('locked')) return;
             e.preventDefault();
             e.stopPropagation();
             mouseDown = true;
-            
             if (el.id.startsWith('img')) selectImage(el.id);
             else if (el.id.startsWith('text')) selectText(el.id);
             else if (el.id.startsWith('widget')) selectWidget(el.id);
-            
             dragActive = true;
             dragElement = el;
             const touch = e.touches[0];
@@ -1168,7 +739,6 @@
                 resizeStartH = el.offsetHeight;
                 resizeStartL = parseFloat(el.style.left) || 0;
                 resizeStartT = parseFloat(el.style.top) || 0;
-                
                 if (cropActive && cropOverlay) {
                     cropStartX = e.clientX;
                     cropStartY = e.clientY;
@@ -1207,13 +777,11 @@
             mouseDown = true;
             rotateActive = true;
             rotateElement = el;
-            
             let rect = el.getBoundingClientRect();
             rotateCenterX = rect.left + rect.width / 2;
             rotateCenterY = rect.top + rect.height / 2;
             rotateStartAngle = Math.atan2(e.clientY - rotateCenterY, e.clientX - rotateCenterX) * 180 / Math.PI;
             rotateCurrentRot = parseFloat(el.dataset.rotation) || 0;
-            
             function stopRotate() {
                 mouseDown = false;
                 rotateActive = false;
@@ -1221,7 +789,6 @@
                 document.removeEventListener('mousemove', onRotate);
                 document.removeEventListener('mouseup', stopRotate);
             }
-            
             function onRotate(moveEv) {
                 if (!mouseDown || !rotateElement) return;
                 let currX = moveEv.clientX;
@@ -1235,7 +802,6 @@
                 if (images[id]) imagesRef.child(id).update({ rotation: newRot });
                 if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
             }
-            
             document.addEventListener('mousemove', onRotate);
             document.addEventListener('mouseup', stopRotate);
         });
@@ -1284,7 +850,6 @@
         thumb.className = 'thumbnail';
         const data = images[id] || texts[id] || widgets[id] || sounds[id];
         if (data && data.display === 'none') thumb.classList.add('thumbnail-hidden');
-        
         const previewDiv = document.createElement('div');
         if (type === 'image') {
             const img = document.createElement('img');
@@ -1295,19 +860,16 @@
             previewDiv.textContent = name ? name.substring(0, 6) : (type === 'text' ? '📝' : (type === 'widget' ? '🧩' : '🔊'));
         }
         thumb.appendChild(previewDiv);
-        
         const eyeBtn = document.createElement('div');
         eyeBtn.className = 'thumbnail-eye' + (data && data.display === 'none' ? ' hidden' : '');
         eyeBtn.textContent = data && data.display === 'none' ? '👁‍🗨' : '👁';
         eyeBtn.onclick = (e) => { e.stopPropagation(); toggleVisibility(id, type); };
         thumb.appendChild(eyeBtn);
-        
         const delBtn = document.createElement('div');
         delBtn.className = 'thumbnail-delete';
         delBtn.textContent = '✕';
         delBtn.onclick = (e) => { e.stopPropagation(); deleteElement(id, type); };
         thumb.appendChild(delBtn);
-        
         thumb.onclick = () => {
             if (type === 'image') selectImage(id);
             else if (type === 'text') selectText(id);
@@ -1345,14 +907,12 @@
     
     function syncElements() {
         updateCanvasSize();
-        
         document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
             const id = el.id;
             if (!images[id] && !texts[id] && !widgets[id]) {
                 el.remove();
             }
         });
-        
         for (const id in images) {
             const data = images[id];
             let el = document.getElementById(id);
@@ -1382,7 +942,6 @@
             if (data.flipVertical) el.dataset.flipV = 'true';
             applyTransform(el);
         }
-        
         for (const id in texts) {
             const data = texts[id];
             let el = document.getElementById(id);
@@ -1408,7 +967,6 @@
             if (data.locked) el.classList.add('locked');
             else el.classList.remove('locked');
         }
-        
         for (const id in widgets) {
             const data = widgets[id];
             let el = document.getElementById(id);
@@ -1449,7 +1007,6 @@
         document.getElementById('text-color-picker').value = data.color;
         document.getElementById('font-family-select').value = data.fontFamily;
         document.getElementById('text-modal').style.display = 'block';
-        
         const oldApply = document.getElementById('apply-text-simple').onclick;
         document.getElementById('apply-text-simple').onclick = () => {
             const newText = document.getElementById('text-input-area').value.trim();
@@ -1523,12 +1080,14 @@
         const volume = document.getElementById('tts-volume').value / 100;
         const rate = parseFloat(document.getElementById('tts-rate').value);
         const pitch = parseFloat(document.getElementById('tts-pitch').value);
-        
+        let voiceName = '';
         let language = 'ru-RU';
         if (voiceData && voiceData.includes('|')) {
-            language = voiceData.split('|')[1];
+            const parts = voiceData.split('|');
+            voiceName = parts[0] || '';
+            language = parts[1] || 'ru-RU';
         }
-        speakTextLocally(text, language, volume, rate, pitch);
+        speakTextLocally(text, voiceName, language, volume, rate, pitch);
     };
     
     document.getElementById('add-text-btn').onclick = () => {

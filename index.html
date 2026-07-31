@@ -731,6 +731,7 @@
     let availableVoices = [];
     let isSpeaking = false;
     let speechQueue = [];
+    let lastProcessedTimestamp = 0; // Для предотвращения повторного воспроизведения
     
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
@@ -758,12 +759,13 @@
             const currentValue = select.value;
             select.innerHTML = '<option value="">🌐 Голос по умолчанию (автовыбор)</option>';
             
+            // Сортируем: сначала русские, потом остальные
             const russianVoices = availableVoices.filter(v => v.lang.startsWith('ru'));
             const otherVoices = availableVoices.filter(v => !v.lang.startsWith('ru'));
             
             [...russianVoices, ...otherVoices].forEach(voice => {
                 const option = document.createElement('option');
-                option.value = voice.name;
+                option.value = voice.name + '|' + voice.lang;
                 let flag = voice.lang.startsWith('ru') ? '🇷🇺 ' : '';
                 option.textContent = `${flag}${voice.name} (${voice.lang})`;
                 select.appendChild(option);
@@ -781,27 +783,24 @@
         setTimeout(loadVoices, 500);
     }
     
-    // --- Улучшенная функция поиска голоса ---
-    function findBestVoice(voiceName, lang = 'ru-RU') {
-        // Если голос не указан или пустой - выбираем русский по умолчанию
-        if (!voiceName || voiceName === '') {
-            // Ищем русский голос
+    // --- Функция поиска голоса по языку ---
+    function findVoiceByLanguage(targetLang) {
+        if (!targetLang) {
+            // Если язык не указан - ищем русский
             const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
-            if (russianVoice) return russianVoice;
-            // Если русских нет - берем любой доступный
-            return availableVoices.length > 0 ? availableVoices[0] : null;
+            return russianVoice || (availableVoices.length > 0 ? availableVoices[0] : null);
         }
         
-        // Ищем точное совпадение по имени
-        let voice = availableVoices.find(v => v.name === voiceName);
+        // Ищем точное совпадение по языку
+        let voice = availableVoices.find(v => v.lang === targetLang);
         if (voice) return voice;
         
-        // Если точного совпадения нет - ищем частичное совпадение (без учета регистра)
-        const lowerName = voiceName.toLowerCase();
-        voice = availableVoices.find(v => v.name.toLowerCase().includes(lowerName) || lowerName.includes(v.name.toLowerCase()));
+        // Ищем частичное совпадение (например, 'ru' найдет 'ru-RU')
+        const langPrefix = targetLang.split('-')[0];
+        voice = availableVoices.find(v => v.lang.startsWith(langPrefix));
         if (voice) return voice;
         
-        // Если всё равно не нашли - ищем русский голос
+        // Если не нашли - ищем русский
         const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
         if (russianVoice) return russianVoice;
         
@@ -825,13 +824,13 @@
         isSpeaking = true;
         
         const utterance = new SpeechSynthesisUtterance(item.text);
-        utterance.lang = 'ru-RU';
+        utterance.lang = item.language || 'ru-RU';
         utterance.rate = item.rate;
         utterance.volume = item.volume;
         utterance.pitch = item.pitch;
         
-        // Используем улучшенную функцию поиска голоса
-        const selectedVoice = findBestVoice(item.voiceName);
+        // Ищем голос по языку
+        const selectedVoice = findVoiceByLanguage(item.language);
         if (selectedVoice) {
             utterance.voice = selectedVoice;
             console.log('Используется голос:', selectedVoice.name, selectedVoice.lang);
@@ -864,14 +863,14 @@
         window.speechSynthesis.speak(utterance);
     }
     
-    function speakTextLocally(text, voiceName = null, volume = 1, rate = 0.9, pitch = 1.0) {
+    function speakTextLocally(text, language = 'ru-RU', volume = 1, rate = 0.9, pitch = 1.0) {
         if (!text || text.trim() === "") return;
         if (!('speechSynthesis' in window)) return;
         
         // Добавляем в очередь
         speechQueue.push({
             text: text,
-            voiceName: voiceName,
+            language: language,
             volume: volume,
             rate: rate,
             pitch: pitch
@@ -881,16 +880,28 @@
     }
     
     // Отправка команды на озвучку ВСЕМ
-    function broadcastSpeak(text, voiceName, volume, rate, pitch) {
+    function broadcastSpeak(text, voiceData, volume, rate, pitch) {
         if (!text || text.trim() === "") {
             alert("Введите текст для озвучивания");
             return;
         }
         
+        // Извлекаем язык из данных голоса
+        let language = 'ru-RU';
+        if (voiceData && voiceData.includes('|')) {
+            language = voiceData.split('|')[1] || 'ru-RU';
+        } else if (voiceData) {
+            // Если передано только имя, ищем голос и берем его язык
+            const foundVoice = availableVoices.find(v => v.name === voiceData);
+            if (foundVoice) {
+                language = foundVoice.lang;
+            }
+        }
+        
         syncTTSRef.set({
             action: 'speak',
             text: text,
-            voiceName: voiceName || '',
+            language: language,
             volume: volume,
             rate: rate,
             pitch: pitch,
@@ -905,14 +916,26 @@
         });
     }
     
-    // Слушаем команды из Firebase (мгновенно)
+    // Слушаем команды из Firebase
     syncTTSRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
         
+        // Проверяем, не было ли это сообщение уже обработано
+        if (data.timestamp && data.timestamp <= lastProcessedTimestamp) {
+            return;
+        }
+        
         if (data.action === 'speak' && data.text) {
-            speakTextLocally(data.text, data.voiceName, data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
+            // Запоминаем время последней обработки
+            if (data.timestamp) {
+                lastProcessedTimestamp = data.timestamp;
+            }
+            speakTextLocally(data.text, data.language || 'ru-RU', data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
         } else if (data.action === 'stop') {
+            if (data.timestamp) {
+                lastProcessedTimestamp = data.timestamp;
+            }
             stopLocalSpeaking();
         }
     });
@@ -1496,11 +1519,11 @@
     
     document.getElementById('tts-speak-sync-btn').onclick = () => {
         const text = document.getElementById('tts-text-input').value;
-        const voiceName = document.getElementById('tts-voice-select').value;
+        const voiceData = document.getElementById('tts-voice-select').value;
         const volume = document.getElementById('tts-volume').value / 100;
         const rate = parseFloat(document.getElementById('tts-rate').value);
         const pitch = parseFloat(document.getElementById('tts-pitch').value);
-        broadcastSpeak(text, voiceName, volume, rate, pitch);
+        broadcastSpeak(text, voiceData, volume, rate, pitch);
         closeModal('tts-modal');
     };
     
@@ -1511,11 +1534,17 @@
     
     document.getElementById('tts-preview-btn').onclick = () => {
         const text = document.getElementById('tts-text-input').value;
-        const voiceName = document.getElementById('tts-voice-select').value;
+        const voiceData = document.getElementById('tts-voice-select').value;
         const volume = document.getElementById('tts-volume').value / 100;
         const rate = parseFloat(document.getElementById('tts-rate').value);
         const pitch = parseFloat(document.getElementById('tts-pitch').value);
-        speakTextLocally(text, voiceName, volume, rate, pitch);
+        
+        // Для предпросмотра извлекаем язык из voiceData
+        let language = 'ru-RU';
+        if (voiceData && voiceData.includes('|')) {
+            language = voiceData.split('|')[1];
+        }
+        speakTextLocally(text, language, volume, rate, pitch);
     };
     
     document.getElementById('add-text-btn').onclick = () => {

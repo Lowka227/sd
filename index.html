@@ -582,7 +582,7 @@
     <div class="settings-group">
         <label>🎤 Выберите голос:</label>
         <select id="tts-voice-select" class="voice-select">
-            <option value="">🌐 Голос по умолчанию</option>
+            <option value="">🌐 Голос по умолчанию (автовыбор)</option>
         </select>
     </div>
     
@@ -781,6 +781,34 @@
         setTimeout(loadVoices, 500);
     }
     
+    // --- Улучшенная функция поиска голоса ---
+    function findBestVoice(voiceName, lang = 'ru-RU') {
+        // Если голос не указан или пустой - выбираем русский по умолчанию
+        if (!voiceName || voiceName === '') {
+            // Ищем русский голос
+            const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
+            if (russianVoice) return russianVoice;
+            // Если русских нет - берем любой доступный
+            return availableVoices.length > 0 ? availableVoices[0] : null;
+        }
+        
+        // Ищем точное совпадение по имени
+        let voice = availableVoices.find(v => v.name === voiceName);
+        if (voice) return voice;
+        
+        // Если точного совпадения нет - ищем частичное совпадение (без учета регистра)
+        const lowerName = voiceName.toLowerCase();
+        voice = availableVoices.find(v => v.name.toLowerCase().includes(lowerName) || lowerName.includes(v.name.toLowerCase()));
+        if (voice) return voice;
+        
+        // Если всё равно не нашли - ищем русский голос
+        const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
+        if (russianVoice) return russianVoice;
+        
+        // В крайнем случае - первый доступный
+        return availableVoices.length > 0 ? availableVoices[0] : null;
+    }
+    
     function stopLocalSpeaking() {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
@@ -802,14 +830,11 @@
         utterance.volume = item.volume;
         utterance.pitch = item.pitch;
         
-        if (item.voiceName && availableVoices.length > 0) {
-            const selectedVoice = availableVoices.find(v => v.name === item.voiceName);
-            if (selectedVoice) utterance.voice = selectedVoice;
-        }
-        
-        if (!utterance.voice && availableVoices.length > 0) {
-            const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
-            if (russianVoice) utterance.voice = russianVoice;
+        // Используем улучшенную функцию поиска голоса
+        const selectedVoice = findBestVoice(item.voiceName);
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+            console.log('Используется голос:', selectedVoice.name, selectedVoice.lang);
         }
         
         utterance.onstart = () => {

@@ -584,6 +584,7 @@
         <select id="tts-voice-select" class="voice-select">
             <option value="">🌐 Голос по умолчанию</option>
         </select>
+        <div style="font-size: 11px; color: #4caf50; margin-top: 5px;">✅ Выберите голос - он будет у ВСЕХ пользователей!</div>
     </div>
     
     <div class="settings-group">
@@ -601,14 +602,9 @@
         <input type="range" id="tts-pitch" min="0.5" max="2" step="0.05" value="1.0">
     </div>
     
-    <div style="background: #ffd96622; padding: 10px; border-radius: 8px; margin: 10px 0;">
-        <p style="font-size: 12px;">🔊 <strong>Как это работает:</strong></p>
-        <p style="font-size: 11px;">Когда вы нажимаете "Озвучить для всех", текст и настройки отправляются, и ВСЕ подключенные пользователи одновременно услышат его!</p>
-    </div>
-    
-    <button id="tts-speak-sync-btn" style="background:#4caf50; width:100%; padding: 10px;">🌍 Озвучить для всех</button>
-    <button id="tts-stop-sync-btn" style="background:#f44336; width:100%; margin-top: 8px;">⏹ Остановить для всех</button>
-    <button id="tts-preview-btn" style="background:#2196f3; width:100%; margin-top: 8px;">🎧 Предпросмотр (только для меня)</button>
+    <button id="tts-speak-sync-btn" style="background:#4caf50; width:100%; padding: 12px; font-size: 14px;">🌍 Озвучить для всех</button>
+    <button id="tts-stop-sync-btn" style="background:#f44336; width:100%; margin-top: 8px; padding: 12px; font-size: 14px;">⏹ Остановить для всех</button>
+    <button id="tts-preview-btn" style="background:#2196f3; width:100%; margin-top: 8px; padding: 12px; font-size: 14px;">🎧 Предпросмотр (только для меня)</button>
 </div>
 
 <div id="text-modal" class="modal">
@@ -732,7 +728,6 @@
     let isSpeaking = false;
     let speechQueue = [];
     let lastProcessedTimestamp = 0;
-    let selectedVoiceLanguage = 'ru-RU'; // Язык выбранного голоса
     
     // Drag state
     let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
@@ -783,37 +778,26 @@
         setTimeout(loadVoices, 500);
     }
     
-    // --- Функция поиска голоса по языку ---
-    function findVoiceByLanguage(targetLang) {
-        if (!targetLang || targetLang === '') {
-            // Если язык не указан - ищем русский
-            const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
-            return russianVoice || (availableVoices.length > 0 ? availableVoices[0] : null);
+    // --- Поиск голоса по языку ---
+    function findVoiceByLanguage(lang) {
+        if (!lang || lang === '') {
+            const ru = availableVoices.find(v => v.lang.startsWith('ru'));
+            return ru || (availableVoices.length > 0 ? availableVoices[0] : null);
         }
         
-        // Ищем точное совпадение по языку
-        let voice = availableVoices.find(v => v.lang === targetLang);
-        if (voice) {
-            console.log('Найден точный голос по языку:', voice.name, voice.lang);
-            return voice;
-        }
+        // Точное совпадение
+        let voice = availableVoices.find(v => v.lang === lang);
+        if (voice) return voice;
         
-        // Ищем частичное совпадение (например, 'ru' найдет 'ru-RU')
-        const langPrefix = targetLang.split('-')[0];
-        voice = availableVoices.find(v => v.lang.startsWith(langPrefix));
-        if (voice) {
-            console.log('Найден голос по частичному совпадению языка:', voice.name, voice.lang);
-            return voice;
-        }
+        // По префиксу (ru -> ru-RU)
+        const prefix = lang.split('-')[0];
+        voice = availableVoices.find(v => v.lang.startsWith(prefix));
+        if (voice) return voice;
         
-        // Если не нашли - ищем русский
-        const russianVoice = availableVoices.find(v => v.lang === 'ru-RU' || v.lang.startsWith('ru'));
-        if (russianVoice) {
-            console.log('Используем русский голос по умолчанию:', russianVoice.name, russianVoice.lang);
-            return russianVoice;
-        }
+        // Русский
+        const ru = availableVoices.find(v => v.lang.startsWith('ru'));
+        if (ru) return ru;
         
-        // В крайнем случае - первый доступный
         return availableVoices.length > 0 ? availableVoices[0] : null;
     }
     
@@ -839,12 +823,10 @@
         utterance.pitch = item.pitch;
         
         // Ищем голос по языку
-        const selectedVoice = findVoiceByLanguage(item.language);
-        if (selectedVoice) {
-            utterance.voice = selectedVoice;
-            console.log('✅ Используется голос:', selectedVoice.name, selectedVoice.lang);
-        } else {
-            console.log('⚠️ Голос не найден, используется системный по умолчанию');
+        const voice = findVoiceByLanguage(item.language);
+        if (voice) {
+            utterance.voice = voice;
+            console.log('✅ Голос:', voice.name, voice.lang);
         }
         
         utterance.onstart = () => {
@@ -878,9 +860,6 @@
         if (!text || text.trim() === "") return;
         if (!('speechSynthesis' in window)) return;
         
-        console.log('🔊 Озвучивание текста с языком:', language);
-        
-        // Добавляем в очередь
         speechQueue.push({
             text: text,
             language: language,
@@ -892,29 +871,22 @@
         processQueue();
     }
     
-    // Отправка команды на озвучку ВСЕМ
+    // --- Отправка команды на озвучку ВСЕМ ---
     function broadcastSpeak(text, voiceData, volume, rate, pitch) {
         if (!text || text.trim() === "") {
             alert("Введите текст для озвучивания");
             return;
         }
         
-        // Извлекаем язык из данных голоса
+        // Извлекаем язык из voiceData (формат: имя|язык)
         let language = 'ru-RU';
         if (voiceData && voiceData.includes('|')) {
             language = voiceData.split('|')[1] || 'ru-RU';
-            console.log('🎤 Выбран голос с языком:', language);
-        } else if (voiceData) {
-            // Если передано только имя, ищем голос и берем его язык
-            const foundVoice = availableVoices.find(v => v.name === voiceData);
-            if (foundVoice) {
-                language = foundVoice.lang;
-                console.log('🎤 Найден голос с языком:', language);
-            }
         }
         
-        // Сохраняем язык для других пользователей
-        const dataToSend = {
+        console.log('🎤 Отправка с языком:', language);
+        
+        syncTTSRef.set({
             action: 'speak',
             text: text,
             language: language,
@@ -922,50 +894,37 @@
             rate: rate,
             pitch: pitch,
             timestamp: Date.now()
-        };
-        
-        console.log('📤 Отправка команды озвучки:', dataToSend);
-        syncTTSRef.set(dataToSend);
+        });
     }
     
     function broadcastStop() {
-        const dataToSend = {
+        syncTTSRef.set({
             action: 'stop',
             timestamp: Date.now()
-        };
-        console.log('⏹ Отправка команды остановки');
-        syncTTSRef.set(dataToSend);
+        });
     }
     
-    // Слушаем команды из Firebase
+    // --- Слушаем команды из Firebase ---
     syncTTSRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        if (!data) {
-            console.log('⚠️ Нет данных в Firebase');
-            return;
-        }
+        if (!data) return;
         
-        console.log('📥 Получены данные из Firebase:', data);
-        
-        // Проверяем, не было ли это сообщение уже обработано
+        // Проверяем, не было ли уже обработано
         if (data.timestamp && data.timestamp <= lastProcessedTimestamp) {
-            console.log('⏭️ Пропускаем уже обработанное сообщение');
             return;
         }
         
         if (data.action === 'speak' && data.text) {
-            // Запоминаем время последней обработки
             if (data.timestamp) {
                 lastProcessedTimestamp = data.timestamp;
             }
             const lang = data.language || 'ru-RU';
-            console.log('🔊 Воспроизведение с языком:', lang);
+            console.log('🔊 Получено с языком:', lang);
             speakTextLocally(data.text, lang, data.volume || 1, data.rate || 0.9, data.pitch || 1.0);
         } else if (data.action === 'stop') {
             if (data.timestamp) {
                 lastProcessedTimestamp = data.timestamp;
             }
-            console.log('⏹ Остановка воспроизведения');
             stopLocalSpeaking();
         }
     });
@@ -990,7 +949,6 @@
         el.style.transform = transform.trim();
     }
     
-    // Синхронизация звука
     function playSoundSync(soundId) {
         if (!soundId || !sounds[soundId]) return;
         syncSoundRef.set({
@@ -1033,7 +991,6 @@
         }
     });
     
-    // Глобальные обработчики
     let moveFrame = null;
     document.addEventListener('mousemove', (e) => {
         if (!mouseDown) return;
@@ -1529,7 +1486,6 @@
         }
     }
     
-    // --- Обновление отображения значений слайдеров ---
     document.getElementById('tts-volume').addEventListener('input', (e) => {
         document.getElementById('volume-value').textContent = e.target.value;
     });
@@ -1540,7 +1496,6 @@
         document.getElementById('pitch-value').textContent = e.target.value;
     });
     
-    // --- Кнопки синхронной озвучки ---
     document.getElementById('tts-button').onclick = () => {
         document.getElementById('tts-text-input').value = '';
         document.getElementById('tts-modal').style.display = 'block';
@@ -1569,7 +1524,6 @@
         const rate = parseFloat(document.getElementById('tts-rate').value);
         const pitch = parseFloat(document.getElementById('tts-pitch').value);
         
-        // Для предпросмотра извлекаем язык из voiceData
         let language = 'ru-RU';
         if (voiceData && voiceData.includes('|')) {
             language = voiceData.split('|')[1];

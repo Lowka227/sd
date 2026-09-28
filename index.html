@@ -8,9 +8,17 @@
 :root{--bg:#1b1d22;--ln:#343841;--tx:#e8eaee;--mu:#9aa0ab;--ac:#4cc2a5;--dg:#ef6b6b}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:transparent;overflow:hidden;font:14px/1.4 system-ui,"Segoe UI",sans-serif;color:var(--tx)}
-#stage{position:absolute;left:0;top:0;width:2560px;height:1152px;transform-origin:0 0;overflow:hidden;--s:1}
+#stage{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden;--s:1}
 body.edit{background:#101216}
-.edit #stage{background:conic-gradient(#1a1d22 25%,#20242a 0 50%,#1a1d22 0 75%,#20242a 0) 0 0/40px 40px;box-shadow:0 0 0 calc(2px / var(--s)) var(--ac)}
+.edit #stage{overflow:visible}
+/* внутренняя рамка = то, что видно в OBS; внешняя = зона «за кадром» */
+#outerFrame,#inFrame{display:none;position:absolute;pointer-events:none}
+.edit #outerFrame,.edit #inFrame{display:block}
+#outerFrame{z-index:-1;pointer-events:auto;background:repeating-linear-gradient(45deg,#14161a 0 20px,#181b20 20px 40px);outline:calc(2px / var(--s)) dashed #6b7280}
+#inFrame{left:0;top:0;width:100%;height:100%;z-index:0;background:conic-gradient(#1a1d22 25%,#20242a 0 50%,#1a1d22 0 75%,#20242a 0) 0 0/40px 40px;box-shadow:0 0 0 calc(2px / var(--s)) var(--ac)}
+.fl{position:absolute;left:calc(10px / var(--s));top:calc(8px / var(--s));font-size:calc(13px / var(--s));font-weight:600;letter-spacing:.03em;padding:calc(3px / var(--s)) calc(8px / var(--s));border-radius:calc(6px / var(--s));white-space:nowrap}
+#inFrame .fl{background:var(--ac);color:#0b1f1a}
+#outerFrame .fl{background:#3a3f49;color:#d5d9e0}
 .nomenu #top{display:none!important}
 #showMenu{display:none;position:fixed;top:8px;right:8px;z-index:111;padding:4px 10px;font-size:12px;background:var(--bg)}
 .edit.nomenu #showMenu{display:block}
@@ -33,6 +41,9 @@ body.drag .it{transition:none}
 .edit .it.sel:not(.lock) .rz{display:block}
 #ui{position:fixed;top:calc(var(--mh,0px) + 12px);left:12px;width:280px;max-height:calc(100% - var(--mh,0px) - 24px);overflow:auto;background:var(--bg);border:1px solid var(--ln);border-radius:12px;padding:12px;display:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.45)}
 .edit #ui{display:block}
+.noui #ui{display:none!important}
+#showUi{display:none;position:fixed;top:calc(var(--mh,0px) + 12px);left:12px;z-index:99;padding:6px 10px;font-size:12px;background:var(--bg)}
+.edit.noui #showUi{display:block}
 #ui h4{margin:12px 0 6px;font-size:13px;color:var(--mu);font-weight:600}
 #ui h4:first-child{margin-top:0}
 .row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
@@ -71,8 +82,9 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 </style>
 </head>
 <body>
-<div id="stage"></div>
+<div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
+<button id="showUi" title="Клавиша P">☰ Панель</button>
 <header id="top" aria-label="Меню (в OBS не видно)">
   <div class="tr" id="tools"><b>Инструменты:</b>
     <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aVid">🎬 Видео</button><button id="aWid">🧩 Виджет</button>
@@ -81,6 +93,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <div class="tr"><b>Элементы:</b><div id="els"></div></div>
 </header>
 <aside id="ui" aria-label="Панель редактора">
+  <div class="row"><button id="bUi" title="Клавиша P">⇤ Скрыть панель</button></div>
   <input type="file" id="file" hidden>
 
   <div id="insp" hidden>
@@ -127,7 +140,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <h4>Сцена</h4>
   <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
   <input type="file" id="fImp" accept=".json" hidden>
-  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать меню.<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель.<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
 </aside>
 <div id="toast" role="status"></div>
 
@@ -149,6 +162,7 @@ function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.is
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3200)}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const get=id=>S.items.find(i=>i.id===id);
+const q=(id,sub)=>stage.querySelector(`[data-id="${id}"] ${sub}`);
 
 /* ---------- медиа: файлы хранятся в Firebase частями, у всех одинаково ---------- */
 const readURL=f=>new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result);x.readAsDataURL(f)});
@@ -169,11 +183,11 @@ function setSrc(el,src){if(el._s===src)return;el._s=src;resolveSrc(src).then(u=>
 
 /* ---------- синхронное видео: позиция = pos + (серверное время − t0) ---------- */
 function curPos(it){
-  const v=document.querySelector(`[data-id="${it.id}"] video`),d=v&&v.duration||0;
+  const v=q(it.id,'video'),d=v&&v.duration||0;
   let p=(it.pos||0)+(it.pl?(srv()-it.t0)/1000:0);
   if(d)p=it.loop?p%d:Math.min(p,d);return p}
 function vsync(it,force){
-  const v=it&&document.querySelector(`[data-id="${it.id}"] video`);if(!v||v.readyState<1)return;
+  const v=it&&q(it.id,'video');if(!v||v.readyState<1)return;
   v.loop=!!it.loop;v.volume=(it.vol??100)/100;v.muted=!hereOn();
   const p=curPos(it);
   if(it.pl){if(force||Math.abs(v.currentTime-p)>.35)v.currentTime=p;if(v.paused&&!v.ended)v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
@@ -182,14 +196,14 @@ const vAll=()=>S.items.forEach(i=>i.type==='video'&&vsync(i));
 setInterval(vAll,2000);addEventListener('pointerdown',vAll);
 /* громкость YouTube-виджетов (для остальных сайтов управление недоступно) */
 function wvol(it){
-  const f=it&&document.querySelector(`[data-id="${it.id}"] iframe`);if(!f||!f.contentWindow||!/youtube/.test(it.src))return;
+  const f=it&&q(it.id,'iframe');if(!f||!f.contentWindow||!/youtube/.test(it.src))return;
   const p=(fn,a)=>f.contentWindow.postMessage(JSON.stringify({event:'command',func:fn,args:a||[]}),'*');
   if(hereOn()){p('unMute');p('setVolume',[it.vol??100])}else p('mute')}
 const applyVol=()=>S.items.forEach(i=>i.type==='widget'&&wvol(i));
 
 /* ---------- отрисовка ---------- */
 function build(it){
-  let el=document.querySelector(`[data-id="${it.id}"]`);
+  let el=stage.querySelector(`[data-id="${it.id}"]`);
   if(!el){
     el=document.createElement('div');el.className='it';el.dataset.id=it.id;
     el.innerHTML='<div class="c"></div><div class="rz"></div>';
@@ -264,7 +278,7 @@ $('fc').oninput=e=>upd(i=>i.fc=e.target.value);
 $('fs').oninput=e=>upd(i=>i.fs=Math.max(8,+e.target.value||8));
 $('fb').onchange=e=>upd(i=>i.fb=e.target.checked);
 $('bUrl').onclick=()=>upd(i=>{i.src=fixUrl($('url').value.trim());$('url').value=i.src});
-$('bRef').onclick=()=>{const f=document.querySelector(`[data-id="${sel}"] iframe`);if(f)f.src=f.src};
+$('bRef').onclick=()=>{const f=q(sel,'iframe');if(f)f.src=f.src};
 $('bCss').onclick=()=>upd(i=>i.css=$('css').value);
 $('bPlay').onclick=()=>sel&&sendCmd({t:'play',id:sel});
 $('bStop').onclick=()=>sel&&sendCmd({t:'halt',id:sel});
@@ -286,7 +300,7 @@ stage.addEventListener('pointerdown',e=>{
   const it=get(el.dataset.id);sel=it.id;S.items.push(S.items.splice(S.items.indexOf(it),1)[0]);renderAll();
   if(it.locked)return;
   const rz=e.target.classList.contains('rz'),sx=e.clientX,sy=e.clientY,o={x:it.x,y:it.y,w:it.w,h:it.h};
-  el=document.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);dragging=true;document.body.classList.add('drag');
+  el=stage.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);dragging=true;document.body.classList.add('drag');
   const mv=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale;
     if(rz){it.w=Math.max(20,Math.round(o.w+dx));it.h=Math.max(20,Math.round(o.h+dy));if(ev.shiftKey)it.h=Math.round(it.w*o.h/o.w)}
     else{it.x=Math.round(o.x+dx);it.y=Math.round(o.y+dy)}
@@ -298,6 +312,7 @@ addEventListener('keydown',e=>{
   const t=e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT')return;
   if(e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У'){document.body.classList.toggle('edit');sel=null;renderAll();layout();return}
   if(e.key==='m'||e.key==='M'||e.key==='ь'||e.key==='Ь'){if(document.body.classList.contains('edit'))toggleMenu();return}
+  if((e.key==='p'||e.key==='P'||e.key==='з'||e.key==='З')&&document.body.classList.contains('edit')){toggleUi();return}
   if(!document.body.classList.contains('edit')||!sel)return;
   const it=get(sel);if(e.key==='Delete'){delSel();return}
   const d=e.shiftKey?10:1,m={ArrowLeft:[-d,0],ArrowRight:[d,0],ArrowUp:[0,-d],ArrowDown:[0,d]}[e.key];
@@ -398,7 +413,7 @@ function runCmd(c){
   if(c.t==='say'){if(hereOn())speak(c)}
   else if(c.t==='stop'){if('speechSynthesis' in window)speechSynthesis.cancel()}
   else{
-    const a=document.querySelector(`[data-id="${c.id}"] audio`);if(!a||!hereOn())return;
+    const a=q(c.id,'audio');if(!a||!hereOn())return;
     if(c.t==='play'){a.currentTime=0;a.play().catch(()=>toast('Браузер заблокировал звук — кликните по странице'))}
     else a.pause();
   }
@@ -422,18 +437,27 @@ function initFB(){
   root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
 }
 
-/* ---------- полотно 2560×1152 ---------- */
-const CW=2560,CH=1152;let scale=1;
+/* ---------- полотно ----------
+   CW×CH  — кадр OBS (размер источника «Браузер» в OBS должен быть таким же)
+   OW×OH  — большая внешняя рамка за кадром (те же пропорции 20:9), в OBS не видна
+   Координаты элементов считаются от левого верхнего угла кадра OBS, за кадром они отрицательные. */
+const CW=2560,CH=1152,OW=3200,OH=1440;
+const MX=(OW-CW)/2,MY=(OH-CH)/2;let scale=1;
+stage.style.width=CW+'px';stage.style.height=CH+'px';
+{const o=$('outerFrame').style;o.left=-MX+'px';o.top=-MY+'px';o.width=OW+'px';o.height=OH+'px'}
+$('ilab').textContent=`КАДР OBS ${CW}×${CH}`;
+$('olab').textContent=`ЗА КАДРОМ ${OW}×${OH} — в OBS не видно`;
 function layout(){
   const edit=document.body.classList.contains('edit');
   const mh=edit&&!document.body.classList.contains('nomenu')?$('top').offsetHeight:0;
   document.documentElement.style.setProperty('--mh',mh+'px');
   const aw=innerWidth,ah=Math.max(50,innerHeight-mh);
-  scale=Math.min(aw/CW,ah/CH);
+  const vw=edit?OW:CW,vh=edit?OH:CH,ox=edit?MX:0,oy=edit?MY:0;   // в редакторе видна вся внешняя рамка, в OBS — только кадр
+  scale=Math.min(aw/vw,ah/vh);
   stage.style.setProperty('--s',scale);
   stage.style.transform=`scale(${scale})`;
-  stage.style.left=(aw-CW*scale)/2+'px';
-  stage.style.top=(mh+(ah-CH*scale)/2)+'px';
+  stage.style.left=((aw-vw*scale)/2+ox*scale)+'px';
+  stage.style.top=(mh+(ah-vh*scale)/2+oy*scale)+'px';
 }
 function toggleMenu(){
   const h=document.body.classList.toggle('nomenu');
@@ -441,6 +465,9 @@ function toggleMenu(){
   $('bMenu').textContent=h?'⇩ Показать меню':'⇧ Скрыть меню';layout();
 }
 $('bMenu').onclick=toggleMenu;$('showMenu').onclick=toggleMenu;
+function toggleUi(){const h=document.body.classList.toggle('noui');try{localStorage.setItem('obs-canvas-noui',h?'1':'0')}catch(e){}}
+$('bUi').onclick=toggleUi;$('showUi').onclick=toggleUi;
+if(localStorage.getItem('obs-canvas-noui')==='1')document.body.classList.add('noui');
 if(localStorage.getItem('obs-canvas-nomenu')==='1')document.body.classList.add('nomenu');
 addEventListener('resize',layout);
 if('ResizeObserver' in window)new ResizeObserver(layout).observe($('top'));

@@ -1,238 +1,303 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Прозрачный холст - Синхронная озвучка</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-        html, body { width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
-        body { font-family: system-ui, 'Segoe UI', Arial, sans-serif; background: transparent !important; display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden; }
-        #controls { background: linear-gradient(135deg, #1e2b6e 0%, #2a3f8a 100%); padding: 6px 12px; display: flex; flex-direction: column; gap: 6px; z-index: 10000; width: 100%; border-bottom: 2px solid #ffd966; box-shadow: 0 2px 12px rgba(0,0,0,0.25); flex-shrink: 0; }
-        .controls-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; width: 100%; padding: 4px 10px; background: rgba(255, 255, 255, 0.96); border-left: 4px solid #ffd966; }
-        #thumbnails-container { display: flex; align-items: center; overflow-x: auto; height: 48px; background: rgba(255, 255, 255, 0.98); padding: 4px 8px; flex: 1; min-width: 160px; }
-        #thumbnails { display: flex; gap: 8px; }
-        .thumbnail { position: relative; width: 40px; height: 40px; flex-shrink: 0; border: 2px solid transparent; cursor: pointer; overflow: hidden; background: white; transition: all 0.15s ease; }
-        .thumbnail:hover { transform: scale(1.05); border-color: #ffd966; }
-        .thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-        .text-thumbnail, .sound-thumbnail, .widget-thumbnail { display: flex; align-items: center; justify-content: center; background: #f0f2f5; font-size: 10px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; text-align: center; width: 100%; height: 100%; }
-        .sound-thumbnail { background: #e3f2fd; }
-        .widget-thumbnail { background: #e8f5e9; color: #2e7d32; font-weight: bold; }
-        .thumbnail.selected { border-color: #ffd966; box-shadow: 0 0 0 2px #ffb347; }
-        .thumbnail-hidden { opacity: 0.5; }
-        .thumbnail-eye { position: absolute; bottom: -4px; right: -4px; width: 18px; height: 18px; background: #4caf50; color: white; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; font-weight: bold; border: 1px solid white; }
-        .thumbnail-eye.hidden { background: #f44336; }
-        .thumbnail-delete { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; background: #f44336; color: white; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; font-weight: bold; border: 1px solid white; }
-        #image-controls, #text-controls, #sound-controls, #widget-controls { display: none; gap: 6px; align-items: center; background: rgba(255, 255, 255, 0.98); padding: 4px 10px; border-left: 4px solid #ffd966; flex-wrap: wrap; }
-        .panel-title { font-weight: bold; color: #1e2b6e; margin-right: 6px; font-size: 11px; }
-        #canvas-wrapper { flex: 1; width: 100%; position: relative; overflow: auto; background: transparent !important; min-height: 0; }
-        .canvas-content { position: relative; width: 100%; height: 100%; background: transparent !important; }
-        #images-layer, #texts-layer, #widgets-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        #images-layer { z-index: 2; }
-        #texts-layer { z-index: 3; }
-        #widgets-layer { z-index: 4; }
-        .draggable-image, .draggable-text, .draggable-widget { position: absolute; cursor: grab; touch-action: none; pointer-events: auto; box-sizing: border-box; transform-origin: center center; }
-        .draggable-image:active, .draggable-text:active, .draggable-widget:active { cursor: grabbing; }
-        .draggable-image { background: transparent; overflow: hidden; }
-        .draggable-image img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
-        .draggable-text { background: transparent !important; padding: 4px 8px; border: none !important; white-space: pre-wrap; }
-        .draggable-widget { background: #f5f5f5; display: flex; flex-direction: column; cursor: grab; overflow: hidden !important; border-radius: 8px; }
-        .draggable-widget:active { cursor: grabbing; }
-        .draggable-widget iframe { width: 100%; height: 100%; border: none; pointer-events: auto; background: white; }
-        .widget-error { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff3e0; color: #e65100; padding: 10px; text-align: center; font-size: 12px; }
-        .selected { outline: 3px solid #ffd966; outline-offset: 2px; z-index: 999 !important; }
-        .locked { outline: 2px solid #ff4444 !important; cursor: default !important; }
-        .locked:active { cursor: default !important; }
-        .resize-handle { position: absolute; width: 12px; height: 12px; background: #ffd966; border: 2px solid #1e2b6e; border-radius: 50%; z-index: 20; opacity: 0; transition: opacity 0.15s, transform 0.1s; pointer-events: auto; }
-        .resize-handle:hover { transform: scale(1.2); }
-        .rotate-corner { position: absolute; width: 24px; height: 24px; background: #4caf50; border: 2px solid white; border-radius: 50%; z-index: 20; opacity: 0; cursor: grab; top: -28px; right: -28px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; pointer-events: auto; transition: opacity 0.15s, transform 0.1s; }
-        .rotate-corner:hover { transform: scale(1.1); }
-        .rotate-corner:active { cursor: grabbing; }
-        .rotate-corner::after { content: "↻"; }
-        .resize-n { top: -6px; left: 50%; margin-left: -6px; cursor: n-resize; }
-        .resize-ne { top: -6px; right: -6px; cursor: ne-resize; }
-        .resize-e { top: 50%; right: -6px; margin-top: -6px; cursor: e-resize; }
-        .resize-se { bottom: -6px; right: -6px; cursor: se-resize; }
-        .resize-s { bottom: -6px; left: 50%; margin-left: -6px; cursor: s-resize; }
-        .resize-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
-        .resize-w { top: 50%; left: -6px; margin-top: -6px; cursor: w-resize; }
-        .resize-nw { top: -6px; left: -6px; cursor: nw-resize; }
-        .selected:not(.locked) .resize-handle, .selected:not(.locked) .rotate-corner { opacity: 1; }
-        button { padding: 5px 12px; border: none; background: linear-gradient(135deg, #2a3f8a, #1e2b6e); color: white; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.1s; white-space: nowrap; border-radius: 20px; }
-        button:hover { transform: translateY(-1px); filter: brightness(1.05); }
-        button:active { transform: translateY(0); }
-        .tts-btn { background: linear-gradient(135deg, #9c27b0, #6a1b9a); }
-        .tts-btn:hover { background: linear-gradient(135deg, #ab47bc, #7b1fa2); }
-        #file-input, #sound-input { display: none; }
-        #status { margin-left: auto; font-size: 11px; color: #2e7d32; background: #e8f5e9; padding: 4px 10px; font-weight: bold; border-radius: 20px; }
-        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(30, 30, 40, 0.98); backdrop-filter: blur(12px); padding: 20px; box-shadow: 0 20px 35px rgba(0,0,0,0.4); z-index: 20000; border: 1px solid #ffd966; color: white; width: 500px; max-width: 90vw; max-height: 85vh; overflow-y: auto; border-radius: 16px; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .close-btn { background: #f44336; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; border-radius: 50%; }
-        textarea, input, select { background: rgba(255,255,255,0.9); border: none; padding: 8px; font-size: 12px; margin: 5px 0; width: 100%; box-sizing: border-box; border-radius: 8px; }
-        textarea { font-family: monospace; resize: vertical; }
-        .widgets-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-        .widgets-tab { background: #444; padding: 5px 12px; cursor: pointer; border: none; color: white; border-radius: 20px; }
-        .widgets-tab.active { background: #ffd966; color: #1e2b6e; }
-        .widgets-content { display: none; }
-        .widgets-content.active { display: block; }
-        .quick-widget-btn { background: #4caf50; padding: 10px; margin: 8px 0; width: 100%; text-align: center; font-size: 14px; border-radius: 8px; }
-        .saved-widget-item { display: flex; justify-content: space-between; margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.2); align-items: center; border-radius: 8px; }
-        .sound-visualization { width: 100px; height: 24px; background: #ddd; overflow: hidden; border-radius: 12px; }
-        .sound-progress { height: 100%; background: #2a3f8a; width: 0%; }
-        .volume-slider { width: 70px; }
-        .crop-overlay { position: absolute; border: 2px dashed #ff4444; background: rgba(255, 68, 68, 0.2); pointer-events: none; z-index: 1000; }
-        .css-example { font-size: 11px; color: #aaa; margin-top: 5px; padding: 5px; background: rgba(0,0,0,0.3); border-radius: 4px; }
-        .settings-group { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; margin: 10px 0; }
-        .settings-group label { display: block; font-size: 12px; margin-bottom: 5px; color: #ffd966; }
-        .voice-select { background: #444; color: white; padding: 8px; }
-        @media (max-width: 700px) { .controls-row { gap: 5px; padding: 4px 6px; } button { padding: 4px 8px; font-size: 10px; } .thumbnail { width: 35px; height: 35px; } .resize-handle { width: 10px; height: 10px; } }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Прозрачный холст для OBS</title>
+<style>
+:root{--bg:#1b1d22;--ln:#343841;--tx:#e8eaee;--mu:#9aa0ab;--ac:#4cc2a5;--dg:#ef6b6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;font:14px/1.4 system-ui,"Segoe UI",sans-serif;color:var(--tx)}
+#stage{position:absolute;left:0;top:0;width:2560px;height:1152px;transform-origin:0 0;overflow:hidden;--s:1}
+body.edit{background:#101216}
+.edit #stage{background:conic-gradient(#1a1d22 25%,#20242a 0 50%,#1a1d22 0 75%,#20242a 0) 0 0/40px 40px;box-shadow:0 0 0 calc(2px / var(--s)) var(--ac)}
+.nomenu #top{display:none!important}
+#showMenu{display:none;position:fixed;top:8px;right:8px;z-index:111;padding:4px 10px;font-size:12px;background:var(--bg)}
+.edit.nomenu #showMenu{display:block}
+.it{position:absolute;touch-action:none;user-select:none}
+.it>.c{width:100%;height:100%;overflow:hidden}
+.it img{width:100%;height:100%;object-fit:fill;display:block;pointer-events:none}
+.it iframe{width:100%;height:100%;border:0;background:transparent}
+.it .t{width:100%;height:100%;white-space:pre-wrap;word-break:break-word}
+.it .snd{display:none}
+.edit .it{cursor:move;outline:1px dashed rgba(255,255,255,.25)}
+.edit .it.sel{outline:2px solid var(--ac)}
+.edit .it.lock{cursor:default;outline-color:rgba(239,107,107,.5)}
+.edit .it.hid{display:block;opacity:.25!important}
+.it.hid{display:none}
+.edit .it iframe{pointer-events:none}
+.edit .it .snd{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--bg);border-radius:8px;font-size:22px}
+.rz{display:none;position:absolute;right:calc(-8px / var(--s));bottom:calc(-8px / var(--s));width:calc(18px / var(--s));height:calc(18px / var(--s));background:var(--ac);border-radius:50%;cursor:nwse-resize}
+.edit .it.sel:not(.lock) .rz{display:block}
+#ui{position:fixed;top:calc(var(--mh,0px) + 12px);left:12px;width:280px;max-height:calc(100% - var(--mh,0px) - 24px);overflow:auto;background:var(--bg);border:1px solid var(--ln);border-radius:12px;padding:12px;display:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+.edit #ui{display:block}
+#ui h4{margin:12px 0 6px;font-size:13px;color:var(--mu);font-weight:600}
+#ui h4:first-child{margin-top:0}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+button,select,input,textarea{font:inherit;color:var(--tx);background:#262a31;border:1px solid var(--ln);border-radius:8px;padding:6px 9px}
+button{cursor:pointer}
+button:hover{border-color:var(--ac)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button.p{background:var(--ac);color:#0b1f1a;border-color:var(--ac);font-weight:600}
+button.d{color:var(--dg)}
+textarea,input[type=text],input[type=url],select{width:100%}
+textarea{resize:vertical;min-height:56px}
+label{display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12px;width:100%}
+label input[type=range]{flex:1;padding:0}
+label input[type=color]{width:38px;height:28px;padding:1px}
+label input[type=number]{width:70px}
+#hint{color:var(--mu);font-size:12px}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--ln);padding:8px 14px;border-radius:8px;display:none;z-index:120}
+#top{position:fixed;top:0;left:0;right:0;z-index:110;display:none;flex-direction:column;gap:4px;background:var(--bg);border-bottom:2px solid var(--ac);padding:6px 10px}
+.edit #top{display:flex}
+.tr{display:flex;align-items:center;gap:6px}
+.tr>b{font-size:12px;color:var(--mu);min-width:82px}
+#tools{flex-wrap:wrap}
+#tools button{padding:4px 9px;font-size:12px}
+button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
+#net{margin-left:auto;font-size:12px;color:var(--mu)}
+#els{flex:1;display:flex;gap:8px;overflow-x:auto;padding:7px 6px 8px 2px}
+#els::-webkit-scrollbar{height:6px}#els::-webkit-scrollbar-thumb{background:var(--ln);border-radius:3px}
+.th{position:relative;flex:none;width:42px;height:42px;border:1px solid var(--ln);border-radius:6px;background:#262a31;cursor:pointer}
+.th.sel{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}
+.th.off .pv{opacity:.3}
+.pv{display:flex;align-items:center;justify-content:center;width:100%;height:100%;overflow:hidden;border-radius:5px;font-weight:700;font-size:15px}
+.pv img{width:100%;height:100%;object-fit:contain}
+.th button{position:absolute;right:-5px;width:16px;height:16px;padding:0;font-size:9px;line-height:1;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.th .x{top:-5px;background:var(--dg);border-color:var(--dg);color:#fff}
+.th .v{bottom:-5px}
+</style>
 </head>
 <body>
-<div id="controls">
-    <div class="controls-row">
-        <span style="font-weight: bold;">📋 Инструменты:</span>
-        <button onclick="document.getElementById('file-input').click()">🖼 Изображение</button>
-        <button id="add-text-btn">📝 Текст</button>
-        <button id="add-sound-btn">🔊 Звук</button>
-        <button id="add-widget-btn">🧩 Виджет</button>
-        <button id="clear-btn">🗑 Очистить</button>
-        <button id="tts-button" class="tts-btn">📢 Синхронная озвучка</button>
-        <div id="status">✅ Готово</div>
-    </div>
-    <div class="controls-row">
-        <span>📦 Элементы:</span>
-        <div id="thumbnails-container"><div id="thumbnails"></div></div>
-    </div>
-    <div id="image-controls"><span class="panel-title">🖼</span><button id="hide-btn">👁 Скрыть</button><button id="delete-btn">🗑 Удалить</button><button id="lock-btn">🔒 Закрепить</button><button id="flip-h-btn">↔ Гориз</button><button id="flip-v-btn">↕ Вертик</button><button id="settings-btn">⚙ Настройки</button><button id="crop-image-btn" style="background:#ff9800;">✂ Обрезать</button></div>
-    <div id="text-controls"><span class="panel-title">📝</span><button id="hide-text-btn">👁 Скрыть</button><button id="edit-text-btn">✏ Редактировать</button><button id="delete-text-btn">🗑 Удалить</button><button id="lock-text-btn">🔒 Закрепить</button></div>
-    <div id="sound-controls"><span class="panel-title">🔊</span><button id="play-btn">▶</button><button id="pause-btn">⏸</button><div class="sound-visualization"><div class="sound-progress" id="sound-progress"></div></div><input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100"><button id="delete-sound-btn">🗑 Удалить</button></div>
-    <div id="widget-controls"><span class="panel-title">🧩</span><button id="hide-widget-btn">👁 Скрыть</button><button id="delete-widget-btn">🗑 Удалить</button><button id="lock-widget-btn">🔒 Закрепить</button><button id="reload-widget-btn">🔄 Обновить</button><button id="edit-widget-url-btn">✏ Изменить URL</button><button id="widget-opacity-btn">🎨 Прозрачность</button><button id="widget-css-btn">🎨 CSS стили</button><button id="crop-widget-btn" style="background:#ff9800;">✂ Обрезать</button></div>
-</div>
-<div id="canvas-wrapper"><div class="canvas-content"><div id="images-layer"></div><div id="texts-layer"></div><div id="widgets-layer"></div></div></div>
+<div id="stage"></div>
+<button id="showMenu" title="Клавиша M">☰ Меню</button>
+<header id="top" aria-label="Меню (в OBS не видно)">
+  <div class="tr" id="tools"><b>Инструменты:</b>
+    <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aWid">🧩 Виджет</button>
+    <button id="bClr" class="d">🗑 Очистить</button><button id="bTts" class="sy">🎙 Синхронная озвучка</button>
+    <button id="bMenu" title="Клавиша M">⇧ Скрыть меню</button><span id="net">● офлайн</span></div>
+  <div class="tr"><b>Элементы:</b><div id="els"></div></div>
+</header>
+<aside id="ui" aria-label="Панель редактора">
+  <input type="file" id="file" hidden>
 
-<div id="tts-modal" class="modal">
-    <div class="modal-header">
-        <h3>📢 Синхронная озвучка текста</h3>
-        <div class="close-btn" onclick="closeModal('tts-modal')">×</div>
+  <div id="insp" hidden>
+    <h4>Выбранный элемент</h4>
+    <div class="row">
+      <button id="bHide">Скрыть</button><button id="bLock">Закрепить</button>
+      <button id="bDup">Дублировать</button><button id="bDel" class="d">Удалить</button>
     </div>
-    <textarea id="tts-text-input" rows="3" placeholder="Введите текст..."></textarea>
-    <div class="settings-group">
-        <label>🎤 Выберите голос (будет у ВСЕХ!):</label>
-        <select id="tts-voice-select" class="voice-select">
-            <option value="">🌐 Голос по умолчанию</option>
-        </select>
-        <div style="font-size: 12px; color: #4caf50; margin-top: 5px;">✅ ВСЕ пользователи услышат ЭТОТ же голос!</div>
+    <label>Прозрачность <input type="range" id="op" min="0" max="100"></label>
+    <div id="pTxt" hidden>
+      <textarea id="tx" aria-label="Текст"></textarea>
+      <div class="row">
+        <select id="ff" style="flex:1"><option>Arial</option><option>Georgia</option><option>Verdana</option><option>Times New Roman</option><option>Comic Sans MS</option><option>Impact</option><option>Courier New</option></select>
+        <input type="color" id="fc" aria-label="Цвет" style="width:44px;padding:1px">
+      </div>
+      <label>Размер <input type="number" id="fs" min="8" max="400"> px <input type="checkbox" id="fb"> жирный</label>
     </div>
-    <div class="settings-group">
-        <label>🔊 Громкость: <span id="volume-value">100</span>%</label>
-        <input type="range" id="tts-volume" min="0" max="100" value="100" step="1">
+    <div id="pUrl" hidden>
+      <input type="url" id="url" placeholder="https://…">
+      <div class="row" style="margin-top:6px"><button id="bUrl">Применить URL</button><button id="bRef">Обновить</button></div>
     </div>
-    <div class="settings-group">
-        <label>⚡ Скорость: <span id="rate-value">0.9</span>x</label>
-        <input type="range" id="tts-rate" min="0.5" max="2" step="0.05" value="0.9">
-    </div>
-    <div class="settings-group">
-        <label>📈 Тон: <span id="pitch-value">1.0</span></label>
-        <input type="range" id="tts-pitch" min="0.5" max="2" step="0.05" value="1.0">
-    </div>
-    <button id="tts-speak-sync-btn" style="background:#4caf50; width:100%; padding: 12px; font-size: 14px;">🌍 Озвучить для всех</button>
-    <button id="tts-stop-sync-btn" style="background:#f44336; width:100%; margin-top: 8px; padding: 12px; font-size: 14px;">⏹ Остановить для всех</button>
-    <button id="tts-preview-btn" style="background:#2196f3; width:100%; margin-top: 8px; padding: 12px; font-size: 14px;">🎧 Предпросмотр</button>
-</div>
+    <div id="pSnd" hidden><div class="row"><button id="bPlay">▶ Играть</button><button id="bStop">■ Стоп</button></div></div>
+    <textarea id="css" placeholder="CSS, напр.: border-radius:15px; filter:blur(1px)" aria-label="CSS"></textarea>
+    <div class="row" style="margin-top:6px"><button id="bCss">Применить CSS</button></div>
+  </div>
 
-<div id="text-modal" class="modal">
-    <div class="modal-header"><h3>📝 Редактировать текст</h3><div class="close-btn" onclick="closeModal('text-modal')">×</div></div>
-    <textarea id="text-input-area" rows="3" placeholder="Введите текст..."></textarea>
-    <select id="font-family-select">
-        <option value="Arial, sans-serif">Arial</option>
-        <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
-        <option value="'Times New Roman', serif">Times New Roman</option>
-        <option value="Georgia, serif">Georgia</option>
-        <option value="Verdana, sans-serif">Verdana</option>
-    </select>
-    <input type="range" id="font-size-slider" min="12" max="72" value="24">
-    <input type="color" id="text-color-picker" value="#ffffff">
-    <button id="apply-text-simple" style="margin-top:10px;">✅ Применить</button>
-</div>
+<div id="ttsBox" hidden>
+  <h4>Озвучка</h4>
+  <select id="voice" aria-label="Голос"></select>
+  <label>Громкость <input type="range" id="tv" min="0" max="100" value="100"></label>
+  <label>Скорость <input type="range" id="tr" min="5" max="20" value="10"></label>
+  <label>Тон <input type="range" id="tp" min="0" max="20" value="10"></label>
+  <textarea id="ttsText" placeholder="Текст для озвучки"></textarea>
+  <div class="row" style="margin-top:6px"><button class="p" id="bSay">Озвучить</button><button id="bShut">Стоп</button></div>
+  <label><input type="checkbox" id="here"> Слышать в этой вкладке</label>
+  <div id="hint">Озвучка и звуки играют у всех, кто открыл холст (через Firebase). В OBS — всегда.</div>
+  </div>
 
-<div id="widget-modal" class="modal">
-    <div class="modal-header"><h3>🧩 Добавить виджет</h3><div class="close-btn" onclick="closeModal('widget-modal')">×</div></div>
-    <div class="widgets-tabs">
-        <button class="widgets-tab active" data-tab="add">➕ По URL</button>
-        <button class="widgets-tab" data-tab="quick">⚡ Примеры</button>
-        <button class="widgets-tab" data-tab="saved">📦 Сохраненные</button>
-    </div>
-    <div id="add-widget-content" class="widgets-content active">
-        <input type="text" id="widget-url-input" placeholder="https://example.com" value="https://www.youtube.com/embed/dQw4w9WgXcQ">
-        <div style="display: flex; gap: 8px;">
-            <input type="number" id="widget-width-input" placeholder="Ширина" value="400" style="width:50%">
-            <input type="number" id="widget-height-input" placeholder="Высота" value="300" style="width:50%">
-        </div>
-        <input type="text" id="widget-name-input" placeholder="Название виджета">
-        <textarea id="widget-css-input" placeholder="Дополнительные CSS стили для виджета" rows="4"></textarea>
-        <div class="css-example">✨ Примеры CSS: border-radius: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);</div>
-        <button id="save-widget-btn" style="background:#4caf50; margin-top:8px;">💾 Сохранить</button>
-        <button id="add-widget-direct-btn" style="background:#2196f3; margin-top:5px;">📌 Добавить</button>
-    </div>
-    <div id="quick-widgets-content" class="widgets-content">
-        <button class="quick-widget-btn" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ" data-name="YouTube Видео" data-w="560" data-h="315">▶️ YouTube Видео</button>
-        <button class="quick-widget-btn" data-url="https://calendar.google.com/calendar/embed" data-name="Google Календарь" data-w="600" data-h="400">📅 Google Календарь</button>
-        <button class="quick-widget-btn" data-url="https://www.timeanddate.com/worldclock/" data-name="Мировые часы" data-w="500" data-h="400">🌍 Мировые часы</button>
-    </div>
-    <div id="saved-widgets-content" class="widgets-content">
-        <div id="saved-widgets-list"></div>
-    </div>
-</div>
+  <h4>Сцена</h4>
+  <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
+  <input type="file" id="fImp" accept=".json" hidden>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать меню.<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+</aside>
+<div id="toast" role="status"></div>
 
-<div id="properties-modal" class="modal">
-    <div class="modal-header"><h3>⚙ Свойства изображения</h3><div class="close-btn" onclick="closeModal('properties-modal')">×</div></div>
-    <label>Прозрачность (0-100%):</label>
-    <input type="range" id="opacity-slider" min="0" max="100" value="100" step="1">
-    <label>Яркость:</label>
-    <input type="range" id="brightness-slider" min="0" max="200" value="100" step="1">
-</div>
-
-<div id="widget-opacity-modal" class="modal">
-    <div class="modal-header"><h3>🎨 Прозрачность виджета</h3><div class="close-btn" onclick="closeModal('widget-opacity-modal')">×</div></div>
-    <label>Прозрачность (0-100%):</label>
-    <input type="range" id="widget-opacity-slider" min="0" max="100" value="100" step="1">
-    <button id="apply-widget-opacity" style="margin-top:10px;">✅ Применить</button>
-</div>
-
-<div id="widget-css-modal" class="modal">
-    <div class="modal-header"><h3>🎨 CSS стили для виджета</h3><div class="close-btn" onclick="closeModal('widget-css-modal')">×</div></div>
-    <label>Дополнительные CSS стили:</label>
-    <textarea id="widget-css-editor" rows="10" placeholder="border-radius: 15px;&#10;background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></textarea>
-    <button id="apply-widget-css" style="margin-top:10px; background:#4caf50;">✅ Применить</button>
-</div>
-
-<div id="edit-url-modal" class="modal">
-    <div class="modal-header"><h3>✏ Изменить URL виджета</h3><div class="close-btn" onclick="closeModal('edit-url-modal')">×</div></div>
-    <input type="text" id="edit-widget-url" placeholder="URL виджета">
-    <button id="apply-url-btn" style="margin-top:10px;">✅ Применить</button>
-</div>
-
-<div id="crop-modal" class="modal">
-    <div class="modal-header"><h3>✂ Обрезка элемента</h3><div class="close-btn" onclick="closeModal('crop-modal')">×</div></div>
-    <p>1. Нажмите "Начать обрезку"</p>
-    <p>2. Потяните за уголок элемента, чтобы выбрать область</p>
-    <p>3. Нажмите "Применить обрезку"</p>
-    <div class="css-example" style="margin-top:10px;">⚠️ ВНИМАНИЕ: Обрезка применяется только к изображениям. Для виджетов обрезка просто меняет размер контейнера.</div>
-    <button id="start-crop-btn" style="background:#4caf50;">🔪 Начать обрезку</button>
-    <button id="apply-crop-btn" style="background:#2196f3; margin-top:10px;">✅ Применить обрезку</button>
-    <button id="cancel-crop-btn" style="background:#f44336; margin-top:10px;">❌ Отмена</button>
-</div>
-
-<input type="file" id="file-input" accept="image/*">
-<input type="file" id="sound-input" accept="audio/*">
-<audio id="audio-element"></audio>
-
-<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
-    const firebaseConfig = {
+const $=id=>document.getElementById(id), stage=$('stage');
+const KEY='obs-canvas-v2';
+let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
+const inOBS=!!window.obsstudio;
+const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
+
+/* ---------- сохранение ---------- */
+function save(){persist();sync();renderBar()}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Не удалось сохранить: слишком большой файл. Используйте ссылку вместо загрузки.')}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.items))S=Object.assign(S,d)}catch(e){}}
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3200)}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const get=id=>S.items.find(i=>i.id===id);
+
+/* ---------- отрисовка ---------- */
+function build(it){
+  let el=document.querySelector(`[data-id="${it.id}"]`);
+  if(!el){
+    el=document.createElement('div');el.className='it';el.dataset.id=it.id;
+    el.innerHTML='<div class="c"></div><div class="rz"></div>';
+    stage.appendChild(el);
+  }
+  const c=el.firstChild;
+  el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};`;
+  el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);
+  c.style.cssText=it.css||'';
+  if(it.type==='image'){if(!c.firstChild||c.firstChild.src!==it.src){c.innerHTML='';const i=new Image();i.src=it.src;i.alt='';i.onerror=()=>toast('Не удалось загрузить картинку');c.appendChild(i)}}
+  else if(it.type==='text'){c.innerHTML='<div class="t"></div>';const t=c.firstChild;t.textContent=it.text;Object.assign(t.style,{fontFamily:it.ff,color:it.fc,fontSize:it.fs+'px',fontWeight:it.fb?'700':'400'})}
+  else if(it.type==='widget'){if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=it.src;f.allow='autoplay; fullscreen; clipboard-write';f.setAttribute('allowtransparency','true');c.appendChild(f)}}
+  else if(it.type==='sound'){if(!c.firstChild){c.innerHTML='<div class="snd">🔊</div><audio></audio>'}{const a=c.querySelector('audio');if(a.getAttribute('src')!==it.src)a.src=it.src}}
+}
+function renderAll(){
+  const ids=new Set(S.items.map(i=>i.id));
+  document.querySelectorAll('.it').forEach(e=>{if(!ids.has(e.dataset.id))e.remove()});
+  S.items.forEach(build);inspect();renderBar();
+}
+
+/* ---------- добавление ---------- */
+function add(o){const it=Object.assign({id:uid(),x:60+S.items.length%8*24,y:60+S.items.length%8*24,w:240,h:160,o:100,css:''},o);S.items.push(it);sel=it.id;save();renderAll()}
+function pickFile(accept,cb){const f=$('file');f.accept=accept;f.value='';f.onchange=()=>{const file=f.files[0];if(!file)return;const r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(file)};f.click()}
+$('aImg').onclick=()=>{
+  const u=prompt('Ссылка на картинку (оставьте пустым, чтобы выбрать файл):');
+  if(u===null)return;
+  const mk=src=>{const i=new Image();i.onload=()=>{const k=Math.min(1,400/i.naturalWidth);add({type:'image',src,w:Math.round(i.naturalWidth*k),h:Math.round(i.naturalHeight*k)})};i.onerror=()=>toast('Не удалось загрузить картинку');i.src=src};
+  u.trim()?mk(u.trim()):pickFile('image/*',mk)};
+$('aTxt').onclick=()=>add({type:'text',text:'Ваш текст',ff:'Arial',fc:'#ffffff',fs:36,fb:true,w:300,h:80});
+$('aSnd').onclick=()=>{const u=prompt('Ссылка на аудио (оставьте пустым, чтобы выбрать файл):');if(u===null)return;
+  u.trim()?add({type:'sound',src:u.trim(),w:56,h:56}):pickFile('audio/*',s=>add({type:'sound',src:s,w:56,h:56}))};
+$('aWid').onclick=()=>{let u=prompt('Ссылка на виджет (https://…). Ссылки YouTube будут преобразованы автоматически:');if(!u)return;add({type:'widget',src:fixUrl(u.trim()),w:480,h:270})};
+function fixUrl(u){
+  if(!/^https?:\/\//i.test(u))u='https://'+u;
+  const m=u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/);
+  return m?`https://www.youtube.com/embed/${m[1]}?autoplay=1&mute=1`:u}
+
+/* ---------- инспектор ---------- */
+function inspect(){
+  const it=get(sel);$('insp').hidden=!it;if(!it)return;
+  $('bHide').textContent=it.hidden?'Показать':'Скрыть';
+  $('bLock').textContent=it.locked?'Открепить':'Закрепить';
+  $('op').value=it.o;$('css').value=it.css||'';
+  $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
+  if(it.type==='text'){$('tx').value=it.text;$('ff').value=it.ff;$('fc').value=it.fc;$('fs').value=it.fs;$('fb').checked=!!it.fb}
+  if(it.type==='widget')$('url').value=it.src;
+}
+const upd=(f)=>{const it=get(sel);if(it){f(it);save();build(it)}};
+$('bHide').onclick=()=>{upd(i=>i.hidden=!i.hidden);inspect()};
+$('bLock').onclick=()=>{upd(i=>i.locked=!i.locked);inspect()};
+$('bDel').onclick=delSel;
+$('bDup').onclick=()=>{const it=get(sel);if(it)add(Object.assign({},it,{id:uid(),x:it.x+20,y:it.y+20}))};
+$('op').oninput=e=>upd(i=>i.o=+e.target.value);
+$('tx').oninput=e=>upd(i=>i.text=e.target.value);
+$('ff').onchange=e=>upd(i=>i.ff=e.target.value);
+$('fc').oninput=e=>upd(i=>i.fc=e.target.value);
+$('fs').oninput=e=>upd(i=>i.fs=Math.max(8,+e.target.value||8));
+$('fb').onchange=e=>upd(i=>i.fb=e.target.checked);
+$('bUrl').onclick=()=>upd(i=>{i.src=fixUrl($('url').value.trim());$('url').value=i.src});
+$('bRef').onclick=()=>{const f=document.querySelector(`[data-id="${sel}"] iframe`);if(f)f.src=f.src};
+$('bCss').onclick=()=>upd(i=>i.css=$('css').value);
+$('bPlay').onclick=()=>sel&&sendCmd({t:'play',id:sel,vol:S.tts.vol});
+$('bStop').onclick=()=>sel&&sendCmd({t:'halt',id:sel});
+function delSel(){if(!sel)return;S.items=S.items.filter(i=>i.id!==sel);sel=null;save();renderAll()}
+
+/* ---------- перетаскивание и размер ---------- */
+stage.addEventListener('pointerdown',e=>{
+  if(!document.body.classList.contains('edit'))return;
+  let el=e.target.closest('.it');
+  if(!el){sel=null;renderAll();return}
+  const it=get(el.dataset.id);sel=it.id;S.items.push(S.items.splice(S.items.indexOf(it),1)[0]);renderAll();
+  if(it.locked)return;
+  const rz=e.target.classList.contains('rz'),sx=e.clientX,sy=e.clientY,o={x:it.x,y:it.y,w:it.w,h:it.h};
+  el=document.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);dragging=true;
+  const mv=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale;
+    if(rz){it.w=Math.max(20,Math.round(o.w+dx));it.h=Math.max(20,Math.round(o.h+dy));if(ev.shiftKey)it.h=Math.round(it.w*o.h/o.w)}
+    else{it.x=Math.round(o.x+dx);it.y=Math.round(o.y+dy)}
+    build(it);sync()};
+  const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);dragging=false;save()};
+  el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);
+});
+addEventListener('keydown',e=>{
+  const t=e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT')return;
+  if(e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У'){document.body.classList.toggle('edit');sel=null;renderAll();layout();return}
+  if(e.key==='m'||e.key==='M'||e.key==='ь'||e.key==='Ь'){if(document.body.classList.contains('edit'))toggleMenu();return}
+  if(!document.body.classList.contains('edit')||!sel)return;
+  const it=get(sel);if(e.key==='Delete'){delSel();return}
+  const d=e.shiftKey?10:1,m={ArrowLeft:[-d,0],ArrowRight:[d,0],ArrowUp:[0,-d],ArrowDown:[0,d]}[e.key];
+  if(m&&!it.locked){e.preventDefault();it.x+=m[0];it.y+=m[1];save();build(it)}
+});
+
+/* ---------- озвучка ---------- */
+load();
+let voices=[];
+function fillVoices(){
+  voices=speechSynthesis.getVoices();const s=$('voice');
+  s.innerHTML='<option value="">Голос по умолчанию</option>'+voices.map(v=>`<option value="${v.name}">${v.name} (${v.lang})</option>`).join('');
+  s.value=S.tts.voice||'';
+}
+if('speechSynthesis' in window){fillVoices();speechSynthesis.onvoiceschanged=fillVoices}
+else $('bSay').disabled=true;
+function speak(m){
+  if(!('speechSynthesis' in window))return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(m.text);
+  const v=voices.find(x=>x.name===m.voice);if(v){u.voice=v;u.lang=v.lang}else u.lang='ru-RU';
+  u.volume=m.vol/100;u.rate=m.rate/10;u.pitch=m.pitch/10;speechSynthesis.speak(u)}
+if(chan)chan.onmessage=e=>{if(!root)runCmd(e.data)};
+const ttsCfg=()=>({voice:S.tts.voice,vol:S.tts.vol,rate:S.tts.rate,pitch:S.tts.pitch});
+$('voice').onchange=e=>{S.tts.voice=e.target.value;save()};
+[['tv','vol'],['tr','rate'],['tp','pitch']].forEach(([id,k])=>{$(id).value=S.tts[k];$(id).oninput=e=>{S.tts[k]=+e.target.value;save()}});
+$('bSay').onclick=()=>{const text=$('ttsText').value.trim();if(!text)return toast('Введите текст для озвучки');sendCmd(Object.assign({t:'say',text},ttsCfg()))};
+$('bShut').onclick=()=>sendCmd({t:'stop'});
+
+/* ---------- сцена ---------- */
+$('bExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='obs-canvas.json';a.click()};
+$('bImp').onclick=()=>$('fImp').click();
+$('fImp').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.items))throw 0;S=Object.assign(S,d);sel=null;save();renderAll();toast('Сцена загружена')}catch(x){toast('Файл не похож на сцену холста')}};r.readAsText(f)};
+$('bClr').onclick=()=>{if(confirm('Удалить все элементы?')){S.items=[];sel=null;save();renderAll()}};
+
+/* ---------- панель элементов ---------- */
+const els=$('els');
+function renderBar(){
+  const ids=new Set(S.items.map(i=>i.id));
+  [...els.children].forEach(e=>{if(!ids.has(e.dataset.id))e.remove()});
+  S.items.forEach(it=>{
+    let e=els.querySelector(`[data-id="${it.id}"]`);
+    if(!e){e=document.createElement('div');e.dataset.id=it.id}
+    const sg=[it.type,(it.src||'').length,(it.src||'').slice(-40),it.text,it.fc,!!it.hidden,it.id===sel].join('|');
+    if(e._s!==sg){
+      e._s=sg;e.className='th'+(it.id===sel?' sel':'')+(it.hidden?' off':'');
+      e.title={image:'Картинка',text:'Текст',sound:'Звук (двойной клик — играть у всех)',widget:'Виджет'}[it.type]||it.type;
+      const v=document.createElement('span');v.className='pv';
+      if(it.type==='image'){const im=new Image();im.src=it.src;im.alt='';v.appendChild(im)}
+      else{v.textContent={text:'Aa',sound:'🔊',widget:'🌐'}[it.type]||'?';if(it.type==='text')v.style.color=it.fc}
+      e.replaceChildren(v);
+      e.insertAdjacentHTML('beforeend','<button class="v" title="Скрыть/показать">👁</button><button class="x" title="Удалить">✕</button>');
+    }
+    els.appendChild(e);
+  });
+}
+els.onclick=e=>{
+  const t=e.target.closest('.th');if(!t)return;const it=get(t.dataset.id);if(!it)return;
+  if(e.target.closest('.x')){sel=it.id;delSel();return}
+  if(e.target.closest('.v')){it.hidden=!it.hidden;save();build(it);inspect();return}
+  sel=it.id;renderAll()};
+els.ondblclick=e=>{const t=e.target.closest('.th');const it=t&&get(t.dataset.id);if(it&&it.type==='sound'&&!e.target.closest('button'))sendCmd({t:'play',id:it.id,vol:S.tts.vol})};
+$('bTts').onclick=()=>{$('ttsBox').hidden=!$('ttsBox').hidden};
+$('here').checked=localStorage.getItem('obs-canvas-here')!=='0';
+$('here').onchange=()=>localStorage.setItem('obs-canvas-here',$('here').checked?'1':'0');
+const hereOn=()=>inOBS||$('here').checked;
+
+/* ---------- Firebase (синхронизация) ---------- */
+const firebaseConfig = {
         apiKey: "AIzaSyDNWDm3Rkvq4mV7Cvf5ckvZvDD5MNLDXoo",
         authDomain: "greenbackgroundapp.firebaseapp.com",
         databaseURL: "https://greenbackgroundapp-default-rtdb.europe-west1.firebasedatabase.app",
@@ -241,1111 +306,79 @@
         messagingSenderId: "857271333291",
         appId: "1:857271333291:web:e754824268f37341c7e2ee"
     };
-    firebase.initializeApp(firebaseConfig);
-    
-    const db = firebase.database();
-    const imagesRef = db.ref('images');
-    const textsRef = db.ref('texts');
-    const soundsRef = db.ref('sounds');
-    const widgetsRef = db.ref('widgets');
-    const savedWidgetsRef = db.ref('savedWidgets');
-    const syncSoundRef = db.ref('syncSound');
-    const syncTTSRef = db.ref('syncTTS');
-    
-    let images = {}, texts = {}, sounds = {}, widgets = {}, savedWidgets = {};
-    let selectedImageId = null, selectedTextId = null, selectedSoundId = null, selectedWidgetId = null;
-    let canvasRect = { width: 0, height: 0 };
-    
-    let currentUtterance = null;
-    let availableVoices = [];
-    let isSpeaking = false;
-    let speechQueue = [];
-    let lastProcessedTimestamp = 0;
-    
-    let dragActive = false, dragElement = null, dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragStartTop = 0;
-    let resizeActive = false, resizeElement = null, resizeDir = null, resizeStartX = 0, resizeStartY = 0;
-    let resizeStartW = 0, resizeStartH = 0, resizeStartL = 0, resizeStartT = 0;
-    let rotateActive = false, rotateElement = null, rotateStartAngle = 0, rotateCurrentRot = 0, rotateCenterX = 0, rotateCenterY = 0;
-    let cropActive = false, cropOverlay = null, cropElement = null, cropType = null;
-    let cropStartW = 0, cropStartH = 0, cropStartX = 0, cropStartY = 0;
-    let mouseDown = false;
-    let progressInterval = null;
-    let audioElement = document.getElementById('audio-element');
-    
-    function loadVoices() {
-        availableVoices = window.speechSynthesis.getVoices();
-        const select = document.getElementById('tts-voice-select');
-        if (select && availableVoices.length > 0) {
-            const currentValue = select.value;
-            select.innerHTML = '<option value="">🌐 Голос по умолчанию</option>';
-            
-            const russianVoices = availableVoices.filter(v => v.lang.startsWith('ru'));
-            const otherVoices = availableVoices.filter(v => !v.lang.startsWith('ru'));
-            
-            [...russianVoices, ...otherVoices].forEach(voice => {
-                const option = document.createElement('option');
-                option.value = voice.name + '|' + voice.lang;
-                let flag = voice.lang.startsWith('ru') ? '🇷🇺 ' : '';
-                option.textContent = `${flag}${voice.name} (${voice.lang})`;
-                select.appendChild(option);
-            });
-            
-            if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
-                select.value = currentValue;
-            }
-        }
-    }
-    
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-        loadVoices();
-        setTimeout(loadVoices, 500);
-    }
-    
-    // --- ГЛАВНАЯ ФУНКЦИЯ: поиск голоса ---
-    function findVoice(voiceName, voiceLang) {
-        console.log('🔍 Ищем голос:', voiceName, voiceLang);
-        
-        if (availableVoices.length === 0) {
-            console.log('❌ Нет голосов');
-            return null;
-        }
-        
-        // 1. Пытаемся найти точное совпадение по имени
-        if (voiceName) {
-            let found = availableVoices.find(v => v.name === voiceName);
-            if (found) {
-                console.log('✅ Найден точный голос по имени:', found.name);
-                return found;
-            }
-            
-            // Ищем частичное совпадение по имени (без учета регистра)
-            const nameLower = voiceName.toLowerCase();
-            found = availableVoices.find(v => v.name.toLowerCase().includes(nameLower) || nameLower.includes(v.name.toLowerCase()));
-            if (found) {
-                console.log('✅ Найден похожий голос по имени:', found.name);
-                return found;
-            }
-        }
-        
-        // 2. Ищем по языку
-        if (voiceLang) {
-            // Точное совпадение языка
-            let found = availableVoices.find(v => v.lang === voiceLang);
-            if (found) {
-                console.log('✅ Найден голос по точному языку:', found.name);
-                return found;
-            }
-            
-            // Частичное совпадение (ru -> ru-RU)
-            const prefix = voiceLang.split('-')[0];
-            found = availableVoices.find(v => v.lang.startsWith(prefix));
-            if (found) {
-                console.log('✅ Найден голос по частичному языку:', found.name);
-                return found;
-            }
-        }
-        
-        // 3. Ищем русский голос
-        const ru = availableVoices.find(v => v.lang.startsWith('ru'));
-        if (ru) {
-            console.log('✅ Используем русский голос:', ru.name);
-            return ru;
-        }
-        
-        // 4. Берем первый доступный
-        console.log('✅ Используем первый доступный голос:', availableVoices[0].name);
-        return availableVoices[0];
-    }
-    
-    function stopLocalSpeaking() {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            currentUtterance = null;
-            isSpeaking = false;
-            speechQueue = [];
-        }
-    }
-    
-    function processQueue() {
-        if (speechQueue.length === 0 || isSpeaking) return;
-        
-        const item = speechQueue.shift();
-        isSpeaking = true;
-        
-        const utterance = new SpeechSynthesisUtterance(item.text);
-        utterance.lang = item.language || 'ru-RU';
-        utterance.rate = item.rate;
-        utterance.volume = item.volume;
-        utterance.pitch = item.pitch;
-        
-        // Ищем голос
-        const voice = findVoice(item.voiceName, item.language);
-        if (voice) {
-            utterance.voice = voice;
-            console.log('🎤 ИСПОЛЬЗУЕТСЯ ГОЛОС:', voice.name, voice.lang);
-        } else {
-            console.log('⚠️ Голос не найден, используем системный');
-        }
-        
-        utterance.onstart = () => {
-            document.getElementById('status').innerHTML = '🔊 Озвучивание...';
-            document.getElementById('status').style.background = '#e3f2fd';
-            document.getElementById('status').style.color = '#0d47a1';
-        };
-        
-        utterance.onend = () => {
-            isSpeaking = false;
-            document.getElementById('status').innerHTML = '✅ Готово';
-            document.getElementById('status').style.background = '#e8f5e9';
-            document.getElementById('status').style.color = '#2e7d32';
-            currentUtterance = null;
-            processQueue();
-        };
-        
-        utterance.onerror = (e) => {
-            console.error('Speech error:', e);
-            isSpeaking = false;
-            currentUtterance = null;
-            document.getElementById('status').innerHTML = '✅ Готово';
-            processQueue();
-        };
-        
-        currentUtterance = utterance;
-        window.speechSynthesis.speak(utterance);
-    }
-    
-    function speakTextLocally(text, voiceName, language, volume, rate, pitch) {
-        if (!text || text.trim() === "") return;
-        if (!('speechSynthesis' in window)) return;
-        
-        console.log('📢 Локальное озвучивание:', { text, voiceName, language });
-        
-        speechQueue.push({
-            text: text,
-            voiceName: voiceName,
-            language: language || 'ru-RU',
-            volume: volume || 1,
-            rate: rate || 0.9,
-            pitch: pitch || 1.0
-        });
-        
-        processQueue();
-    }
-    
-    // --- Отправка команды на озвучку ВСЕМ ---
-    function broadcastSpeak(text, voiceData, volume, rate, pitch) {
-        if (!text || text.trim() === "") {
-            alert("Введите текст для озвучивания");
-            return;
-        }
-        
-        let voiceName = '';
-        let language = 'ru-RU';
-        
-        // Разбираем voiceData (формат: имя|язык)
-        if (voiceData && voiceData.includes('|')) {
-            const parts = voiceData.split('|');
-            voiceName = parts[0] || '';
-            language = parts[1] || 'ru-RU';
-        } else if (voiceData) {
-            voiceName = voiceData;
-            // Ищем голос по имени, чтобы получить язык
-            const found = availableVoices.find(v => v.name === voiceName);
-            if (found) {
-                language = found.lang;
-            }
-        }
-        
-        console.log('📤 ОТПРАВКА ВСЕМ:', { text, voiceName, language, volume, rate, pitch });
-        
-        syncTTSRef.set({
-            action: 'speak',
-            text: text,
-            voiceName: voiceName,
-            language: language,
-            volume: volume,
-            rate: rate,
-            pitch: pitch,
-            timestamp: Date.now()
-        });
-    }
-    
-    function broadcastStop() {
-        console.log('⏹ Остановка для всех');
-        syncTTSRef.set({
-            action: 'stop',
-            timestamp: Date.now()
-        });
-    }
-    
-    // --- Слушаем команды из Firebase ---
-    syncTTSRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        console.log('📥 ПОЛУЧЕНО ИЗ FIREBASE:', data);
-        
-        // Проверяем, не было ли уже обработано
-        if (data.timestamp && data.timestamp <= lastProcessedTimestamp) {
-            console.log('⏭️ Пропускаем (уже обработано)');
-            return;
-        }
-        
-        if (data.action === 'speak' && data.text) {
-            if (data.timestamp) {
-                lastProcessedTimestamp = data.timestamp;
-            }
-            console.log('🔊 ВОСПРОИЗВЕДЕНИЕ У ВСЕХ с голосом:', data.voiceName, data.language);
-            speakTextLocally(
-                data.text,
-                data.voiceName || '',
-                data.language || 'ru-RU',
-                data.volume || 1,
-                data.rate || 0.9,
-                data.pitch || 1.0
-            );
-        } else if (data.action === 'stop') {
-            if (data.timestamp) {
-                lastProcessedTimestamp = data.timestamp;
-            }
-            stopLocalSpeaking();
-        }
-    });
-    
-    function createId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    
-    function updateCanvasSize() {
-        const wrapper = document.getElementById('canvas-wrapper');
-        if (wrapper) {
-            canvasRect.width = wrapper.clientWidth;
-            canvasRect.height = wrapper.clientHeight;
-        }
-    }
-    
-    function applyTransform(el) {
-        let transform = '';
-        let rot = el.dataset.rotation || 0;
-        if (rot != 0) transform += `rotate(${rot}deg) `;
-        if (el.dataset.flipH === 'true') transform += 'scaleX(-1) ';
-        if (el.dataset.flipV === 'true') transform += 'scaleY(-1) ';
-        el.style.transform = transform.trim();
-    }
-    
-    function playSoundSync(soundId) {
-        if (!soundId || !sounds[soundId]) return;
-        syncSoundRef.set({
-            soundId: soundId,
-            action: 'play',
-            timestamp: Date.now(),
-            volume: sounds[soundId].volume || 100
-        });
-    }
-    
-    function pauseSoundSync() {
-        syncSoundRef.set({ action: 'pause', timestamp: Date.now() });
-    }
-    
-    syncSoundRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        if (data.action === 'play' && data.soundId && sounds[data.soundId]) {
-            audioElement.src = sounds[data.soundId].src;
-            audioElement.volume = (data.volume || 100) / 100;
-            audioElement.currentTime = 0;
-            audioElement.play().catch(e => console.log(e));
-            if (progressInterval) clearInterval(progressInterval);
-            progressInterval = setInterval(() => {
-                if (audioElement.paused || audioElement.ended) {
-                    if (audioElement.ended) {
-                        document.getElementById('sound-progress').style.width = '0%';
-                        clearInterval(progressInterval);
-                    }
-                } else {
-                    let percent = (audioElement.currentTime / audioElement.duration) * 100;
-                    document.getElementById('sound-progress').style.width = percent + '%';
-                }
-            }, 100);
-        } else if (data.action === 'pause') {
-            audioElement.pause();
-            if (progressInterval) clearInterval(progressInterval);
-        }
-    });
-    
-    let moveFrame = null;
-    document.addEventListener('mousemove', (e) => {
-        if (!mouseDown) return;
-        if (moveFrame) cancelAnimationFrame(moveFrame);
-        moveFrame = requestAnimationFrame(() => {
-            if (dragActive && dragElement) {
-                let newLeft = dragStartLeft + (e.clientX - dragStartX);
-                let newTop = dragStartTop + (e.clientY - dragStartY);
-                newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
-                newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
-                dragElement.style.left = newLeft + 'px';
-                dragElement.style.top = newTop + 'px';
-                const id = dragElement.id;
-                if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
-                else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
-                else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
-            }
-            if (resizeActive && resizeElement && !cropActive) {
-                let dx = e.clientX - resizeStartX;
-                let dy = e.clientY - resizeStartY;
-                let newW = resizeStartW, newH = resizeStartH, newL = resizeStartL, newT = resizeStartT;
-                switch(resizeDir) {
-                    case 'e': newW = Math.max(50, resizeStartW + dx); break;
-                    case 'w': newW = Math.max(50, resizeStartW - dx); newL = resizeStartL + (resizeStartW - newW); break;
-                    case 's': newH = Math.max(50, resizeStartH + dy); break;
-                    case 'n': newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
-                    case 'se': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH + dy); break;
-                    case 'sw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH + dy); newL = resizeStartL + (resizeStartW - newW); break;
-                    case 'ne': newW = Math.max(50, resizeStartW + dx); newH = Math.max(50, resizeStartH - dy); newT = resizeStartT + (resizeStartH - newH); break;
-                    case 'nw': newW = Math.max(50, resizeStartW - dx); newH = Math.max(50, resizeStartH - dy); newL = resizeStartL + (resizeStartW - newW); newT = resizeStartT + (resizeStartH - newH); break;
-                }
-                newL = Math.max(0, Math.min(newL, canvasRect.width - newW));
-                newT = Math.max(0, Math.min(newT, canvasRect.height - newH));
-                resizeElement.style.width = newW + 'px';
-                resizeElement.style.height = newH + 'px';
-                resizeElement.style.left = newL + 'px';
-                resizeElement.style.top = newT + 'px';
-            }
-            if (rotateActive && rotateElement) {
-                let currX = e.clientX;
-                let currY = e.clientY;
-                let currAngle = Math.atan2(currY - rotateCenterY, currX - rotateCenterX) * 180 / Math.PI;
-                let delta = currAngle - rotateStartAngle;
-                let newRot = rotateCurrentRot + delta;
-                rotateElement.dataset.rotation = newRot;
-                applyTransform(rotateElement);
-                const id = rotateElement.id;
-                if (images[id]) imagesRef.child(id).update({ rotation: newRot });
-                if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
-            }
-            if (cropActive && cropOverlay && resizeElement) {
-                let dx = e.clientX - cropStartX;
-                let dy = e.clientY - cropStartY;
-                let newW = Math.max(30, cropStartW + dx);
-                let newH = Math.max(30, cropStartH + dy);
-                cropOverlay.style.width = newW + 'px';
-                cropOverlay.style.height = newH + 'px';
-            }
-            moveFrame = null;
-        });
-    });
-    
-    document.addEventListener('mouseup', () => {
-        if (!mouseDown) return;
-        mouseDown = false;
-        if (resizeActive && resizeElement && !cropActive) {
-            const id = resizeElement.id;
-            let newL = parseFloat(resizeElement.style.left);
-            let newT = parseFloat(resizeElement.style.top);
-            let newW = parseFloat(resizeElement.style.width);
-            let newH = parseFloat(resizeElement.style.height);
-            if (images[id]) imagesRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-            else if (widgets[id]) widgetsRef.child(id).update({ x: newL, y: newT, width: newW, height: newH });
-        }
-        dragActive = false;
-        resizeActive = false;
-        rotateActive = false;
-        dragElement = null;
-        resizeElement = null;
-        rotateElement = null;
-        if (moveFrame) cancelAnimationFrame(moveFrame);
-    });
-    
-    document.addEventListener('touchmove', (e) => {
-        if (!mouseDown) return;
-        if (dragActive && dragElement) {
-            e.preventDefault();
-            const touch = e.touches[0];
-            let newLeft = dragStartLeft + (touch.clientX - dragStartX);
-            let newTop = dragStartTop + (touch.clientY - dragStartY);
-            newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - dragElement.offsetWidth));
-            newTop = Math.max(0, Math.min(newTop, canvasRect.height - dragElement.offsetHeight));
-            dragElement.style.left = newLeft + 'px';
-            dragElement.style.top = newTop + 'px';
-            const id = dragElement.id;
-            if (images[id]) imagesRef.child(id).update({ x: newLeft, y: newTop });
-            else if (texts[id]) textsRef.child(id).update({ x: newLeft, y: newTop });
-            else if (widgets[id]) widgetsRef.child(id).update({ x: newLeft, y: newTop });
-        }
-    });
-    document.addEventListener('touchend', () => {
-        mouseDown = false;
-        dragActive = false;
-        resizeActive = false;
-        rotateActive = false;
-        dragElement = null;
-        resizeElement = null;
-        rotateElement = null;
-    });
-    
-    function makeDraggable(el) {
-        el.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
-            if (el.classList.contains('locked')) return;
-            if (resizeActive || rotateActive) return;
-            e.preventDefault();
-            e.stopPropagation();
-            mouseDown = true;
-            if (el.id.startsWith('img')) selectImage(el.id);
-            else if (el.id.startsWith('text')) selectText(el.id);
-            else if (el.id.startsWith('widget')) selectWidget(el.id);
-            dragActive = true;
-            dragElement = el;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            dragStartLeft = parseFloat(el.style.left) || 0;
-            dragStartTop = parseFloat(el.style.top) || 0;
-        });
-        el.addEventListener('touchstart', (e) => {
-            if (e.target.classList.contains('resize-handle') || e.target.classList.contains('rotate-corner')) return;
-            if (el.classList.contains('locked')) return;
-            e.preventDefault();
-            e.stopPropagation();
-            mouseDown = true;
-            if (el.id.startsWith('img')) selectImage(el.id);
-            else if (el.id.startsWith('text')) selectText(el.id);
-            else if (el.id.startsWith('widget')) selectWidget(el.id);
-            dragActive = true;
-            dragElement = el;
-            const touch = e.touches[0];
-            dragStartX = touch.clientX;
-            dragStartY = touch.clientY;
-            dragStartLeft = parseFloat(el.style.left) || 0;
-            dragStartTop = parseFloat(el.style.top) || 0;
-        });
-    }
-    
-    function addResizeHandles(el) {
-        const dirs = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
-        dirs.forEach(dir => {
-            let handle = document.createElement('div');
-            handle.className = `resize-handle resize-${dir}`;
-            handle.addEventListener('mousedown', (e) => {
-                if (el.classList.contains('locked')) return;
-                e.stopPropagation();
-                e.preventDefault();
-                mouseDown = true;
-                resizeActive = true;
-                resizeElement = el;
-                resizeDir = dir;
-                resizeStartX = e.clientX;
-                resizeStartY = e.clientY;
-                resizeStartW = el.offsetWidth;
-                resizeStartH = el.offsetHeight;
-                resizeStartL = parseFloat(el.style.left) || 0;
-                resizeStartT = parseFloat(el.style.top) || 0;
-                if (cropActive && cropOverlay) {
-                    cropStartX = e.clientX;
-                    cropStartY = e.clientY;
-                    cropStartW = parseFloat(cropOverlay.style.width) || resizeStartW;
-                    cropStartH = parseFloat(cropOverlay.style.height) || resizeStartH;
-                }
-            });
-            handle.addEventListener('touchstart', (e) => {
-                if (el.classList.contains('locked')) return;
-                e.stopPropagation();
-                e.preventDefault();
-                mouseDown = true;
-                resizeActive = true;
-                resizeElement = el;
-                resizeDir = dir;
-                const touch = e.touches[0];
-                resizeStartX = touch.clientX;
-                resizeStartY = touch.clientY;
-                resizeStartW = el.offsetWidth;
-                resizeStartH = el.offsetHeight;
-                resizeStartL = parseFloat(el.style.left) || 0;
-                resizeStartT = parseFloat(el.style.top) || 0;
-            });
-            el.appendChild(handle);
-        });
-    }
-    
-    function addRotateHandle(el) {
-        let rot = document.createElement('div');
-        rot.className = 'rotate-corner';
-        rot.innerHTML = '↻';
-        rot.addEventListener('mousedown', (e) => {
-            if (el.classList.contains('locked')) return;
-            e.stopPropagation();
-            e.preventDefault();
-            mouseDown = true;
-            rotateActive = true;
-            rotateElement = el;
-            let rect = el.getBoundingClientRect();
-            rotateCenterX = rect.left + rect.width / 2;
-            rotateCenterY = rect.top + rect.height / 2;
-            rotateStartAngle = Math.atan2(e.clientY - rotateCenterY, e.clientX - rotateCenterX) * 180 / Math.PI;
-            rotateCurrentRot = parseFloat(el.dataset.rotation) || 0;
-            function stopRotate() {
-                mouseDown = false;
-                rotateActive = false;
-                rotateElement = null;
-                document.removeEventListener('mousemove', onRotate);
-                document.removeEventListener('mouseup', stopRotate);
-            }
-            function onRotate(moveEv) {
-                if (!mouseDown || !rotateElement) return;
-                let currX = moveEv.clientX;
-                let currY = moveEv.clientY;
-                let currAngle = Math.atan2(currY - rotateCenterY, currX - rotateCenterX) * 180 / Math.PI;
-                let delta = currAngle - rotateStartAngle;
-                let newRot = rotateCurrentRot + delta;
-                rotateElement.dataset.rotation = newRot;
-                applyTransform(rotateElement);
-                const id = rotateElement.id;
-                if (images[id]) imagesRef.child(id).update({ rotation: newRot });
-                if (widgets[id]) widgetsRef.child(id).update({ rotation: newRot });
-            }
-            document.addEventListener('mousemove', onRotate);
-            document.addEventListener('mouseup', stopRotate);
-        });
-        el.appendChild(rot);
-    }
-    
-    function selectImage(id) { deselectAll(); selectedImageId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('image-controls').style.display = 'flex'; document.getElementById('lock-btn').textContent = el.classList.contains('locked') ? '🔓 Открепить' : '🔒 Закрепить'; } updateThumbnails(); }
-    function selectText(id) { deselectAll(); selectedTextId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('text-controls').style.display = 'flex'; } updateThumbnails(); }
-    function selectWidget(id) { deselectAll(); selectedWidgetId = id; let el = document.getElementById(id); if(el) { el.classList.add('selected'); document.getElementById('widget-controls').style.display = 'flex'; } updateThumbnails(); }
-    function selectSound(id) { deselectAll(); selectedSoundId = id; document.getElementById('sound-controls').style.display = 'flex'; updateThumbnails(); }
-    
-    function deselectAll() {
-        document.querySelectorAll('.selected').forEach(e => e.classList.remove('selected'));
-        document.getElementById('image-controls').style.display = 'none';
-        document.getElementById('text-controls').style.display = 'none';
-        document.getElementById('sound-controls').style.display = 'none';
-        document.getElementById('widget-controls').style.display = 'none';
-        selectedImageId = selectedTextId = selectedSoundId = selectedWidgetId = null;
-    }
-    
-    function toggleVisibility(id, type) {
-        let el = document.getElementById(id);
-        if (!el) return;
-        let newDisplay = el.style.display === 'none' ? 'block' : 'none';
-        el.style.display = newDisplay;
-        if (type === 'image') imagesRef.child(id).update({ display: newDisplay });
-        else if (type === 'text') textsRef.child(id).update({ display: newDisplay });
-        else if (type === 'widget') widgetsRef.child(id).update({ display: newDisplay });
-        else if (type === 'sound') soundsRef.child(id).update({ display: newDisplay });
-        updateThumbnails();
-    }
-    
-    function deleteElement(id, type) {
-        if (type === 'image') imagesRef.child(id).remove();
-        else if (type === 'text') textsRef.child(id).remove();
-        else if (type === 'widget') widgetsRef.child(id).remove();
-        else if (type === 'sound') soundsRef.child(id).remove();
-        const el = document.getElementById(id);
-        if (el) el.remove();
-        if (selectedImageId === id || selectedTextId === id || selectedWidgetId === id || selectedSoundId === id) deselectAll();
-        updateThumbnails();
-    }
-    
-    function createThumbnail(id, type, preview, name) {
-        const thumb = document.createElement('div');
-        thumb.className = 'thumbnail';
-        const data = images[id] || texts[id] || widgets[id] || sounds[id];
-        if (data && data.display === 'none') thumb.classList.add('thumbnail-hidden');
-        const previewDiv = document.createElement('div');
-        if (type === 'image') {
-            const img = document.createElement('img');
-            img.src = preview;
-            previewDiv.appendChild(img);
-        } else {
-            previewDiv.className = type === 'text' ? 'text-thumbnail' : (type === 'widget' ? 'widget-thumbnail' : 'sound-thumbnail');
-            previewDiv.textContent = name ? name.substring(0, 6) : (type === 'text' ? '📝' : (type === 'widget' ? '🧩' : '🔊'));
-        }
-        thumb.appendChild(previewDiv);
-        const eyeBtn = document.createElement('div');
-        eyeBtn.className = 'thumbnail-eye' + (data && data.display === 'none' ? ' hidden' : '');
-        eyeBtn.textContent = data && data.display === 'none' ? '👁‍🗨' : '👁';
-        eyeBtn.onclick = (e) => { e.stopPropagation(); toggleVisibility(id, type); };
-        thumb.appendChild(eyeBtn);
-        const delBtn = document.createElement('div');
-        delBtn.className = 'thumbnail-delete';
-        delBtn.textContent = '✕';
-        delBtn.onclick = (e) => { e.stopPropagation(); deleteElement(id, type); };
-        thumb.appendChild(delBtn);
-        thumb.onclick = () => {
-            if (type === 'image') selectImage(id);
-            else if (type === 'text') selectText(id);
-            else if (type === 'widget') selectWidget(id);
-            else if (type === 'sound') selectSound(id);
-        };
-        return thumb;
-    }
-    
-    function updateThumbnails() {
-        const container = document.getElementById('thumbnails');
-        container.innerHTML = '';
-        for (const id in images) container.appendChild(createThumbnail(id, 'image', images[id].src, null));
-        for (const id in texts) container.appendChild(createThumbnail(id, 'text', null, texts[id].text));
-        for (const id in widgets) container.appendChild(createThumbnail(id, 'widget', null, widgets[id].name));
-        for (const id in sounds) container.appendChild(createThumbnail(id, 'sound', null, sounds[id].name));
-    }
-    
-    function addWidgetByUrl(url, name, width, height, customCss) {
-        if (!url) return alert('Введите URL');
-        const finalUrl = url.startsWith('http') ? url : 'https://' + url;
-        const id = createId('widget');
-        widgetsRef.child(id).set({
-            id, url: finalUrl, name: name || 'Виджет',
-            x: 50, y: 50, width: width || 400, height: height || 300,
-            opacity: 1, locked: false, display: 'block', customCss: customCss || ''
-        });
-        closeModal('widget-modal');
-    }
-    
-    function applyWidgetCss(el, css) {
-        if (!el || !css) return;
-        el.style.cssText = css + '; position: absolute; left: ' + el.style.left + '; top: ' + el.style.top + '; width: ' + el.style.width + '; height: ' + el.style.height + '; opacity: ' + el.style.opacity + '; display: ' + el.style.display + '; overflow: hidden; cursor: grab; touch-action: none; pointer-events: auto; box-sizing: border-box; transform-origin: center center;';
-    }
-    
-    function syncElements() {
-        updateCanvasSize();
-        document.querySelectorAll('.draggable-image, .draggable-text, .draggable-widget').forEach(el => {
-            const id = el.id;
-            if (!images[id] && !texts[id] && !widgets[id]) {
-                el.remove();
-            }
-        });
-        for (const id in images) {
-            const data = images[id];
-            let el = document.getElementById(id);
-            if (!el) {
-                el = document.createElement('div');
-                el.id = id;
-                el.className = 'draggable-image';
-                const img = document.createElement('img');
-                img.src = data.src;
-                el.appendChild(img);
-                document.getElementById('images-layer').appendChild(el);
-                addResizeHandles(el);
-                addRotateHandle(el);
-                makeDraggable(el);
-            }
-            el.style.left = data.x + 'px';
-            el.style.top = data.y + 'px';
-            el.style.width = data.width + 'px';
-            el.style.height = data.height + 'px';
-            el.style.opacity = data.opacity || 1;
-            el.style.filter = `brightness(${data.brightness || 100}%)`;
-            el.style.display = data.display === 'none' ? 'none' : 'block';
-            if (data.locked) el.classList.add('locked');
-            else el.classList.remove('locked');
-            if (data.rotation) el.dataset.rotation = data.rotation;
-            if (data.flipHorizontal) el.dataset.flipH = 'true';
-            if (data.flipVertical) el.dataset.flipV = 'true';
-            applyTransform(el);
-        }
-        for (const id in texts) {
-            const data = texts[id];
-            let el = document.getElementById(id);
-            if (!el) {
-                el = document.createElement('div');
-                el.id = id;
-                el.className = 'draggable-text';
-                el.textContent = data.text;
-                document.getElementById('texts-layer').appendChild(el);
-                addResizeHandles(el);
-                makeDraggable(el);
-                el.ondblclick = () => editText(id);
-            }
-            el.textContent = data.text;
-            el.style.left = data.x + 'px';
-            el.style.top = data.y + 'px';
-            el.style.fontSize = data.fontSize + 'px';
-            el.style.color = data.color;
-            el.style.fontFamily = data.fontFamily;
-            el.style.display = data.display === 'none' ? 'none' : 'block';
-            el.style.background = 'transparent';
-            el.style.border = 'none';
-            if (data.locked) el.classList.add('locked');
-            else el.classList.remove('locked');
-        }
-        for (const id in widgets) {
-            const data = widgets[id];
-            let el = document.getElementById(id);
-            if (!el) {
-                el = document.createElement('div');
-                el.id = id;
-                el.className = 'draggable-widget';
-                el.innerHTML = `<iframe src="${data.url.replace(/&/g, '&amp;')}" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation" style="width:100%; height:100%; border:none; background:white;"></iframe><div class="widget-error" style="display:none;"><span>⚠️</span><div>Не удалось загрузить</div><button class="retry-widget" style="margin-top:8px;">🔄 Повторить</button></div>`;
-                document.getElementById('widgets-layer').appendChild(el);
-                addResizeHandles(el);
-                makeDraggable(el);
-                el.querySelector('.retry-widget')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const iframe = el.querySelector('iframe');
-                    if (iframe) iframe.src = iframe.src;
-                    el.querySelector('.widget-error').style.display = 'none';
-                });
-            }
-            el.style.left = data.x + 'px';
-            el.style.top = data.y + 'px';
-            el.style.width = data.width + 'px';
-            el.style.height = data.height + 'px';
-            el.style.opacity = data.opacity || 1;
-            el.style.display = data.display === 'none' ? 'none' : 'block';
-            el.style.overflow = 'hidden';
-            if (data.customCss) applyWidgetCss(el, data.customCss);
-            if (data.locked) el.classList.add('locked');
-            else el.classList.remove('locked');
-        }
-        updateThumbnails();
-    }
-    
-    function editText(id) {
-        const data = texts[id];
-        if (!data) return;
-        document.getElementById('text-input-area').value = data.text;
-        document.getElementById('font-size-slider').value = data.fontSize;
-        document.getElementById('text-color-picker').value = data.color;
-        document.getElementById('font-family-select').value = data.fontFamily;
-        document.getElementById('text-modal').style.display = 'block';
-        const oldApply = document.getElementById('apply-text-simple').onclick;
-        document.getElementById('apply-text-simple').onclick = () => {
-            const newText = document.getElementById('text-input-area').value.trim();
-            if (newText) {
-                textsRef.child(id).update({
-                    text: newText,
-                    fontSize: parseInt(document.getElementById('font-size-slider').value),
-                    color: document.getElementById('text-color-picker').value,
-                    fontFamily: document.getElementById('font-family-select').value
-                });
-            }
-            document.getElementById('text-modal').style.display = 'none';
-            document.getElementById('apply-text-simple').onclick = oldApply;
-        };
-    }
-    
-    imagesRef.on('value', s => { images = s.val() || {}; syncElements(); });
-    textsRef.on('value', s => { texts = s.val() || {}; syncElements(); });
-    widgetsRef.on('value', s => { widgets = s.val() || {}; syncElements(); });
-    soundsRef.on('value', s => { sounds = s.val() || {}; updateThumbnails(); });
-    savedWidgetsRef.on('value', s => { savedWidgets = s.val() || {}; updateSavedList(); });
-    
-    function updateSavedList() {
-        const list = document.getElementById('saved-widgets-list');
-        if (list) {
-            list.innerHTML = '';
-            Object.values(savedWidgets).forEach(w => {
-                const div = document.createElement('div');
-                div.className = 'saved-widget-item';
-                div.innerHTML = `<span style="flex:1;">${w.name || 'Виджет'}</span><button class="add-saved-widget" style="background:#4caf50;">+</button>`;
-                div.querySelector('button').onclick = () => addWidgetByUrl(w.url, w.name, w.width, w.height, w.customCss);
-                list.appendChild(div);
-            });
-        }
-    }
-    
-    document.getElementById('tts-volume').addEventListener('input', (e) => {
-        document.getElementById('volume-value').textContent = e.target.value;
-    });
-    document.getElementById('tts-rate').addEventListener('input', (e) => {
-        document.getElementById('rate-value').textContent = e.target.value;
-    });
-    document.getElementById('tts-pitch').addEventListener('input', (e) => {
-        document.getElementById('pitch-value').textContent = e.target.value;
-    });
-    
-    document.getElementById('tts-button').onclick = () => {
-        document.getElementById('tts-text-input').value = '';
-        document.getElementById('tts-modal').style.display = 'block';
-        loadVoices();
-    };
-    
-    document.getElementById('tts-speak-sync-btn').onclick = () => {
-        const text = document.getElementById('tts-text-input').value;
-        const voiceData = document.getElementById('tts-voice-select').value;
-        const volume = document.getElementById('tts-volume').value / 100;
-        const rate = parseFloat(document.getElementById('tts-rate').value);
-        const pitch = parseFloat(document.getElementById('tts-pitch').value);
-        broadcastSpeak(text, voiceData, volume, rate, pitch);
-        closeModal('tts-modal');
-    };
-    
-    document.getElementById('tts-stop-sync-btn').onclick = () => {
-        broadcastStop();
-        closeModal('tts-modal');
-    };
-    
-    document.getElementById('tts-preview-btn').onclick = () => {
-        const text = document.getElementById('tts-text-input').value;
-        const voiceData = document.getElementById('tts-voice-select').value;
-        const volume = document.getElementById('tts-volume').value / 100;
-        const rate = parseFloat(document.getElementById('tts-rate').value);
-        const pitch = parseFloat(document.getElementById('tts-pitch').value);
-        let voiceName = '';
-        let language = 'ru-RU';
-        if (voiceData && voiceData.includes('|')) {
-            const parts = voiceData.split('|');
-            voiceName = parts[0] || '';
-            language = parts[1] || 'ru-RU';
-        }
-        speakTextLocally(text, voiceName, language, volume, rate, pitch);
-    };
-    
-    document.getElementById('add-text-btn').onclick = () => {
-        document.getElementById('text-input-area').value = '';
-        document.getElementById('font-size-slider').value = 24;
-        document.getElementById('text-color-picker').value = '#ffffff';
-        document.getElementById('text-modal').style.display = 'block';
-        document.getElementById('apply-text-simple').onclick = () => {
-            const txt = document.getElementById('text-input-area').value.trim();
-            if (txt) {
-                const id = createId('text');
-                textsRef.child(id).set({
-                    id, text: txt, x: 50, y: 50,
-                    fontSize: parseInt(document.getElementById('font-size-slider').value),
-                    color: document.getElementById('text-color-picker').value,
-                    fontFamily: document.getElementById('font-family-select').value,
-                    display: 'block', locked: false
-                });
-            }
-            document.getElementById('text-modal').style.display = 'none';
-        };
-    };
-    
-    document.getElementById('add-widget-btn').onclick = () => {
-        document.getElementById('widget-url-input').value = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
-        document.getElementById('widget-css-input').value = '';
-        document.getElementById('widget-modal').style.display = 'block';
-    };
-    document.getElementById('add-widget-direct-btn').onclick = () => {
-        const url = document.getElementById('widget-url-input').value.trim();
-        const name = document.getElementById('widget-name-input').value.trim();
-        const w = parseInt(document.getElementById('widget-width-input').value) || 400;
-        const h = parseInt(document.getElementById('widget-height-input').value) || 300;
-        const css = document.getElementById('widget-css-input').value;
-        addWidgetByUrl(url, name, w, h, css);
-    };
-    document.getElementById('save-widget-btn').onclick = () => {
-        const url = document.getElementById('widget-url-input').value.trim();
-        if (url) {
-            savedWidgetsRef.push({
-                url, name: document.getElementById('widget-name-input').value.trim() || 'Виджет',
-                width: parseInt(document.getElementById('widget-width-input').value) || 400,
-                height: parseInt(document.getElementById('widget-height-input').value) || 300,
-                customCss: document.getElementById('widget-css-input').value
-            });
-            alert('Виджет сохранен!');
-        } else alert('Введите URL');
-    };
-    
-    document.querySelectorAll('.quick-widget-btn').forEach(btn => {
-        btn.onclick = () => addWidgetByUrl(btn.dataset.url, btn.dataset.name, parseInt(btn.dataset.w), parseInt(btn.dataset.h), '');
-    });
-    
-    document.querySelectorAll('.widgets-tab').forEach(tab => {
-        tab.onclick = () => {
-            document.querySelectorAll('.widgets-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.widgets-content').forEach(c => c.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById(tab.dataset.tab + '-widget-content').classList.add('active');
-        };
-    });
-    
-    document.getElementById('file-input').onchange = e => {
-        const f = e.target.files[0];
-        if (f) {
-            const r = new FileReader();
-            r.onload = ev => {
-                const img = new Image();
-                img.onload = () => {
-                    const id = createId('img');
-                    imagesRef.child(id).set({
-                        id, src: ev.target.result, x: 50, y: 50,
-                        width: Math.min(400, img.width), height: Math.min(300, img.height),
-                        opacity: 1, brightness: 100, display: 'block', locked: false
-                    });
-                };
-                img.src = ev.target.result;
-            };
-            r.readAsDataURL(f);
-        }
-    };
-    
-    document.getElementById('sound-input').onchange = e => {
-        const f = e.target.files[0];
-        if (f) {
-            const r = new FileReader();
-            r.onload = ev => {
-                const id = createId('sound');
-                soundsRef.child(id).set({ id, src: ev.target.result, name: f.name, volume: 100, display: 'block' });
-            };
-            r.readAsDataURL(f);
-        }
-    };
-    
-    document.getElementById('clear-btn').onclick = () => { if(confirm('Очистить всё?')) { imagesRef.remove(); textsRef.remove(); soundsRef.remove(); widgetsRef.remove(); } };
-    document.getElementById('delete-btn').onclick = () => { if(selectedImageId) imagesRef.child(selectedImageId).remove(); deselectAll(); };
-    document.getElementById('delete-text-btn').onclick = () => { if(selectedTextId) textsRef.child(selectedTextId).remove(); deselectAll(); };
-    document.getElementById('delete-widget-btn').onclick = () => { if(selectedWidgetId) widgetsRef.child(selectedWidgetId).remove(); deselectAll(); };
-    document.getElementById('delete-sound-btn').onclick = () => { if(selectedSoundId) soundsRef.child(selectedSoundId).remove(); deselectAll(); };
-    document.getElementById('hide-btn').onclick = () => { if(selectedImageId) toggleVisibility(selectedImageId, 'image'); };
-    document.getElementById('hide-text-btn').onclick = () => { if(selectedTextId) toggleVisibility(selectedTextId, 'text'); };
-    document.getElementById('hide-widget-btn').onclick = () => { if(selectedWidgetId) toggleVisibility(selectedWidgetId, 'widget'); };
-    document.getElementById('lock-btn').onclick = () => { if(selectedImageId) { const el = document.getElementById(selectedImageId); const locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); imagesRef.child(selectedImageId).update({ locked }); } };
-    document.getElementById('lock-text-btn').onclick = () => { if(selectedTextId) { const el = document.getElementById(selectedTextId); const locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); textsRef.child(selectedTextId).update({ locked }); } };
-    document.getElementById('lock-widget-btn').onclick = () => { if(selectedWidgetId) { const el = document.getElementById(selectedWidgetId); const locked = !el.classList.contains('locked'); el.classList.toggle('locked', locked); widgetsRef.child(selectedWidgetId).update({ locked }); } };
-    document.getElementById('flip-h-btn').onclick = () => { if(selectedImageId) { const el = document.getElementById(selectedImageId); const val = el.dataset.flipH === 'true'; el.dataset.flipH = (!val).toString(); applyTransform(el); imagesRef.child(selectedImageId).update({ flipHorizontal: !val }); } };
-    document.getElementById('flip-v-btn').onclick = () => { if(selectedImageId) { const el = document.getElementById(selectedImageId); const val = el.dataset.flipV === 'true'; el.dataset.flipV = (!val).toString(); applyTransform(el); imagesRef.child(selectedImageId).update({ flipVertical: !val }); } };
-    document.getElementById('settings-btn').onclick = () => {
-        if(selectedImageId && images[selectedImageId]) {
-            document.getElementById('opacity-slider').value = (images[selectedImageId].opacity || 1) * 100;
-            document.getElementById('brightness-slider').value = images[selectedImageId].brightness || 100;
-            document.getElementById('properties-modal').style.display = 'block';
-        }
-    };
-    document.getElementById('opacity-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ opacity: e.target.value / 100 }); };
-    document.getElementById('brightness-slider').oninput = e => { if(selectedImageId) imagesRef.child(selectedImageId).update({ brightness: e.target.value }); };
-    
-    document.getElementById('crop-image-btn').onclick = () => {
-        if (selectedImageId) {
-            cropActive = true;
-            cropType = 'image';
-            cropElement = document.getElementById(selectedImageId);
-            document.getElementById('crop-modal').style.display = 'block';
-        } else alert('Выберите изображение');
-    };
-    document.getElementById('crop-widget-btn').onclick = () => {
-        if (selectedWidgetId) {
-            cropActive = true;
-            cropType = 'widget';
-            cropElement = document.getElementById(selectedWidgetId);
-            document.getElementById('crop-modal').style.display = 'block';
-        } else alert('Выберите виджет');
-    };
-    
-    document.getElementById('start-crop-btn').onclick = () => {
-        if (cropElement) {
-            if (cropOverlay) cropOverlay.remove();
-            cropOverlay = document.createElement('div');
-            cropOverlay.className = 'crop-overlay';
-            const left = parseFloat(cropElement.style.left) || 0;
-            const top = parseFloat(cropElement.style.top) || 0;
-            const w = cropElement.offsetWidth;
-            const h = cropElement.offsetHeight;
-            cropOverlay.style.left = left + 'px';
-            cropOverlay.style.top = top + 'px';
-            cropOverlay.style.width = w + 'px';
-            cropOverlay.style.height = h + 'px';
-            cropElement.parentElement.appendChild(cropOverlay);
-            alert('Режим обрезки включён. Тяните за уголок элемента, затем нажмите "Применить обрезку"');
-        }
-        closeModal('crop-modal');
-    };
-    
-    document.getElementById('apply-crop-btn').onclick = () => {
-        if (cropOverlay && cropElement) {
-            const newW = parseFloat(cropOverlay.style.width);
-            const newH = parseFloat(cropOverlay.style.height);
-            if (newW > 20 && newH > 20) {
-                if (cropType === 'image') {
-                    const img = cropElement.querySelector('img');
-                    const canvas = document.createElement('canvas');
-                    canvas.width = newW;
-                    canvas.height = newH;
-                    const ctx = canvas.getContext('2d');
-                    const tempImg = new Image();
-                    tempImg.onload = () => {
-                        ctx.drawImage(tempImg, 0, 0, newW, newH);
-                        imagesRef.child(cropElement.id).update({ src: canvas.toDataURL(), width: newW, height: newH });
-                        alert('Изображение обрезано!');
-                    };
-                    tempImg.src = images[cropElement.id].src;
-                } else if (cropType === 'widget') {
-                    widgetsRef.child(cropElement.id).update({ width: newW, height: newH });
-                    alert('Виджет обрезан!');
-                }
-            } else {
-                alert('Размер слишком маленький');
-            }
-            cropOverlay.remove();
-            cropOverlay = null;
-            cropActive = false;
-        }
-        closeModal('crop-modal');
-    };
-    
-    document.getElementById('cancel-crop-btn').onclick = () => {
-        if (cropOverlay) cropOverlay.remove();
-        cropOverlay = null;
-        cropActive = false;
-        closeModal('crop-modal');
-    };
-    
-    document.getElementById('widget-opacity-btn').onclick = () => {
-        if(selectedWidgetId && widgets[selectedWidgetId]) {
-            document.getElementById('widget-opacity-slider').value = (widgets[selectedWidgetId].opacity || 1) * 100;
-            document.getElementById('widget-opacity-modal').style.display = 'block';
-        }
-    };
-    document.getElementById('apply-widget-opacity').onclick = () => {
-        if(selectedWidgetId) {
-            const opacity = document.getElementById('widget-opacity-slider').value / 100;
-            widgetsRef.child(selectedWidgetId).update({ opacity: opacity });
-            closeModal('widget-opacity-modal');
-        }
-    };
-    
-    document.getElementById('widget-css-btn').onclick = () => {
-        if(selectedWidgetId && widgets[selectedWidgetId]) {
-            document.getElementById('widget-css-editor').value = widgets[selectedWidgetId].customCss || '';
-            document.getElementById('widget-css-modal').style.display = 'block';
-        } else alert('Выберите виджет');
-    };
-    document.getElementById('apply-widget-css').onclick = () => {
-        if(selectedWidgetId) {
-            const css = document.getElementById('widget-css-editor').value;
-            widgetsRef.child(selectedWidgetId).update({ customCss: css });
-            const el = document.getElementById(selectedWidgetId);
-            if (el) applyWidgetCss(el, css);
-            alert('CSS применён');
-            closeModal('widget-css-modal');
-        }
-    };
-    
-    document.getElementById('play-btn').onclick = () => {
-        if (selectedSoundId && sounds[selectedSoundId]) {
-            playSoundSync(selectedSoundId);
-        }
-    };
-    document.getElementById('pause-btn').onclick = () => {
-        pauseSoundSync();
-    };
-    document.getElementById('volume-slider').oninput = e => { 
-        if(selectedSoundId) soundsRef.child(selectedSoundId).update({ volume: e.target.value }); 
-    };
-    
-    document.getElementById('reload-widget-btn').onclick = () => { if(selectedWidgetId) { const el = document.getElementById(selectedWidgetId); const iframe = el?.querySelector('iframe'); if(iframe) iframe.src = iframe.src; } };
-    document.getElementById('edit-widget-url-btn').onclick = () => {
-        if(selectedWidgetId && widgets[selectedWidgetId]) {
-            document.getElementById('edit-widget-url').value = widgets[selectedWidgetId].url;
-            document.getElementById('edit-url-modal').style.display = 'block';
-            document.getElementById('apply-url-btn').onclick = () => {
-                const newUrl = document.getElementById('edit-widget-url').value.trim();
-                if(newUrl) {
-                    const finalUrl = newUrl.startsWith('http') ? newUrl : 'https://' + newUrl;
-                    widgetsRef.child(selectedWidgetId).update({ url: finalUrl });
-                    const el = document.getElementById(selectedWidgetId);
-                    if(el) { const iframe = el.querySelector('iframe'); if(iframe) iframe.src = finalUrl; }
-                }
-                document.getElementById('edit-url-modal').style.display = 'none';
-            };
-        }
-    };
-    document.getElementById('edit-text-btn').onclick = () => { if(selectedTextId) editText(selectedTextId); };
-    document.getElementById('add-sound-btn').onclick = () => document.getElementById('sound-input').click();
-    
-    updateCanvasSize();
-    window.addEventListener('resize', () => { updateCanvasSize(); syncElements(); });
-    setTimeout(() => syncElements(), 100);
+/* комната: obs-overlay.html?room=имя (по умолчанию main) — одинаковая ссылка = одна и та же сцена */
+const room=(new URLSearchParams(location.search).get('room')||'main').replace(/[.#$\[\]\/]/g,'_');
+let db=null,root=null,last={},remoteReady=false,dragging=false,timer=0,cmdReady=false;
+function netSet(t,c){const n=$('net');n.textContent='● '+t;n.style.color=c||''}
+const same=(a,b)=>{const ks=o=>Object.keys(o).filter(k=>o[k]!==undefined),A=ks(a),B=ks(b);return A.length===B.length&&A.every(k=>a[k]===b[k])};
+function sync(){if(root){clearTimeout(timer);timer=setTimeout(flush,80)}}
+function flush(){
+  timer=0;if(!root||!remoteReady)return;
+  const up={},ids=new Set();
+  S.items.forEach((it,i)=>{
+    it.z=i;ids.add(it.id);const p=last[it.id]||{};
+    for(const k in it){const v=it[k];if(v===undefined||v===p[k])continue;up['items/'+it.id+'/'+k]=v}
+    last[it.id]=Object.assign({},it);
+  });
+  Object.keys(last).forEach(id=>{if(!ids.has(id)){up['items/'+id]=null;delete last[id]}});
+  if(Object.keys(up).length)root.update(up).catch(e=>toast('Firebase: '+e.message));
+}
+function sendCmd(o){o.n=uid();if(root)root.child('cmd').set(o).catch(e=>toast('Firebase: '+e.message));else{runCmd(o);chan&&chan.postMessage(o)}}
+function runCmd(c){
+  if(c.t==='say'){if(hereOn())speak(c)}
+  else if(c.t==='stop'){if('speechSynthesis' in window)speechSynthesis.cancel()}
+  else{
+    const a=document.querySelector(`[data-id="${c.id}"] audio`);if(!a||!hereOn())return;
+    if(c.t==='play'){a.volume=(c.vol??100)/100;a.currentTime=0;a.play().catch(()=>toast('Браузер заблокировал звук — кликните по странице'))}
+    else a.pause();
+  }
+}
+function initFB(){
+  if(typeof firebase==='undefined'){netSet('офлайн (Firebase не загрузился)','var(--dg)');return}
+  try{firebase.initializeApp(firebaseConfig);db=firebase.database();root=db.ref('overlay/'+room)}
+  catch(e){netSet('ошибка Firebase','var(--dg)');root=null;return}
+  db.ref('.info/connected').on('value',s=>s.val()?netSet('онлайн · '+room,'var(--ac)'):netSet('нет связи','var(--dg)'));
+  root.child('items').on('value',s=>{
+    const d=s.val(),first=!remoteReady;remoteReady=true;
+    if(first&&d===null&&S.items.length){flush();return}   // первый запуск: отправляем локальную сцену
+    if(dragging||timer)return;
+    const R=Object.keys(d||{}).map(k=>Object.assign({id:k},d[k])).sort((a,b)=>(a.z||0)-(b.z||0));
+    if(R.length===S.items.length&&R.every((r,i)=>same(r,S.items[i])))return;
+    S.items=R;last={};R.forEach(r=>last[r.id]=Object.assign({},r));
+    if(sel&&!get(sel))sel=null;
+    persist();renderAll();
+  },()=>netSet('нет доступа (проверьте правила БД)','var(--dg)'));
+  root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
+}
+
+/* ---------- полотно 2560×1152 ---------- */
+const CW=2560,CH=1152;let scale=1;
+function layout(){
+  const edit=document.body.classList.contains('edit');
+  const mh=edit&&!document.body.classList.contains('nomenu')?$('top').offsetHeight:0;
+  document.documentElement.style.setProperty('--mh',mh+'px');
+  const aw=innerWidth,ah=Math.max(50,innerHeight-mh);
+  scale=Math.min(aw/CW,ah/CH);
+  stage.style.setProperty('--s',scale);
+  stage.style.transform=`scale(${scale})`;
+  stage.style.left=(aw-CW*scale)/2+'px';
+  stage.style.top=(mh+(ah-CH*scale)/2)+'px';
+}
+function toggleMenu(){
+  const h=document.body.classList.toggle('nomenu');
+  try{localStorage.setItem('obs-canvas-nomenu',h?'1':'0')}catch(e){}
+  $('bMenu').textContent=h?'⇩ Показать меню':'⇧ Скрыть меню';layout();
+}
+$('bMenu').onclick=toggleMenu;$('showMenu').onclick=toggleMenu;
+if(localStorage.getItem('obs-canvas-nomenu')==='1')document.body.classList.add('nomenu');
+addEventListener('resize',layout);
+if('ResizeObserver' in window)new ResizeObserver(layout).observe($('top'));
+
+/* ---------- старт ---------- */
+if(!inOBS)document.body.classList.add('edit');
+renderAll();
+layout();
+initFB();
 </script>
 </body>
 </html>

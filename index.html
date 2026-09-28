@@ -39,6 +39,9 @@ body.edit{background:#101216}
 .edit .it.sel:not(.lock) .rz{display:block}
 #ui{position:fixed;top:calc(var(--mh,0px) + 12px);left:12px;width:280px;max-height:calc(100% - var(--mh,0px) - 24px);overflow:auto;background:var(--bg);border:1px solid var(--ln);border-radius:12px;padding:12px;display:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.45)}
 .edit #ui{display:block}
+.noui #ui{display:none!important}
+#showUi{display:none;position:fixed;top:calc(var(--mh,0px) + 12px);left:12px;z-index:99;padding:6px 10px;font-size:12px;background:var(--bg)}
+.edit.noui #showUi{display:block}
 #ui h4{margin:12px 0 6px;font-size:13px;color:var(--mu);font-weight:600}
 #ui h4:first-child{margin-top:0}
 .row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
@@ -79,6 +82,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 <body>
 <div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
+<button id="showUi" title="Клавиша P">☰ Панель</button>
 <header id="top" aria-label="Меню (в OBS не видно)">
   <div class="tr" id="tools"><b>Инструменты:</b>
     <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aWid">🧩 Виджет</button>
@@ -87,6 +91,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <div class="tr"><b>Элементы:</b><div id="els"></div></div>
 </header>
 <aside id="ui" aria-label="Панель редактора">
+  <div class="row"><button id="bUi" title="Клавиша P">⇤ Скрыть панель</button></div>
   <input type="file" id="file" hidden>
 
   <div id="insp" hidden>
@@ -128,7 +133,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <h4>Сцена</h4>
   <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
   <input type="file" id="fImp" accept=".json" hidden>
-  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать меню.<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель.<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
 </aside>
 <div id="toast" role="status"></div>
 
@@ -151,7 +156,7 @@ const get=id=>S.items.find(i=>i.id===id);
 
 /* ---------- отрисовка ---------- */
 function build(it){
-  let el=document.querySelector(`[data-id="${it.id}"]`);
+  let el=stage.querySelector(`[data-id="${it.id}"]`);
   if(!el){
     el=document.createElement('div');el.className='it';el.dataset.id=it.id;
     el.innerHTML='<div class="c"></div><div class="rz"></div>';
@@ -211,7 +216,7 @@ $('fc').oninput=e=>upd(i=>i.fc=e.target.value);
 $('fs').oninput=e=>upd(i=>i.fs=Math.max(8,+e.target.value||8));
 $('fb').onchange=e=>upd(i=>i.fb=e.target.checked);
 $('bUrl').onclick=()=>upd(i=>{i.src=fixUrl($('url').value.trim());$('url').value=i.src});
-$('bRef').onclick=()=>{const f=document.querySelector(`[data-id="${sel}"] iframe`);if(f)f.src=f.src};
+$('bRef').onclick=()=>{const f=stage.querySelector(`[data-id="${sel}"] iframe`);if(f)f.src=f.src};
 $('bCss').onclick=()=>upd(i=>i.css=$('css').value);
 $('bPlay').onclick=()=>sel&&sendCmd({t:'play',id:sel,vol:S.tts.vol});
 $('bStop').onclick=()=>sel&&sendCmd({t:'halt',id:sel});
@@ -225,7 +230,7 @@ stage.addEventListener('pointerdown',e=>{
   const it=get(el.dataset.id);sel=it.id;S.items.push(S.items.splice(S.items.indexOf(it),1)[0]);renderAll();
   if(it.locked)return;
   const rz=e.target.classList.contains('rz'),sx=e.clientX,sy=e.clientY,o={x:it.x,y:it.y,w:it.w,h:it.h};
-  el=document.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);dragging=true;
+  el=stage.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);dragging=true;
   const mv=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale;
     if(rz){it.w=Math.max(20,Math.round(o.w+dx));it.h=Math.max(20,Math.round(o.h+dy));if(ev.shiftKey)it.h=Math.round(it.w*o.h/o.w)}
     else{it.x=Math.round(o.x+dx);it.y=Math.round(o.y+dy)}
@@ -237,6 +242,7 @@ addEventListener('keydown',e=>{
   const t=e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT')return;
   if(e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У'){document.body.classList.toggle('edit');sel=null;renderAll();layout();return}
   if(e.key==='m'||e.key==='M'||e.key==='ь'||e.key==='Ь'){if(document.body.classList.contains('edit'))toggleMenu();return}
+  if((e.key==='p'||e.key==='P'||e.key==='з'||e.key==='З')&&document.body.classList.contains('edit')){toggleUi();return}
   if(!document.body.classList.contains('edit')||!sel)return;
   const it=get(sel);if(e.key==='Delete'){delSel();return}
   const d=e.shiftKey?10:1,m={ArrowLeft:[-d,0],ArrowRight:[d,0],ArrowUp:[0,-d],ArrowDown:[0,d]}[e.key];
@@ -336,7 +342,7 @@ function runCmd(c){
   if(c.t==='say'){if(hereOn())speak(c)}
   else if(c.t==='stop'){if('speechSynthesis' in window)speechSynthesis.cancel()}
   else{
-    const a=document.querySelector(`[data-id="${c.id}"] audio`);if(!a||!hereOn())return;
+    const a=stage.querySelector(`[data-id="${c.id}"] audio`);if(!a||!hereOn())return;
     if(c.t==='play'){a.volume=(c.vol??100)/100;a.currentTime=0;a.play().catch(()=>toast('Браузер заблокировал звук — кликните по странице'))}
     else a.pause();
   }
@@ -387,6 +393,9 @@ function toggleMenu(){
   $('bMenu').textContent=h?'⇩ Показать меню':'⇧ Скрыть меню';layout();
 }
 $('bMenu').onclick=toggleMenu;$('showMenu').onclick=toggleMenu;
+function toggleUi(){const h=document.body.classList.toggle('noui');try{localStorage.setItem('obs-canvas-noui',h?'1':'0')}catch(e){}}
+$('bUi').onclick=toggleUi;$('showUi').onclick=toggleUi;
+if(localStorage.getItem('obs-canvas-noui')==='1')document.body.classList.add('noui');
 if(localStorage.getItem('obs-canvas-nomenu')==='1')document.body.classList.add('nomenu');
 addEventListener('resize',layout);
 if('ResizeObserver' in window)new ResizeObserver(layout).observe($('top'));

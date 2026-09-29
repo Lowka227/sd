@@ -11,6 +11,7 @@ html,body{margin:0;height:100%;background:transparent;overflow:hidden;font:14px/
 #stage{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden;--s:1}
 body.edit{background:#101216}
 .edit #stage{overflow:visible}
+/* внутренняя рамка = то, что видно в OBS; внешняя = зона «за кадром» */
 #outerFrame,#inFrame{display:none;position:absolute;pointer-events:none}
 .edit #outerFrame,.edit #inFrame{display:block}
 #outerFrame{z-index:-1;pointer-events:auto;background:repeating-linear-gradient(45deg,#14161a 0 20px,#181b20 20px 40px);outline:calc(2px / var(--s)) dashed #6b7280}
@@ -35,6 +36,7 @@ body.drag .it{transition:none}
 .edit .it.hid{display:block;opacity:.25!important}
 .it.hid{display:none}
 .edit .it iframe{pointer-events:none}
+/* режим «управлять плеером напрямую»: клики попадают внутрь виджета */
 .edit .it.live iframe{pointer-events:auto}
 .edit .it.live{outline:2px solid #f5a623;cursor:default}
 .edit .it .snd{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--bg);border-radius:8px;font-size:22px}
@@ -96,7 +98,6 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 </header>
 <aside id="ui" aria-label="Панель редактора">
   <div class="row"><button id="bUi" title="Клавиша P">⇤ Скрыть панель</button></div>
-  <label title="Без этой галочки редактор глушит все звуки, видео и виджеты. В OBS звук идёт всегда."><input type="checkbox" id="here"> Слышать в этой вкладке</label>
   <input type="file" id="file" hidden>
 
   <div id="insp" hidden>
@@ -106,7 +107,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
       <button id="bDup">Дублировать</button><button id="bDel" class="d">Удалить</button>
     </div>
     <label>Прозрачность <input type="range" id="op" min="0" max="100"></label>
-    <label id="pVol" title="Для виджетов громкость работает у YouTube и Vimeo">Громкость <input type="range" id="vl" min="0" max="100"></label>
+    <label id="pVol" title="Для виджетов громкость работает только у YouTube">Громкость <input type="range" id="vl" min="0" max="100"></label>
     <div id="pVid" hidden>
       <label>Перемотка <input type="range" id="vs" min="0" max="100" step="1"></label>
       <div class="row"><button id="vPlay">▶ Пуск</button><button id="vPause">⏸ Пауза</button><button id="vRes">⏮ Сначала</button></div>
@@ -146,6 +147,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <label>Тон <input type="range" id="tp" min="0" max="20" value="10"></label>
   <textarea id="ttsText" placeholder="Текст для озвучки"></textarea>
   <div class="row" style="margin-top:6px"><button class="p" id="bSay">Озвучить</button><button id="bShut">Стоп</button></div>
+  <label><input type="checkbox" id="here"> Слышать в этой вкладке</label>
   <div id="hint">Озвучка, видео и звуки играют у всех, кто открыл холст (через Firebase). В OBS — всегда.</div>
   </div>
 
@@ -162,13 +164,13 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 const $=id=>document.getElementById(id), stage=$('stage');
 const KEY='obs-canvas-v2';
 let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
-const liveSet=new Set();
+const liveSet=new Set();   // элементы, которыми управляют напрямую (только в этой вкладке)
 const inOBS=!!window.obsstudio;
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
 let off=0,rootRes;const rootP=new Promise(r=>rootRes=r),blobs={};
 const srv=()=>Date.now()+off;
 const me=uid0(),camLocal={},camPC={},bcPC={},ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};let liveCams={};
-function uid0(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function uid0(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}   // серверное время Firebase — общее для всех
 
 /* ---------- сохранение ---------- */
 function save(){persist();sync();renderBar()}
@@ -179,7 +181,7 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const get=id=>S.items.find(i=>i.id===id);
 const q=(id,sub)=>stage.querySelector(`[data-id="${id}"] ${sub}`);
 
-/* ---------- медиа ---------- */
+/* ---------- медиа: файлы хранятся в Firebase частями, у всех одинаково ---------- */
 const readURL=f=>new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result);x.readAsDataURL(f)});
 async function uploadMedia(file){
   if(!root)return readURL(file);
@@ -196,7 +198,7 @@ function resolveSrc(src){
     return fetch(a.join('')).then(r=>r.blob())}).then(b=>URL.createObjectURL(b)).catch(e=>{delete blobs[id];throw e}))}
 function setSrc(el,src){if(el._s===src)return;el._s=src;resolveSrc(src).then(u=>{if(el._s===src)el.src=u}).catch(()=>{el._s=null;toast('Не удалось загрузить медиафайл')})}
 
-/* ---------- синхронное видео ---------- */
+/* ---------- синхронное видео: позиция = pos + (серверное время − t0) ---------- */
 function curPos(it){
   const v=q(it.id,'video'),f=q(it.id,'iframe'),d=(v&&v.duration)||(f&&f._yt&&f._yt.d)||0;
   let p=(it.pos||0)+(it.pl?(srv()-it.t0)/1000:0);
@@ -207,35 +209,22 @@ function vsync(it,force){
   const p=curPos(it);
   if(it.pl){if(force||Math.abs(v.currentTime-p)>.35)v.currentTime=p;if(v.paused&&!v.ended)v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
   else{if(!v.paused)v.pause();if(Math.abs(v.currentTime-p)>.05)v.currentTime=p}}
-const vAll=()=>S.items.forEach(i=>{if(i.type==='video')vsync(i);else if(i.type==='widget'){if(isYT(i))ytsync(i);wvol(i)}});
+const vAll=()=>S.items.forEach(i=>{if(i.type==='video')vsync(i);else if(isYT(i))ytsync(i)});
 setInterval(vAll,2000);addEventListener('pointerdown',vAll);
-
-/* ---------- громкость виджетов (YouTube и Vimeo) ---------- */
-/* enablejsapi=1 обязателен, иначе YouTube не принимает команды громкости */
-const noCC=u=>{
-  if(!/youtube\.com\/embed\//.test(u))return u;
-  if(!/[?&]enablejsapi=/.test(u))u+=(u.includes('?')?'&':'?')+'enablejsapi=1';
-  if(!/cc_load_policy=/.test(u))u+='&cc_load_policy=0';
-  return u};
+/* громкость YouTube-виджетов (для остальных сайтов управление недоступно) */
+const noCC=u=>/youtube\.com\/embed\//.test(u)&&!/cc_load_policy=/.test(u)?u+(u.includes('?')?'&':'?')+'cc_load_policy=0':u;
 const isYT=it=>!!it&&it.type==='widget'&&/youtube\.com\/embed\//.test(it.src||'');
-const isVimeo=it=>!!it&&it.type==='widget'&&/player\.vimeo\.com/.test(it.src||'');
 const ytcmd=(f,fn,a)=>f&&f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'command',func:fn,args:a||[]}),'*');
-function wvol(it,force){
-  if(!it||it.type!=='widget')return;
-  const f=q(it.id,'iframe');if(!f)return;
-  const on=hereOn(),vol=it.vol??100;
-  if(isYT(it)){
-    if(!f._ready)return;
-    const k=(on?1:0)+'|'+vol;if(!force&&f._vk===k)return;f._vk=k;
-    const apply=()=>{if(on){ytcmd(f,'unMute');ytcmd(f,'setVolume',[vol])}else ytcmd(f,'mute')};
-    apply();setTimeout(apply,300)}   // повтор: YouTube иногда игнорирует первую команду
-  else if(isVimeo(it)&&f.contentWindow){
-    f.contentWindow.postMessage(JSON.stringify({method:'setVolume',value:on?vol/100:0}),'*')}}
+function wvol(it){
+  const f=isYT(it)&&q(it.id,'iframe');if(!f)return;
+  if(hereOn()){ytcmd(f,'unMute');ytcmd(f,'setVolume',[it.vol??100])}else ytcmd(f,'mute')}
+/* YouTube-виджет: то же общее время, что и у видео — пауза/пуск/перемотка у всех сразу */
 function ytsync(it,force){
   const f=isYT(it)&&q(it.id,'iframe');if(!f||!f._ready)return;
   const y=f._yt||{},p=curPos(it),playing=y.s===1,ended=y.s===0;
   if(it.pl){if(force||Math.abs((y.t||0)-p)>1.5||(ended&&it.loop))ytcmd(f,'seekTo',[p,true]);if(!playing&&!(ended&&!it.loop))ytcmd(f,'playVideo')}
   else{if(playing||y.s===3)ytcmd(f,'pauseVideo');if(Math.abs((y.t||0)-p)>.7)ytcmd(f,'seekTo',[p,true])}}
+/* прямое управление: то, что вы нажали внутри плеера YouTube, записывается в общее состояние и уходит всем */
 function ytlive(it,f){
   if(!it||!liveSet.has(it.id)||!f._ready||dragging)return;
   const y=f._yt||{},s=y.s,t=y.t||0;
@@ -250,9 +239,9 @@ addEventListener('message',e=>{
   const f=[...stage.querySelectorAll('iframe')].find(i=>i.contentWindow===e.source);if(!f)return;
   const y=f._yt=f._yt||{},i=d.info,id=f.closest('.it').dataset.id;
   if(i){if(i.currentTime!==undefined)y.t=i.currentTime;if(i.duration!==undefined)y.d=i.duration;if(i.playerState!==undefined)y.s=i.playerState}
-  if(!f._ready){f._ready=true;f._vk=null;wvol(get(id),1);ytsync(get(id),1)}
+  if(!f._ready){f._ready=true;wvol(get(id));ytsync(get(id),1)}
   else ytlive(get(id),f)});
-const applyVol=()=>S.items.forEach(i=>i.type==='widget'&&wvol(i,1));
+const applyVol=()=>S.items.forEach(i=>i.type==='widget'&&wvol(i));
 
 /* ---------- отрисовка ---------- */
 function build(it){
@@ -271,7 +260,7 @@ function build(it){
     let t=c.querySelector('.t');if(!t){c.innerHTML='<div class="t"></div>';t=c.firstChild}
     if(t.textContent!==it.text)t.textContent=it.text;
     Object.assign(t.style,{fontFamily:it.ff,color:it.fc,fontSize:it.fs+'px',fontWeight:it.fb?'700':'400'})}
-  else if(it.type==='widget'){ytsync(it);wvol(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=noCC(it.src);f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;f._vk=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');ytcmd(f,'unloadModule',['captions']);wvol(get(it.id),1);ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
+  else if(it.type==='widget'){ytsync(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=noCC(it.src);f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');ytcmd(f,'unloadModule',['captions']);wvol(get(it.id));ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
   else if(it.type==='sound'||it.type==='video'){
     const v=it.type==='video';let m=c.querySelector(v?'video':'audio');
     if(!m){c.innerHTML=v?'<video playsinline preload="auto"></video>':'<div class="snd">🔊</div><audio></audio>';m=c.querySelector(v?'video':'audio');if(v)m.onloadedmetadata=()=>vsync(get(it.id),1)}
@@ -283,7 +272,7 @@ function build(it){
     if(camLocal[it.id]&&m.srcObject!==camLocal[it.id])m.srcObject=camLocal[it.id];
   }
 }
-/* ---------- камера / экран ---------- */
+/* ---------- камера / экран: WebRTC, сигналы через Firebase ---------- */
 const sdpOf=d=>({type:d.type,sdp:d.sdp});
 async function startCam(id,kind,dev){
   stopCam(id);let st;
@@ -296,7 +285,7 @@ async function startCam(id,kind,dev){
   if(root){root.child('cams/'+id).set(me);root.child('cams/'+id).onDisconnect().remove();serve(id)}
   if(kind!=='screen')navigator.mediaDevices.enumerateDevices().then(l=>{$('cd').innerHTML=l.filter(x=>x.kind==='videoinput').map(x=>`<option value="${x.deviceId}">${x.label||'Камера'}</option>`).join('')});
   const it=get(id);if(it)build(it);return true}
-function serve(id){
+function serve(id){   // передающая вкладка: отвечает каждому зрителю
   const ref=root.child('sig/'+id);
   ref.on('child_added',async s=>{
     const vid=s.key,o=s.child('offer').val();if(!o||!camLocal[id])return;
@@ -317,7 +306,7 @@ function unwatch(id){
   const w=camPC[id];if(!w)return;delete camPC[id];w.pc.close();
   if(root){const r=root.child('sig/'+id+'/'+me);r.off();r.child('answer').off();r.child('bc').off();r.remove()}
   const el=q(id,'video');if(el)el.srcObject=null}
-async function watch(id,b){
+async function watch(id,b){   // зритель: запрашивает поток у передающей вкладки
   const pc=new RTCPeerConnection(ICE);camPC[id]={pc,b};const pend=[];
   const ref=root.child('sig/'+id+'/'+me);ref.onDisconnect().remove();
   pc.addTransceiver('video',{direction:'recvonly'});pc.addTransceiver('audio',{direction:'recvonly'});
@@ -365,7 +354,7 @@ function fixUrl(u){
 /* ---------- инспектор ---------- */
 function inspect(){
   const it=get(sel);$('insp').hidden=!it;if(!it)return;
-  const sv=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};
+  const sv=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};   // не трогаем поле, в котором печатают
   $('bHide').textContent=it.hidden?'Показать':'Скрыть';
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
   sv('op',it.o);sv('css',it.css||'');
@@ -389,13 +378,12 @@ $('fc').oninput=e=>upd(i=>i.fc=e.target.value);
 $('fs').oninput=e=>upd(i=>i.fs=Math.max(8,+e.target.value||8));
 $('fb').onchange=e=>upd(i=>i.fb=e.target.checked);
 $('bUrl').onclick=()=>upd(i=>{i.src=fixUrl($('url').value.trim());$('url').value=i.src});
-$('bRef').onclick=()=>{const f=q(sel,'iframe');if(f){f._ready=false;f._yt=null;f._vk=null;f.src=f.src}};
+$('bRef').onclick=()=>{const f=q(sel,'iframe');if(f){f._ready=false;f._yt=null;f.src=f.src}};
 $('bCss').onclick=()=>upd(i=>i.css=$('css').value);
 $('bLive').onclick=()=>{if(!sel)return;liveSet.has(sel)?liveSet.delete(sel):liveSet.add(sel);const it=get(sel);if(it)build(it);inspect()};
 $('bPlay').onclick=()=>sel&&sendCmd({t:'play',id:sel});
 $('bStop').onclick=()=>sel&&sendCmd({t:'halt',id:sel});
-/* громкость: пишется в сцену -> Firebase -> build() у каждого зрителя отправляет её плееру */
-$('vl').oninput=e=>upd(i=>i.vol=+e.target.value);
+$('vl').oninput=e=>{upd(i=>i.vol=+e.target.value);wvol(get(sel))};
 $('vPlay').onclick=()=>upd(i=>{i.pos=curPos(i);i.t0=srv();i.pl=1});
 $('vPause').onclick=()=>upd(i=>{i.pos=curPos(i);i.pl=0});
 $('vRes').onclick=()=>upd(i=>{i.pos=0;i.t0=srv();i.pl=1});
@@ -509,10 +497,12 @@ const firebaseConfig = {
         messagingSenderId: "857271333291",
         appId: "1:857271333291:web:e754824268f37341c7e2ee"
     };
+/* комната: obs-overlay.html?room=имя (по умолчанию main) — одинаковая ссылка = одна и та же сцена */
 const room=(new URLSearchParams(location.search).get('room')||'main').replace(/[.#$\[\]\/]/g,'_');
 let db=null,root=null,last={},remoteReady=false,dragging=false,timer=0,cmdReady=false;
 function netSet(t,c){const n=$('net');n.textContent='● '+t;n.style.color=c||''}
 const same=(a,b)=>{const ks=o=>Object.keys(o).filter(k=>o[k]!==undefined),A=ks(a),B=ks(b);return A.length===B.length&&A.every(k=>a[k]===b[k])};
+/* throttle вместо debounce: изменения уходят каждые ~40 мс, даже пока элемент тянут */
 function sync(){if(root&&!timer)timer=setTimeout(flush,40)}
 function flush(){
   timer=0;if(!root||!remoteReady)return;
@@ -543,7 +533,7 @@ function initFB(){
   db.ref('.info/connected').on('value',s=>s.val()?netSet('онлайн · '+room,'var(--ac)'):netSet('нет связи','var(--dg)'));
   root.child('items').on('value',s=>{
     const d=s.val(),first=!remoteReady;remoteReady=true;
-    if(first&&d===null&&S.items.length){flush();return}
+    if(first&&d===null&&S.items.length){flush();return}   // первый запуск: отправляем локальную сцену
     if(dragging||timer)return;
     const R=Object.keys(d||{}).map(k=>Object.assign({id:k},d[k])).sort((a,b)=>(a.z||0)-(b.z||0));
     if(R.length===S.items.length&&R.every((r,i)=>same(r,S.items[i])))return;
@@ -555,7 +545,10 @@ function initFB(){
   root.child('cams').on('value',s=>{liveCams=s.val()||{};syncCams()});
 }
 
-/* ---------- полотно ---------- */
+/* ---------- полотно ----------
+   CW×CH  — кадр OBS (размер источника «Браузер» в OBS должен быть таким же)
+   OW×OH  — большая внешняя рамка за кадром (те же пропорции 20:9), в OBS не видна
+   Координаты элементов считаются от левого верхнего угла кадра OBS, за кадром они отрицательные. */
 const CW=2560,CH=1152,OW=3200,OH=1440;
 const MX=(OW-CW)/2,MY=(OH-CH)/2;let scale=1;
 stage.style.width=CW+'px';stage.style.height=CH+'px';
@@ -567,7 +560,7 @@ function layout(){
   const mh=edit&&!document.body.classList.contains('nomenu')?$('top').offsetHeight:0;
   document.documentElement.style.setProperty('--mh',mh+'px');
   const aw=innerWidth,ah=Math.max(50,innerHeight-mh);
-  const vw=edit?OW:CW,vh=edit?OH:CH,ox=edit?MX:0,oy=edit?MY:0;
+  const vw=edit?OW:CW,vh=edit?OH:CH,ox=edit?MX:0,oy=edit?MY:0;   // в редакторе видна вся внешняя рамка, в OBS — только кадр
   scale=Math.min(aw/vw,ah/vh);
   stage.style.setProperty('--s',scale);
   stage.style.transform=`scale(${scale})`;

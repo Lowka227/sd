@@ -168,6 +168,15 @@ const liveSet=new Set();   // элементы, которыми управля�
 const inOBS=!!window.obsstudio;
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
 let off=0,rootRes;const rootP=new Promise(r=>rootRes=r),blobs={};
+/* готовность сети: виджеты и видео создаются только когда получены серверное время и данные сцены */
+let obsOn=true,netReady=false,gotOff=false,gotItems=false;
+function checkReady(){if(gotOff&&gotItems)setNetReady()}
+function setNetReady(){if(netReady)return;netReady=true;renderAll();vAll()}
+setTimeout(setNetReady,4000);   // запасной вариант, если Firebase не ответил
+const startSrc=it=>{
+  if(!isYT(it))return it.src;
+  const p=Math.floor(curPos(it)),base=it.src.replace(/[&?]start=\d+/,'');
+  return p>0?base+(base.includes('?')?'&':'?')+'start='+p:base};
 const srv=()=>Date.now()+off;
 const me=uid0(),camLocal={},camPC={},bcPC={},ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};let liveCams={};
 function uid0(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}   // серверное время Firebase — общее для всех
@@ -204,7 +213,8 @@ function curPos(it){
   let p=(it.pos||0)+(it.pl?(srv()-it.t0)/1000:0);
   if(d)p=it.loop?p%d:Math.min(p,d);return p}
 function vsync(it,force){
-  const v=it&&q(it.id,'video');if(!v||v.readyState<1)return;
+  const v=it&&q(it.id,'video');if(!v||v.readyState<1||!netReady)return;
+  if(inOBS&&!obsOn){if(!v.paused)v.pause();return}
   v.loop=!!it.loop;v.volume=(it.vol??100)/100;v.muted=!hereOn();
   const p=curPos(it);
   if(it.pl){if(force||Math.abs(v.currentTime-p)>.35)v.currentTime=p;if(v.paused&&!v.ended)v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
@@ -220,7 +230,8 @@ function wvol(it){
   if(hereOn()){ytcmd(f,'unMute');ytcmd(f,'setVolume',[it.vol??100])}else ytcmd(f,'mute')}
 /* YouTube-виджет: то же общее время, что и у видео — пауза/пуск/перемотка у всех сразу */
 function ytsync(it,force){
-  const f=isYT(it)&&q(it.id,'iframe');if(!f||!f._ready)return;
+  const f=isYT(it)&&q(it.id,'iframe');if(!f||!f._ready||!netReady)return;
+  if(inOBS&&!obsOn){ytcmd(f,'pauseVideo');return}
   const y=f._yt||{},p=curPos(it),playing=y.s===1,ended=y.s===0;
   if(it.pl){if(force||Math.abs((y.t||0)-p)>1.5||(ended&&it.loop))ytcmd(f,'seekTo',[p,true]);if(!playing&&!(ended&&!it.loop))ytcmd(f,'playVideo')}
   else{if(playing||y.s===3)ytcmd(f,'pauseVideo');if(Math.abs((y.t||0)-p)>.7)ytcmd(f,'seekTo',[p,true])}}
@@ -260,8 +271,9 @@ function build(it){
     let t=c.querySelector('.t');if(!t){c.innerHTML='<div class="t"></div>';t=c.firstChild}
     if(t.textContent!==it.text)t.textContent=it.text;
     Object.assign(t.style,{fontFamily:it.ff,color:it.fc,fontSize:it.fs+'px',fontWeight:it.fb?'700':'400'})}
-  else if(it.type==='widget'){ytsync(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=noCC(it.src);f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');ytcmd(f,'unloadModule',['captions']);wvol(get(it.id));ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
+  else if(it.type==='widget'){if(!netReady)return;ytsync(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=noCC(startSrc(it));f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');ytcmd(f,'unloadModule',['captions']);wvol(get(it.id));ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
   else if(it.type==='sound'||it.type==='video'){
+    if(it.type==='video'&&!netReady)return;
     const v=it.type==='video';let m=c.querySelector(v?'video':'audio');
     if(!m){c.innerHTML=v?'<video playsinline preload="auto"></video>':'<div class="snd">🔊</div><audio></audio>';m=c.querySelector(v?'video':'audio');if(v)m.onloadedmetadata=()=>vsync(get(it.id),1)}
     m.volume=(it.vol??100)/100;setSrc(m,it.src);if(v)vsync(it);
@@ -485,7 +497,18 @@ els.ondblclick=e=>{const t=e.target.closest('.th');const it=t&&get(t.dataset.id)
 $('bTts').onclick=()=>{$('ttsBox').hidden=!$('ttsBox').hidden};
 $('here').checked=localStorage.getItem('obs-canvas-here')!=='0';
 $('here').onchange=()=>{localStorage.setItem('obs-canvas-here',$('here').checked?'1':'0');renderAll();vAll();applyVol()};
-const hereOn=()=>inOBS||$('here').checked;
+const hereOn=()=>inOBS?obsOn:$('here').checked;
+
+/* ---------- видимость источника в OBS: в другой сцене всё на паузе и без звука ---------- */
+function setObsOn(v){
+  if(obsOn===v)return;obsOn=v;
+  if(!v){if('speechSynthesis' in window)speechSynthesis.cancel();stage.querySelectorAll('audio').forEach(a=>a.pause())}
+  renderAll();vAll();applyVol()}
+if(inOBS){
+  obsOn=document.visibilityState!=='hidden';
+  window.obsstudio.onVisibilityChange=v=>setObsOn(!!v);
+  document.addEventListener('visibilitychange',()=>setObsOn(document.visibilityState!=='hidden'));
+}
 
 /* ---------- Firebase (синхронизация) ---------- */
 const firebaseConfig = {
@@ -526,13 +549,14 @@ function runCmd(c){
   }
 }
 function initFB(){
-  if(typeof firebase==='undefined'){netSet('офлайн (Firebase не загрузился)','var(--dg)');return}
+  if(typeof firebase==='undefined'){netSet('офлайн (Firebase не загрузился)','var(--dg)');gotOff=gotItems=true;setNetReady();return}
   try{firebase.initializeApp(firebaseConfig);db=firebase.database();root=db.ref('overlay/'+room);rootRes();
-    db.ref('.info/serverTimeOffset').on('value',x=>off=x.val()||0)}
-  catch(e){netSet('ошибка Firebase','var(--dg)');root=null;return}
+    db.ref('.info/serverTimeOffset').on('value',x=>{off=x.val()||0;gotOff=true;checkReady()})}
+  catch(e){netSet('ошибка Firebase','var(--dg)');root=null;gotOff=gotItems=true;setNetReady();return}
   db.ref('.info/connected').on('value',s=>s.val()?netSet('онлайн · '+room,'var(--ac)'):netSet('нет связи','var(--dg)'));
   root.child('items').on('value',s=>{
     const d=s.val(),first=!remoteReady;remoteReady=true;
+    gotItems=true;setTimeout(checkReady,0);
     if(first&&d===null&&S.items.length){flush();return}   // первый запуск: отправляем локальную сцену
     if(dragging||timer)return;
     const R=Object.keys(d||{}).map(k=>Object.assign({id:k},d[k])).sort((a,b)=>(a.z||0)-(b.z||0));
@@ -540,7 +564,7 @@ function initFB(){
     S.items=R;last={};R.forEach(r=>last[r.id]=Object.assign({},r));
     if(sel&&!get(sel))sel=null;
     persist();renderAll();
-  },()=>netSet('нет доступа (проверьте правила БД)','var(--dg)'));
+  },()=>{netSet('нет доступа (проверьте правила БД)','var(--dg)');gotOff=gotItems=true;setNetReady()});
   root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
   root.child('cams').on('value',s=>{liveCams=s.val()||{};syncCams()});
 }

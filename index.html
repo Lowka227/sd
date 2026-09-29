@@ -19,13 +19,6 @@ body.edit{background:#101216}
 .fl{position:absolute;left:calc(10px / var(--s));top:calc(8px / var(--s));font-size:calc(13px / var(--s));font-weight:600;letter-spacing:.03em;padding:calc(3px / var(--s)) calc(8px / var(--s));border-radius:calc(6px / var(--s));white-space:nowrap}
 #inFrame .fl{background:var(--ac);color:#0b1f1a}
 #outerFrame .fl{background:#3a3f49;color:#d5d9e0}
-html:has(body.host){overflow:auto}
-body.host{background:#101216;overflow:auto}
-.host #stage,.host #top,.host #ui,.host #showMenu,.host #showUi{display:none!important}
-#hostBox{display:none}
-.host #hostBox{display:block;position:absolute;left:0;top:0;padding:8px}
-#hostBar{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;color:var(--mu)}
-#hf{display:block;border:0;background:#fff}
 .nomenu #top{display:none!important}
 #showMenu{display:none;position:fixed;top:8px;right:8px;z-index:111;padding:4px 10px;font-size:12px;background:var(--bg)}
 .edit.nomenu #showMenu{display:block}
@@ -43,6 +36,9 @@ body.drag .it{transition:none}
 .edit .it.hid{display:block;opacity:.25!important}
 .it.hid{display:none}
 .edit .it iframe{pointer-events:none}
+/* режим «управлять плеером напрямую»: клики попадают внутрь виджета */
+.edit .it.live iframe{pointer-events:auto}
+.edit .it.live{outline:2px solid #f5a623;cursor:default}
 .edit .it .snd{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--bg);border-radius:8px;font-size:22px}
 .rz{display:none;position:absolute;right:calc(-8px / var(--s));bottom:calc(-8px / var(--s));width:calc(18px / var(--s));height:calc(18px / var(--s));background:var(--ac);border-radius:50%;cursor:nwse-resize}
 .edit .it.sel:not(.lock) .rz{display:block}
@@ -60,6 +56,7 @@ button:hover{border-color:var(--ac)}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 button.p{background:var(--ac);color:#0b1f1a;border-color:var(--ac);font-weight:600}
 button.d{color:var(--dg)}
+button.on{background:#f5a623;border-color:#f5a623;color:#231600;font-weight:600}
 textarea,input[type=text],input[type=url],select{width:100%}
 textarea{resize:vertical;min-height:56px}
 label{display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12px;width:100%;margin-bottom:4px}
@@ -90,7 +87,6 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 </head>
 <body>
 <div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
-<div id="hostBox"><div id="hostBar"><button class="p" id="hGo">▶ Начать трансляцию (выберите «Эта вкладка»)</button><span id="hSt">не в эфире</span></div><iframe id="hf" allow="autoplay; fullscreen; clipboard-write"></iframe></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
 <button id="showUi" title="Клавиша P">☰ Панель</button>
 <header id="top" aria-label="Меню (в OBS не видно)">
@@ -117,6 +113,10 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
       <div class="row"><button id="vPlay">▶ Пуск</button><button id="vPause">⏸ Пауза</button><button id="vRes">⏮ Сначала</button></div>
       <label><input type="checkbox" id="vLoop"> Зацикливать</label>
     </div>
+    <div id="pLive" hidden>
+      <div class="row"><button id="bLive">🖱 Управлять плеером напрямую</button></div>
+      <div id="hint">Оранжевая рамка: кликайте по самому плееру (пауза, перемотка) — для YouTube это сразу применится у всех. Перетаскивать элемент в этом режиме нельзя — нажмите кнопку ещё раз.</div>
+    </div>
     <div id="pTxt" hidden>
       <textarea id="tx" aria-label="Текст"></textarea>
       <div class="row">
@@ -130,10 +130,6 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
       <div class="row" style="margin-top:6px"><button id="bUrl">Применить URL</button><button id="bRef">Обновить</button></div>
     </div>
     <div id="pSnd" hidden><div class="row"><button id="bPlay">▶ Играть</button><button id="bStop">■ Стоп</button></div></div>
-    <div id="pWid" hidden>
-      <div class="row"><button id="wLive" class="p" title="Откроется окно, где виджет работает как обычный сайт, а все остальные видят его трансляцию">🎛 Управлять внутри виджета</button><button id="wOff">↩ Обычный режим</button></div>
-      <div id="hint">В открытом окне нажмите «Начать трансляцию», выберите «Эта вкладка» и кликайте в виджете как обычно — все увидят то же самое. Окно не закрывайте и не сворачивайте.</div>
-    </div>
     <div id="pCam" hidden>
       <select id="cd" aria-label="Камера"></select>
       <div class="row" style="margin-top:6px"><button id="cStart">▶ Запустить здесь</button><button id="cStop">■ Стоп</button></div>
@@ -168,8 +164,8 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 const $=id=>document.getElementById(id), stage=$('stage');
 const KEY='obs-canvas-v2';
 let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
+const liveSet=new Set();   // элементы, которыми управляют напрямую (только в этой вкладке)
 const inOBS=!!window.obsstudio;
-const HOST=new URLSearchParams(location.search).get('host');   // окно управления виджетом
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
 let off=0,rootRes;const rootP=new Promise(r=>rootRes=r),blobs={};
 const srv=()=>Date.now()+off;
@@ -216,7 +212,7 @@ function vsync(it,force){
 const vAll=()=>S.items.forEach(i=>{if(i.type==='video')vsync(i);else if(isYT(i))ytsync(i)});
 setInterval(vAll,2000);addEventListener('pointerdown',vAll);
 /* громкость YouTube-виджетов (для остальных сайтов управление недоступно) */
-const isYT=it=>!!it&&it.type==='widget'&&!it.live&&/youtube\.com\/embed\//.test(it.src||'');
+const isYT=it=>!!it&&it.type==='widget'&&/youtube\.com\/embed\//.test(it.src||'');
 const ytcmd=(f,fn,a)=>f&&f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'command',func:fn,args:a||[]}),'*');
 function wvol(it){
   const f=isYT(it)&&q(it.id,'iframe');if(!f)return;
@@ -227,19 +223,27 @@ function ytsync(it,force){
   const y=f._yt||{},p=curPos(it),playing=y.s===1,ended=y.s===0;
   if(it.pl){if(force||Math.abs((y.t||0)-p)>1.5||(ended&&it.loop))ytcmd(f,'seekTo',[p,true]);if(!playing&&!(ended&&!it.loop))ytcmd(f,'playVideo')}
   else{if(playing||y.s===3)ytcmd(f,'pauseVideo');if(Math.abs((y.t||0)-p)>.7)ytcmd(f,'seekTo',[p,true])}}
+/* прямое управление: то, что вы нажали внутри плеера YouTube, записывается в общее состояние и уходит всем */
+function ytlive(it,f){
+  if(!it||!liveSet.has(it.id)||!f._ready||dragging)return;
+  const y=f._yt||{},s=y.s,t=y.t||0;
+  if(s===1&&!it.pl){it.pos=t;it.t0=srv();it.pl=1;save();inspect()}
+  else if(s===2&&it.pl){it.pos=t;it.pl=0;save();inspect()}
+  else if(s===1&&it.pl&&Math.abs(t-curPos(it))>2){it.pos=t;it.t0=srv();save()}
+  else if(s===2&&!it.pl&&Math.abs(t-(it.pos||0))>1){it.pos=t;save()}}
 addEventListener('message',e=>{
   if(typeof e.data!=='string'||e.data[0]!=='{')return;
   let d;try{d=JSON.parse(e.data)}catch(x){return}
   if(!d||!d.event)return;
   const f=[...stage.querySelectorAll('iframe')].find(i=>i.contentWindow===e.source);if(!f)return;
-  const y=f._yt=f._yt||{},i=d.info;
+  const y=f._yt=f._yt||{},i=d.info,id=f.closest('.it').dataset.id;
   if(i){if(i.currentTime!==undefined)y.t=i.currentTime;if(i.duration!==undefined)y.d=i.duration;if(i.playerState!==undefined)y.s=i.playerState}
-  if(!f._ready){f._ready=true;const id=f.closest('.it').dataset.id;wvol(get(id));ytsync(get(id),1)}});
+  if(!f._ready){f._ready=true;wvol(get(id));ytsync(get(id),1)}
+  else ytlive(get(id),f)});
 const applyVol=()=>S.items.forEach(i=>i.type==='widget'&&wvol(i));
 
 /* ---------- отрисовка ---------- */
 function build(it){
-  if(HOST){if(it.id===HOST)hostRender(it);return}
   let el=stage.querySelector(`[data-id="${it.id}"]`);
   if(!el){
     el=document.createElement('div');el.className='it';el.dataset.id=it.id;
@@ -248,20 +252,20 @@ function build(it){
   }
   const c=el.firstChild;
   el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};`;
-  el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);
+  el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);el.classList.toggle('live',liveSet.has(it.id));
   if(c.style.cssText!==(it.css||''))c.style.cssText=it.css||'';
   if(it.type==='image'){if(!c.firstChild||c.firstChild.src!==it.src){c.innerHTML='';const i=new Image();i.src=it.src;i.alt='';i.onerror=()=>toast('Не удалось загрузить картинку');c.appendChild(i)}}
   else if(it.type==='text'){
     let t=c.querySelector('.t');if(!t){c.innerHTML='<div class="t"></div>';t=c.firstChild}
     if(t.textContent!==it.text)t.textContent=it.text;
     Object.assign(t.style,{fontFamily:it.ff,color:it.fc,fontSize:it.fs+'px',fontWeight:it.fb?'700':'400'})}
-  else if(it.type==='widget'&&!it.live){ytsync(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=it.src;f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');wvol(get(it.id));ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
+  else if(it.type==='widget'){ytsync(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=it.src;f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');wvol(get(it.id));ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
   else if(it.type==='sound'||it.type==='video'){
     const v=it.type==='video';let m=c.querySelector(v?'video':'audio');
     if(!m){c.innerHTML=v?'<video playsinline preload="auto"></video>':'<div class="snd">🔊</div><audio></audio>';m=c.querySelector(v?'video':'audio');if(v)m.onloadedmetadata=()=>vsync(get(it.id),1)}
     m.volume=(it.vol??100)/100;setSrc(m,it.src);if(v)vsync(it);
   }
-  else if(it.type==='cam'||(it.type==='widget'&&it.live)){
+  else if(it.type==='cam'){
     let m=c.querySelector('video');if(!m){c.innerHTML='<video playsinline autoplay></video>';m=c.firstChild}
     m.muted=!!camLocal[it.id]||!hereOn();m.volume=(it.vol??100)/100;
     if(camLocal[it.id]&&m.srcObject!==camLocal[it.id])m.srcObject=camLocal[it.id];
@@ -313,9 +317,9 @@ async function watch(id,b){   // зритель: запрашивает пото
   ref.child('answer').on('value',async s=>{const a=s.val();if(a&&!pc.remoteDescription){await pc.setRemoteDescription(a);pend.splice(0).forEach(c=>pc.addIceCandidate(c).catch(()=>{}))}});
   ref.child('bc').on('child_added',s=>{const c=s.val();pc.remoteDescription?pc.addIceCandidate(c).catch(()=>{}):pend.push(c)})}
 function syncCams(){
-  if(!root||HOST)return;
-  Object.keys(camPC).forEach(id=>{const g=get(id);if(!g||!(g.type==='cam'||g.live)||liveCams[id]!==camPC[id].b)unwatch(id)});
-  S.items.forEach(it=>{if((it.type==='cam'||it.live)&&liveCams[it.id]&&liveCams[it.id]!==me&&!camLocal[it.id]&&!camPC[it.id])watch(it.id,liveCams[it.id])})}
+  if(!root)return;
+  Object.keys(camPC).forEach(id=>{if(!get(id)||liveCams[id]!==camPC[id].b)unwatch(id)});
+  S.items.forEach(it=>{if(it.type==='cam'&&liveCams[it.id]&&liveCams[it.id]!==me&&!camLocal[it.id]&&!camPC[it.id])watch(it.id,liveCams[it.id])})}
 function renderAll(){
   const ids=new Set(S.items.map(i=>i.id));
   document.querySelectorAll('.it').forEach(e=>{if(!ids.has(e.dataset.id))e.remove()});
@@ -354,7 +358,9 @@ function inspect(){
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
   sv('op',it.o);sv('css',it.css||'');
   $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
-  $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pWid').hidden=it.type!=='widget';$('wOff').hidden=!it.live;$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
+  $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
+  $('pLive').hidden=it.type!=='widget';$('bLive').classList.toggle('on',liveSet.has(it.id));
+  $('bLive').textContent=liveSet.has(it.id)?'✋ Вернуть перетаскивание':'🖱 Управлять плеером напрямую';
   sv('vl',it.vol??100);$('vLoop').checked=!!it.loop;
   if(it.type==='text'){sv('tx',it.text);sv('ff',it.ff);sv('fc',it.fc);sv('fs',it.fs);$('fb').checked=!!it.fb}
   if(it.type==='widget')sv('url',it.src);
@@ -373,6 +379,7 @@ $('fb').onchange=e=>upd(i=>i.fb=e.target.checked);
 $('bUrl').onclick=()=>upd(i=>{i.src=fixUrl($('url').value.trim());$('url').value=i.src});
 $('bRef').onclick=()=>{const f=q(sel,'iframe');if(f){f._ready=false;f._yt=null;f.src=f.src}};
 $('bCss').onclick=()=>upd(i=>i.css=$('css').value);
+$('bLive').onclick=()=>{if(!sel)return;liveSet.has(sel)?liveSet.delete(sel):liveSet.add(sel);const it=get(sel);if(it)build(it);inspect()};
 $('bPlay').onclick=()=>sel&&sendCmd({t:'play',id:sel});
 $('bStop').onclick=()=>sel&&sendCmd({t:'halt',id:sel});
 $('vl').oninput=e=>{upd(i=>i.vol=+e.target.value);wvol(get(sel))};
@@ -386,28 +393,8 @@ setInterval(()=>{const it=get(sel);if(!it||!(it.type==='video'||isYT(it))||docum
 $('cStart').onclick=()=>{const it=get(sel);if(it)startCam(it.id,it.kind,it.kind==='cam'?$('cd').value||undefined:undefined)};
 $('cStop').onclick=()=>{if(sel){stopCam(sel);const it=get(sel);it&&build(it)}};
 $('cd').onchange=e=>{const it=get(sel);if(it)startCam(it.id,'cam',e.target.value)};
-/* ---------- виджет с управлением внутри: окно-хозяин транслирует себя всем ---------- */
-const hostURL=id=>location.href.split(/[?#]/)[0]+'?room='+encodeURIComponent(room)+'&host='+id;
-$('wLive').onclick=()=>{const it=get(sel);if(!it)return;upd(i=>i.live=1);
-  window.open(hostURL(it.id),'wh'+it.id,'width='+Math.min(screen.availWidth,it.w+40)+',height='+Math.min(screen.availHeight,it.h+120))};
-$('wOff').onclick=()=>upd(i=>i.live=0);
-function hostRender(it){
-  const f=$('hf');f.style.width=it.w+'px';f.style.height=it.h+'px';
-  if(f.dataset.u!==it.src){f.dataset.u=it.src;f.src=it.src}}
-$('hGo').onclick=async()=>{
-  if(!root)return toast('Нет связи с Firebase');
-  if(!(window.CropTarget&&CropTarget.fromElement))return toast('Нужен Chrome или Edge версии 104+');
-  let st;
-  try{
-    st=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:true,preferCurrentTab:true,selfBrowserSurface:'include'});
-    await st.getVideoTracks()[0].cropTo(await CropTarget.fromElement($('hf')));
-  }catch(e){st&&st.getTracks().forEach(t=>t.stop());return toast('Не удалось начать: '+e.message)}
-  stopCam(HOST);camLocal[HOST]=st;
-  st.getVideoTracks()[0].onended=()=>{stopCam(HOST);$('hSt').textContent='не в эфире'};
-  root.child('cams/'+HOST).set(me);root.child('cams/'+HOST).onDisconnect().remove();serve(HOST);
-  $('hSt').textContent='● в эфире — окно не закрывайте'};
 function delSel(){
-  if(!sel)return;const d=get(sel);S.items=S.items.filter(i=>i.id!==sel);if(d&&d.type==='cam')stopCam(d.id);
+  if(!sel)return;const d=get(sel);S.items=S.items.filter(i=>i.id!==sel);liveSet.delete(sel);if(d&&d.type==='cam')stopCam(d.id);
   if(d&&/^fb:/.test(d.src||'')&&root&&!S.items.some(i=>i.src===d.src))root.child('media/'+d.src.slice(3)).remove();
   sel=null;save();renderAll()}
 
@@ -465,7 +452,7 @@ $('bShut').onclick=()=>sendCmd({t:'stop'});
 $('bExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='obs-canvas.json';a.click()};
 $('bImp').onclick=()=>$('fImp').click();
 $('fImp').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.items))throw 0;S=Object.assign(S,d);sel=null;save();renderAll();toast('Сцена загружена')}catch(x){toast('Файл не похож на сцену холста')}};r.readAsText(f)};
-$('bClr').onclick=()=>{if(confirm('Удалить все элементы?')){S.items=[];sel=null;save();renderAll()}};
+$('bClr').onclick=()=>{if(confirm('Удалить все элементы?')){S.items=[];sel=null;liveSet.clear();save();renderAll()}};
 
 /* ---------- панель элементов ---------- */
 const els=$('els');
@@ -528,7 +515,7 @@ function flush(){
   if(Object.keys(up).length)root.update(up).catch(e=>toast('Firebase: '+e.message));
 }
 function sendCmd(o){o.n=uid();if(root)root.child('cmd').set(o).catch(e=>toast('Firebase: '+e.message));else{runCmd(o);chan&&chan.postMessage(o)}}
-function runCmd(c){if(HOST)return;
+function runCmd(c){
   if(c.t==='say'){if(hereOn())speak(c)}
   else if(c.t==='stop'){if('speechSynthesis' in window)speechSynthesis.cancel()}
   else{
@@ -593,7 +580,7 @@ addEventListener('resize',layout);
 if('ResizeObserver' in window)new ResizeObserver(layout).observe($('top'));
 
 /* ---------- старт ---------- */
-if(HOST)document.body.classList.add('host');else if(!inOBS)document.body.classList.add('edit');
+if(!inOBS)document.body.classList.add('edit');
 renderAll();
 layout();
 initFB();

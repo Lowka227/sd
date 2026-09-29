@@ -87,7 +87,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 <button id="showUi" title="Клавиша P">☰ Панель</button>
 <header id="top" aria-label="Меню (в OBS не видно)">
   <div class="tr" id="tools"><b>Инструменты:</b>
-    <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aVid">🎬 Видео</button><button id="aWid">🧩 Виджет</button>
+    <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aVid">🎬 Видео</button><button id="aCam">📷 Камера</button><button id="aScr">🖥 Экран</button><button id="aWid">🧩 Виджет</button>
     <button id="bClr" class="d">🗑 Очистить</button><button id="bTts" class="sy">🎙 Синхронная озвучка</button>
     <button id="bMenu" title="Клавиша M">⇧ Скрыть меню</button><span id="net">● офлайн</span></div>
   <div class="tr"><b>Элементы:</b><div id="els"></div></div>
@@ -105,6 +105,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
     <label>Прозрачность <input type="range" id="op" min="0" max="100"></label>
     <label id="pVol" title="Для виджетов громкость работает только у YouTube">Громкость <input type="range" id="vl" min="0" max="100"></label>
     <div id="pVid" hidden>
+      <label>Перемотка <input type="range" id="vs" min="0" max="100" step="1"></label>
       <div class="row"><button id="vPlay">▶ Пуск</button><button id="vPause">⏸ Пауза</button><button id="vRes">⏮ Сначала</button></div>
       <label><input type="checkbox" id="vLoop"> Зацикливать</label>
     </div>
@@ -121,6 +122,11 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
       <div class="row" style="margin-top:6px"><button id="bUrl">Применить URL</button><button id="bRef">Обновить</button></div>
     </div>
     <div id="pSnd" hidden><div class="row"><button id="bPlay">▶ Играть</button><button id="bStop">■ Стоп</button></div></div>
+    <div id="pCam" hidden>
+      <select id="cd" aria-label="Камера"></select>
+      <div class="row" style="margin-top:6px"><button id="cStart">▶ Запустить здесь</button><button id="cStop">■ Стоп</button></div>
+      <div id="hint">Картинка идёт с этой вкладки напрямую ко всем зрителям (WebRTC). Вкладку с камерой не закрывайте.</div>
+    </div>
     <textarea id="css" placeholder="CSS, напр.: border-radius:15px; filter:blur(1px)" aria-label="CSS"></textarea>
     <div class="row" style="margin-top:6px"><button id="bCss">Применить CSS</button></div>
   </div>
@@ -153,7 +159,9 @@ let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
 const inOBS=!!window.obsstudio;
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
 let off=0,rootRes;const rootP=new Promise(r=>rootRes=r),blobs={};
-const srv=()=>Date.now()+off;   // серверное время Firebase — общее для всех
+const srv=()=>Date.now()+off;
+const me=uid0(),camLocal={},camPC={},bcPC={},ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};let liveCams={};
+function uid0(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}   // серверное время Firebase — общее для всех
 
 /* ---------- сохранение ---------- */
 function save(){persist();sync();renderBar()}
@@ -183,7 +191,7 @@ function setSrc(el,src){if(el._s===src)return;el._s=src;resolveSrc(src).then(u=>
 
 /* ---------- синхронное видео: позиция = pos + (серверное время − t0) ---------- */
 function curPos(it){
-  const v=q(it.id,'video'),d=v&&v.duration||0;
+  const v=q(it.id,'video'),f=q(it.id,'iframe'),d=(v&&v.duration)||(f&&f._yt&&f._yt.d)||0;
   let p=(it.pos||0)+(it.pl?(srv()-it.t0)/1000:0);
   if(d)p=it.loop?p%d:Math.min(p,d);return p}
 function vsync(it,force){
@@ -192,13 +200,28 @@ function vsync(it,force){
   const p=curPos(it);
   if(it.pl){if(force||Math.abs(v.currentTime-p)>.35)v.currentTime=p;if(v.paused&&!v.ended)v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
   else{if(!v.paused)v.pause();if(Math.abs(v.currentTime-p)>.05)v.currentTime=p}}
-const vAll=()=>S.items.forEach(i=>i.type==='video'&&vsync(i));
+const vAll=()=>S.items.forEach(i=>{if(i.type==='video')vsync(i);else if(isYT(i))ytsync(i)});
 setInterval(vAll,2000);addEventListener('pointerdown',vAll);
 /* громкость YouTube-виджетов (для остальных сайтов управление недоступно) */
+const isYT=it=>!!it&&it.type==='widget'&&/youtube\.com\/embed\//.test(it.src||'');
+const ytcmd=(f,fn,a)=>f&&f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'command',func:fn,args:a||[]}),'*');
 function wvol(it){
-  const f=it&&q(it.id,'iframe');if(!f||!f.contentWindow||!/youtube/.test(it.src))return;
-  const p=(fn,a)=>f.contentWindow.postMessage(JSON.stringify({event:'command',func:fn,args:a||[]}),'*');
-  if(hereOn()){p('unMute');p('setVolume',[it.vol??100])}else p('mute')}
+  const f=isYT(it)&&q(it.id,'iframe');if(!f)return;
+  if(hereOn()){ytcmd(f,'unMute');ytcmd(f,'setVolume',[it.vol??100])}else ytcmd(f,'mute')}
+/* YouTube-виджет: то же общее время, что и у видео — пауза/пуск/перемотка у всех сразу */
+function ytsync(it,force){
+  const f=isYT(it)&&q(it.id,'iframe');if(!f||!f._ready)return;
+  const y=f._yt||{},p=curPos(it),playing=y.s===1,ended=y.s===0;
+  if(it.pl){if(force||Math.abs((y.t||0)-p)>1.5||(ended&&it.loop))ytcmd(f,'seekTo',[p,true]);if(!playing&&!(ended&&!it.loop))ytcmd(f,'playVideo')}
+  else{if(playing||y.s===3)ytcmd(f,'pauseVideo');if(Math.abs((y.t||0)-p)>.7)ytcmd(f,'seekTo',[p,true])}}
+addEventListener('message',e=>{
+  if(typeof e.data!=='string'||e.data[0]!=='{')return;
+  let d;try{d=JSON.parse(e.data)}catch(x){return}
+  if(!d||!d.event)return;
+  const f=[...stage.querySelectorAll('iframe')].find(i=>i.contentWindow===e.source);if(!f)return;
+  const y=f._yt=f._yt||{},i=d.info;
+  if(i){if(i.currentTime!==undefined)y.t=i.currentTime;if(i.duration!==undefined)y.d=i.duration;if(i.playerState!==undefined)y.s=i.playerState}
+  if(!f._ready){f._ready=true;const id=f.closest('.it').dataset.id;wvol(get(id));ytsync(get(id),1)}});
 const applyVol=()=>S.items.forEach(i=>i.type==='widget'&&wvol(i));
 
 /* ---------- отрисовка ---------- */
@@ -218,17 +241,71 @@ function build(it){
     let t=c.querySelector('.t');if(!t){c.innerHTML='<div class="t"></div>';t=c.firstChild}
     if(t.textContent!==it.text)t.textContent=it.text;
     Object.assign(t.style,{fontFamily:it.ff,color:it.fc,fontSize:it.fs+'px',fontWeight:it.fb?'700':'400'})}
-  else if(it.type==='widget'){if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=it.src;f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{const g=()=>wvol(get(it.id));g();setTimeout(g,1500);setTimeout(g,4000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
+  else if(it.type==='widget'){ytsync(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=it.src;f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');wvol(get(it.id));ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
   else if(it.type==='sound'||it.type==='video'){
     const v=it.type==='video';let m=c.querySelector(v?'video':'audio');
     if(!m){c.innerHTML=v?'<video playsinline preload="auto"></video>':'<div class="snd">🔊</div><audio></audio>';m=c.querySelector(v?'video':'audio');if(v)m.onloadedmetadata=()=>vsync(get(it.id),1)}
     m.volume=(it.vol??100)/100;setSrc(m,it.src);if(v)vsync(it);
   }
+  else if(it.type==='cam'){
+    let m=c.querySelector('video');if(!m){c.innerHTML='<video playsinline autoplay></video>';m=c.firstChild}
+    m.muted=!!camLocal[it.id]||!hereOn();m.volume=(it.vol??100)/100;
+    if(camLocal[it.id]&&m.srcObject!==camLocal[it.id])m.srcObject=camLocal[it.id];
+  }
 }
+/* ---------- камера / экран: WebRTC, сигналы через Firebase ---------- */
+const sdpOf=d=>({type:d.type,sdp:d.sdp});
+async function startCam(id,kind,dev){
+  stopCam(id);let st;
+  try{
+    if(kind==='screen')st=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+    else{const vc=dev?{deviceId:{exact:dev}}:{width:{ideal:1280},height:{ideal:720}};
+      st=await navigator.mediaDevices.getUserMedia({video:vc,audio:true}).catch(()=>navigator.mediaDevices.getUserMedia({video:vc}))}
+  }catch(e){toast('Нет доступа: '+e.message);return false}
+  camLocal[id]=st;st.getVideoTracks()[0].onended=()=>{stopCam(id);const it=get(id);if(it)build(it)};
+  if(root){root.child('cams/'+id).set(me);root.child('cams/'+id).onDisconnect().remove();serve(id)}
+  if(kind!=='screen')navigator.mediaDevices.enumerateDevices().then(l=>{$('cd').innerHTML=l.filter(x=>x.kind==='videoinput').map(x=>`<option value="${x.deviceId}">${x.label||'Камера'}</option>`).join('')});
+  const it=get(id);if(it)build(it);return true}
+function serve(id){   // передающая вкладка: отвечает каждому зрителю
+  const ref=root.child('sig/'+id);
+  ref.on('child_added',async s=>{
+    const vid=s.key,o=s.child('offer').val();if(!o||!camLocal[id])return;
+    const pc=new RTCPeerConnection(ICE);bcPC[id+'|'+vid]=pc;
+    camLocal[id].getTracks().forEach(t=>pc.addTrack(t,camLocal[id]));
+    pc.onicecandidate=e=>e.candidate&&ref.child(vid+'/bc').push(e.candidate.toJSON());
+    await pc.setRemoteDescription(o);
+    await pc.setLocalDescription(await pc.createAnswer());
+    await ref.child(vid+'/answer').set(sdpOf(pc.localDescription));
+    ref.child(vid+'/vc').on('child_added',c=>pc.addIceCandidate(c.val()).catch(()=>{}))});
+  ref.on('child_removed',s=>{const pc=bcPC[id+'|'+s.key];if(pc){pc.close();delete bcPC[id+'|'+s.key]}})}
+function stopCam(id){
+  const st=camLocal[id];
+  if(st){st.getTracks().forEach(t=>t.stop());delete camLocal[id];if(root){root.child('sig/'+id).off();root.child('sig/'+id).remove();root.child('cams/'+id).remove()}}
+  Object.keys(bcPC).filter(k=>k.startsWith(id+'|')).forEach(k=>{bcPC[k].close();delete bcPC[k]});
+  const el=q(id,'video');if(el)el.srcObject=null}
+function unwatch(id){
+  const w=camPC[id];if(!w)return;delete camPC[id];w.pc.close();
+  if(root){const r=root.child('sig/'+id+'/'+me);r.off();r.child('answer').off();r.child('bc').off();r.remove()}
+  const el=q(id,'video');if(el)el.srcObject=null}
+async function watch(id,b){   // зритель: запрашивает поток у передающей вкладки
+  const pc=new RTCPeerConnection(ICE);camPC[id]={pc,b};const pend=[];
+  const ref=root.child('sig/'+id+'/'+me);ref.onDisconnect().remove();
+  pc.addTransceiver('video',{direction:'recvonly'});pc.addTransceiver('audio',{direction:'recvonly'});
+  pc.ontrack=e=>{const el=q(id,'video');if(el){el.srcObject=e.streams[0];el.play().catch(()=>{el.muted=true;el.play().catch(()=>{})})}};
+  pc.onicecandidate=e=>e.candidate&&ref.child('vc').push(e.candidate.toJSON());
+  pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'){unwatch(id);setTimeout(syncCams,3000)}};
+  await pc.setLocalDescription(await pc.createOffer());
+  await ref.set({offer:sdpOf(pc.localDescription)});
+  ref.child('answer').on('value',async s=>{const a=s.val();if(a&&!pc.remoteDescription){await pc.setRemoteDescription(a);pend.splice(0).forEach(c=>pc.addIceCandidate(c).catch(()=>{}))}});
+  ref.child('bc').on('child_added',s=>{const c=s.val();pc.remoteDescription?pc.addIceCandidate(c).catch(()=>{}):pend.push(c)})}
+function syncCams(){
+  if(!root)return;
+  Object.keys(camPC).forEach(id=>{if(!get(id)||liveCams[id]!==camPC[id].b)unwatch(id)});
+  S.items.forEach(it=>{if(it.type==='cam'&&liveCams[it.id]&&liveCams[it.id]!==me&&!camLocal[it.id]&&!camPC[it.id])watch(it.id,liveCams[it.id])})}
 function renderAll(){
   const ids=new Set(S.items.map(i=>i.id));
   document.querySelectorAll('.it').forEach(e=>{if(!ids.has(e.dataset.id))e.remove()});
-  S.items.forEach(build);inspect();renderBar();
+  S.items.forEach(build);inspect();renderBar();syncCams();
 }
 
 /* ---------- добавление ---------- */
@@ -247,7 +324,9 @@ $('aSnd').onclick=()=>{const u=prompt('Ссылка на аудио (остав�
 $('aVid').onclick=()=>{const u=prompt('Ссылка на видео mp4/webm (оставьте пустым, чтобы выбрать файл до 10 МБ):');if(u===null)return;
   const mk=src=>add({type:'video',src,w:640,h:360,loop:1,pl:0,pos:0,t0:0});
   u.trim()?mk(u.trim()):pickFile('video/*',mk,1)};
-$('aWid').onclick=()=>{let u=prompt('Ссылка на виджет (https://…). Ссылки YouTube будут преобразованы автоматически:');if(!u)return;add({type:'widget',src:fixUrl(u.trim()),w:480,h:270})};
+$('aWid').onclick=()=>{let u=prompt('Ссылка на виджет (https://…). Ссылки YouTube будут преобразованы автоматически:');if(!u)return;{const src=fixUrl(u.trim());add(Object.assign({type:'widget',src,w:480,h:270},/youtube\.com\/embed\//.test(src)?{pl:1,pos:0,t0:srv(),loop:0}:{}))}};
+$('aCam').onclick=()=>mkCam('cam');$('aScr').onclick=()=>mkCam('screen');
+async function mkCam(kind){if(!navigator.mediaDevices)return toast('Нужен https или localhost');const id=uid();if(await startCam(id,kind))add({id,type:'cam',kind,w:640,h:360})}
 function fixUrl(u){
   if(!/^https?:\/\//i.test(u))u='https://'+u;
   const m=u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/);
@@ -261,7 +340,7 @@ function inspect(){
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
   sv('op',it.o);sv('css',it.css||'');
   $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
-  $('pVid').hidden=it.type!=='video';$('pVol').hidden=!['video','sound','widget'].includes(it.type);
+  $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
   sv('vl',it.vol??100);$('vLoop').checked=!!it.loop;
   if(it.type==='text'){sv('tx',it.text);sv('ff',it.ff);sv('fc',it.fc);sv('fs',it.fs);$('fb').checked=!!it.fb}
   if(it.type==='widget')sv('url',it.src);
@@ -278,7 +357,7 @@ $('fc').oninput=e=>upd(i=>i.fc=e.target.value);
 $('fs').oninput=e=>upd(i=>i.fs=Math.max(8,+e.target.value||8));
 $('fb').onchange=e=>upd(i=>i.fb=e.target.checked);
 $('bUrl').onclick=()=>upd(i=>{i.src=fixUrl($('url').value.trim());$('url').value=i.src});
-$('bRef').onclick=()=>{const f=q(sel,'iframe');if(f)f.src=f.src};
+$('bRef').onclick=()=>{const f=q(sel,'iframe');if(f){f._ready=false;f._yt=null;f.src=f.src}};
 $('bCss').onclick=()=>upd(i=>i.css=$('css').value);
 $('bPlay').onclick=()=>sel&&sendCmd({t:'play',id:sel});
 $('bStop').onclick=()=>sel&&sendCmd({t:'halt',id:sel});
@@ -287,8 +366,14 @@ $('vPlay').onclick=()=>upd(i=>{i.pos=curPos(i);i.t0=srv();i.pl=1});
 $('vPause').onclick=()=>upd(i=>{i.pos=curPos(i);i.pl=0});
 $('vRes').onclick=()=>upd(i=>{i.pos=0;i.t0=srv();i.pl=1});
 $('vLoop').onchange=e=>upd(i=>{i.pos=curPos(i);i.t0=srv();i.loop=e.target.checked?1:0});
+$('vs').onchange=e=>upd(i=>{i.pos=+e.target.value;i.t0=srv()});
+setInterval(()=>{const it=get(sel);if(!it||!(it.type==='video'||isYT(it))||document.activeElement===$('vs'))return;
+  const v=q(it.id,'video'),f=q(it.id,'iframe'),d=(v&&v.duration)||(f&&f._yt&&f._yt.d)||0;if(d){$('vs').max=Math.ceil(d);$('vs').value=curPos(it)}},500);
+$('cStart').onclick=()=>{const it=get(sel);if(it)startCam(it.id,it.kind,it.kind==='cam'?$('cd').value||undefined:undefined)};
+$('cStop').onclick=()=>{if(sel){stopCam(sel);const it=get(sel);it&&build(it)}};
+$('cd').onchange=e=>{const it=get(sel);if(it)startCam(it.id,'cam',e.target.value)};
 function delSel(){
-  if(!sel)return;const d=get(sel);S.items=S.items.filter(i=>i.id!==sel);
+  if(!sel)return;const d=get(sel);S.items=S.items.filter(i=>i.id!==sel);if(d&&d.type==='cam')stopCam(d.id);
   if(d&&/^fb:/.test(d.src||'')&&root&&!S.items.some(i=>i.src===d.src))root.child('media/'+d.src.slice(3)).remove();
   sel=null;save();renderAll()}
 
@@ -359,10 +444,10 @@ function renderBar(){
     const sg=[it.type,(it.src||'').length,(it.src||'').slice(-40),it.text,it.fc,!!it.hidden,it.id===sel].join('|');
     if(e._s!==sg){
       e._s=sg;e.className='th'+(it.id===sel?' sel':'')+(it.hidden?' off':'');
-      e.title={image:'Картинка',text:'Текст',sound:'Звук (двойной клик — играть у всех)',widget:'Виджет',video:'Видео'}[it.type]||it.type;
+      e.title={image:'Картинка',text:'Текст',sound:'Звук (двойной клик — играть у всех)',widget:'Виджет',video:'Видео',cam:'Камера / экран'}[it.type]||it.type;
       const v=document.createElement('span');v.className='pv';
       if(it.type==='image'){const im=new Image();im.src=it.src;im.alt='';v.appendChild(im)}
-      else{v.textContent={text:'Aa',sound:'🔊',widget:'🌐',video:'🎬'}[it.type]||'?';if(it.type==='text')v.style.color=it.fc}
+      else{v.textContent={text:'Aa',sound:'🔊',widget:'🌐',video:'🎬',cam:'📷'}[it.type]||'?';if(it.type==='text')v.style.color=it.fc}
       e.replaceChildren(v);
       e.insertAdjacentHTML('beforeend','<button class="v" title="Скрыть/показать">👁</button><button class="x" title="Удалить">✕</button>');
     }
@@ -435,6 +520,7 @@ function initFB(){
     persist();renderAll();
   },()=>netSet('нет доступа (проверьте правила БД)','var(--dg)'));
   root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
+  root.child('cams').on('value',s=>{liveCams=s.val()||{};syncCams()});
 }
 
 /* ---------- полотно ----------

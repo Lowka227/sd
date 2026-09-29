@@ -19,6 +19,13 @@ body.edit{background:#101216}
 .fl{position:absolute;left:calc(10px / var(--s));top:calc(8px / var(--s));font-size:calc(13px / var(--s));font-weight:600;letter-spacing:.03em;padding:calc(3px / var(--s)) calc(8px / var(--s));border-radius:calc(6px / var(--s));white-space:nowrap}
 #inFrame .fl{background:var(--ac);color:#0b1f1a}
 #outerFrame .fl{background:#3a3f49;color:#d5d9e0}
+html:has(body.host){overflow:auto}
+body.host{background:#101216;overflow:auto}
+.host #stage,.host #top,.host #ui,.host #showMenu,.host #showUi{display:none!important}
+#hostBox{display:none}
+.host #hostBox{display:block;position:absolute;left:0;top:0;padding:8px}
+#hostBar{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px;color:var(--mu)}
+#hf{display:block;border:0;background:#fff}
 .nomenu #top{display:none!important}
 #showMenu{display:none;position:fixed;top:8px;right:8px;z-index:111;padding:4px 10px;font-size:12px;background:var(--bg)}
 .edit.nomenu #showMenu{display:block}
@@ -83,6 +90,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 </head>
 <body>
 <div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
+<div id="hostBox"><div id="hostBar"><button class="p" id="hGo">▶ Начать трансляцию (выберите «Эта вкладка»)</button><span id="hSt">не в эфире</span></div><iframe id="hf" allow="autoplay; fullscreen; clipboard-write"></iframe></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
 <button id="showUi" title="Клавиша P">☰ Панель</button>
 <header id="top" aria-label="Меню (в OBS не видно)">
@@ -122,6 +130,10 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
       <div class="row" style="margin-top:6px"><button id="bUrl">Применить URL</button><button id="bRef">Обновить</button></div>
     </div>
     <div id="pSnd" hidden><div class="row"><button id="bPlay">▶ Играть</button><button id="bStop">■ Стоп</button></div></div>
+    <div id="pWid" hidden>
+      <div class="row"><button id="wLive" class="p" title="Откроется окно, где виджет работает как обычный сайт, а все остальные видят его трансляцию">🎛 Управлять внутри виджета</button><button id="wOff">↩ Обычный режим</button></div>
+      <div id="hint">В открытом окне нажмите «Начать трансляцию», выберите «Эта вкладка» и кликайте в виджете как обычно — все увидят то же самое. Окно не закрывайте и не сворачивайте.</div>
+    </div>
     <div id="pCam" hidden>
       <select id="cd" aria-label="Камера"></select>
       <div class="row" style="margin-top:6px"><button id="cStart">▶ Запустить здесь</button><button id="cStop">■ Стоп</button></div>
@@ -157,6 +169,7 @@ const $=id=>document.getElementById(id), stage=$('stage');
 const KEY='obs-canvas-v2';
 let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
 const inOBS=!!window.obsstudio;
+const HOST=new URLSearchParams(location.search).get('host');   // окно управления виджетом
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
 let off=0,rootRes;const rootP=new Promise(r=>rootRes=r),blobs={};
 const srv=()=>Date.now()+off;
@@ -203,7 +216,7 @@ function vsync(it,force){
 const vAll=()=>S.items.forEach(i=>{if(i.type==='video')vsync(i);else if(isYT(i))ytsync(i)});
 setInterval(vAll,2000);addEventListener('pointerdown',vAll);
 /* громкость YouTube-виджетов (для остальных сайтов управление недоступно) */
-const isYT=it=>!!it&&it.type==='widget'&&/youtube\.com\/embed\//.test(it.src||'');
+const isYT=it=>!!it&&it.type==='widget'&&!it.live&&/youtube\.com\/embed\//.test(it.src||'');
 const ytcmd=(f,fn,a)=>f&&f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'command',func:fn,args:a||[]}),'*');
 function wvol(it){
   const f=isYT(it)&&q(it.id,'iframe');if(!f)return;
@@ -226,6 +239,7 @@ const applyVol=()=>S.items.forEach(i=>i.type==='widget'&&wvol(i));
 
 /* ---------- отрисовка ---------- */
 function build(it){
+  if(HOST){if(it.id===HOST)hostRender(it);return}
   let el=stage.querySelector(`[data-id="${it.id}"]`);
   if(!el){
     el=document.createElement('div');el.className='it';el.dataset.id=it.id;
@@ -241,13 +255,13 @@ function build(it){
     let t=c.querySelector('.t');if(!t){c.innerHTML='<div class="t"></div>';t=c.firstChild}
     if(t.textContent!==it.text)t.textContent=it.text;
     Object.assign(t.style,{fontFamily:it.ff,color:it.fc,fontSize:it.fs+'px',fontWeight:it.fb?'700':'400'})}
-  else if(it.type==='widget'){ytsync(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=it.src;f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');wvol(get(it.id));ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
+  else if(it.type==='widget'&&!it.live){ytsync(it);if(!c.firstChild||c.firstChild.dataset.u!==it.src){c.innerHTML='';const f=document.createElement('iframe');f.dataset.u=it.src;f.src=it.src;f.allow='autoplay; fullscreen; clipboard-write';f.onload=()=>{f._ready=false;f._yt=null;const g=()=>{f.contentWindow&&f.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');wvol(get(it.id));ytsync(get(it.id),1)};g();setTimeout(g,1000);setTimeout(g,3000)};f.setAttribute('allowtransparency','true');c.appendChild(f)}}
   else if(it.type==='sound'||it.type==='video'){
     const v=it.type==='video';let m=c.querySelector(v?'video':'audio');
     if(!m){c.innerHTML=v?'<video playsinline preload="auto"></video>':'<div class="snd">🔊</div><audio></audio>';m=c.querySelector(v?'video':'audio');if(v)m.onloadedmetadata=()=>vsync(get(it.id),1)}
     m.volume=(it.vol??100)/100;setSrc(m,it.src);if(v)vsync(it);
   }
-  else if(it.type==='cam'){
+  else if(it.type==='cam'||(it.type==='widget'&&it.live)){
     let m=c.querySelector('video');if(!m){c.innerHTML='<video playsinline autoplay></video>';m=c.firstChild}
     m.muted=!!camLocal[it.id]||!hereOn();m.volume=(it.vol??100)/100;
     if(camLocal[it.id]&&m.srcObject!==camLocal[it.id])m.srcObject=camLocal[it.id];
@@ -299,9 +313,9 @@ async function watch(id,b){   // зритель: запрашивает пото
   ref.child('answer').on('value',async s=>{const a=s.val();if(a&&!pc.remoteDescription){await pc.setRemoteDescription(a);pend.splice(0).forEach(c=>pc.addIceCandidate(c).catch(()=>{}))}});
   ref.child('bc').on('child_added',s=>{const c=s.val();pc.remoteDescription?pc.addIceCandidate(c).catch(()=>{}):pend.push(c)})}
 function syncCams(){
-  if(!root)return;
-  Object.keys(camPC).forEach(id=>{if(!get(id)||liveCams[id]!==camPC[id].b)unwatch(id)});
-  S.items.forEach(it=>{if(it.type==='cam'&&liveCams[it.id]&&liveCams[it.id]!==me&&!camLocal[it.id]&&!camPC[it.id])watch(it.id,liveCams[it.id])})}
+  if(!root||HOST)return;
+  Object.keys(camPC).forEach(id=>{const g=get(id);if(!g||!(g.type==='cam'||g.live)||liveCams[id]!==camPC[id].b)unwatch(id)});
+  S.items.forEach(it=>{if((it.type==='cam'||it.live)&&liveCams[it.id]&&liveCams[it.id]!==me&&!camLocal[it.id]&&!camPC[it.id])watch(it.id,liveCams[it.id])})}
 function renderAll(){
   const ids=new Set(S.items.map(i=>i.id));
   document.querySelectorAll('.it').forEach(e=>{if(!ids.has(e.dataset.id))e.remove()});
@@ -340,7 +354,7 @@ function inspect(){
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
   sv('op',it.o);sv('css',it.css||'');
   $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
-  $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
+  $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pWid').hidden=it.type!=='widget';$('wOff').hidden=!it.live;$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
   sv('vl',it.vol??100);$('vLoop').checked=!!it.loop;
   if(it.type==='text'){sv('tx',it.text);sv('ff',it.ff);sv('fc',it.fc);sv('fs',it.fs);$('fb').checked=!!it.fb}
   if(it.type==='widget')sv('url',it.src);
@@ -372,6 +386,26 @@ setInterval(()=>{const it=get(sel);if(!it||!(it.type==='video'||isYT(it))||docum
 $('cStart').onclick=()=>{const it=get(sel);if(it)startCam(it.id,it.kind,it.kind==='cam'?$('cd').value||undefined:undefined)};
 $('cStop').onclick=()=>{if(sel){stopCam(sel);const it=get(sel);it&&build(it)}};
 $('cd').onchange=e=>{const it=get(sel);if(it)startCam(it.id,'cam',e.target.value)};
+/* ---------- виджет с управлением внутри: окно-хозяин транслирует себя всем ---------- */
+const hostURL=id=>location.href.split(/[?#]/)[0]+'?room='+encodeURIComponent(room)+'&host='+id;
+$('wLive').onclick=()=>{const it=get(sel);if(!it)return;upd(i=>i.live=1);
+  window.open(hostURL(it.id),'wh'+it.id,'width='+Math.min(screen.availWidth,it.w+40)+',height='+Math.min(screen.availHeight,it.h+120))};
+$('wOff').onclick=()=>upd(i=>i.live=0);
+function hostRender(it){
+  const f=$('hf');f.style.width=it.w+'px';f.style.height=it.h+'px';
+  if(f.dataset.u!==it.src){f.dataset.u=it.src;f.src=it.src}}
+$('hGo').onclick=async()=>{
+  if(!root)return toast('Нет связи с Firebase');
+  if(!(window.CropTarget&&CropTarget.fromElement))return toast('Нужен Chrome или Edge версии 104+');
+  let st;
+  try{
+    st=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:true,preferCurrentTab:true,selfBrowserSurface:'include'});
+    await st.getVideoTracks()[0].cropTo(await CropTarget.fromElement($('hf')));
+  }catch(e){st&&st.getTracks().forEach(t=>t.stop());return toast('Не удалось начать: '+e.message)}
+  stopCam(HOST);camLocal[HOST]=st;
+  st.getVideoTracks()[0].onended=()=>{stopCam(HOST);$('hSt').textContent='не в эфире'};
+  root.child('cams/'+HOST).set(me);root.child('cams/'+HOST).onDisconnect().remove();serve(HOST);
+  $('hSt').textContent='● в эфире — окно не закрывайте'};
 function delSel(){
   if(!sel)return;const d=get(sel);S.items=S.items.filter(i=>i.id!==sel);if(d&&d.type==='cam')stopCam(d.id);
   if(d&&/^fb:/.test(d.src||'')&&root&&!S.items.some(i=>i.src===d.src))root.child('media/'+d.src.slice(3)).remove();
@@ -494,7 +528,7 @@ function flush(){
   if(Object.keys(up).length)root.update(up).catch(e=>toast('Firebase: '+e.message));
 }
 function sendCmd(o){o.n=uid();if(root)root.child('cmd').set(o).catch(e=>toast('Firebase: '+e.message));else{runCmd(o);chan&&chan.postMessage(o)}}
-function runCmd(c){
+function runCmd(c){if(HOST)return;
   if(c.t==='say'){if(hereOn())speak(c)}
   else if(c.t==='stop'){if('speechSynthesis' in window)speechSynthesis.cancel()}
   else{
@@ -559,7 +593,7 @@ addEventListener('resize',layout);
 if('ResizeObserver' in window)new ResizeObserver(layout).observe($('top'));
 
 /* ---------- старт ---------- */
-if(!inOBS)document.body.classList.add('edit');
+if(HOST)document.body.classList.add('host');else if(!inOBS)document.body.classList.add('edit');
 renderAll();
 layout();
 initFB();

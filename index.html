@@ -32,6 +32,7 @@ body.drag .it{transition:none}
 .it .snd{display:none}
 .edit .it{cursor:move;outline:1px dashed rgba(255,255,255,.25)}
 .edit .it.sel{outline:2px solid var(--ac)}
+.edit.rotk .it:not(.lock),.edit.rotk .it:not(.lock) .rz{cursor:grab}
 .edit .it.lock{cursor:default;outline-color:rgba(239,107,107,.5)}
 .edit .it.hid{display:block;opacity:.25!important}
 .it.hid{display:none}
@@ -107,6 +108,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
       <button id="bDup">Дублировать</button><button id="bDel" class="d">Удалить</button>
     </div>
     <label>Прозрачность <input type="range" id="op" min="0" max="100"></label>
+    <label>Поворот <input type="range" id="rot" min="-180" max="180" step="1"></label>
     <label><input type="checkbox" id="kr"> Сохранять пропорции (Shift / Ctrl / R)</label>
     <label id="pVol" title="Для виджетов громкость работает только у YouTube">Громкость <input type="range" id="vl" min="0" max="100"></label>
     <div id="pVid" hidden>
@@ -155,7 +157,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <h4>Сцена</h4>
   <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
   <input type="file" id="fImp" accept=".json" hidden>
-  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>).<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>), <b>[</b> и <b>]</b> — поворот на 5° (с <b>Shift</b> — на 15°), <b>0</b> — сбросить поворот. Вращать мышью: зажмите <b>Q</b> (или <b>Alt</b>) и тяните элемент в любом месте — он вращается вокруг центра (с <b>Shift</b> — шаг 15°).<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
 </aside>
 <div id="toast" role="status"></div>
 
@@ -165,7 +167,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 const $=id=>document.getElementById(id), stage=$('stage');
 const KEY='obs-canvas-v2';
 let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
-let keepRatio=false;       // постоянный режим сохранения пропорций (клавиша R / чекбокс)
+let keepRatio=false,rotHeld=false;       // постоянный режим сохранения пропорций (клавиша R / чекбокс)
 const liveSet=new Set();   // элементы, которыми управляют напрямую (только в этой вкладке)
 const inOBS=!!window.obsstudio;
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
@@ -265,7 +267,7 @@ function build(it){
     stage.appendChild(el);
   }
   const c=el.firstChild;
-  el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};`;
+  el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:rotate(${it.r||0}deg);`;
   el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);el.classList.toggle('live',liveSet.has(it.id));
   if(c.style.cssText!==(it.css||''))c.style.cssText=it.css||'';
   if(it.type==='image'){if(!c.firstChild||c.firstChild.src!==it.src){c.innerHTML='';const i=new Image();i.src=it.src;i.alt='';i.onerror=()=>toast('Не удалось загрузить картинку');c.appendChild(i)}}
@@ -372,7 +374,7 @@ function inspect(){
   const sv=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};   // не трогаем поле, в котором печатают
   $('bHide').textContent=it.hidden?'Показать':'Скрыть';
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
-  sv('op',it.o);sv('css',it.css||'');$('kr').checked=keepRatio;
+  sv('op',it.o);sv('rot',it.r||0);sv('css',it.css||'');$('kr').checked=keepRatio;
   $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
   $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
   $('pLive').hidden=it.type!=='widget';$('bLive').classList.toggle('on',liveSet.has(it.id));
@@ -388,6 +390,7 @@ $('bDel').onclick=delSel;
 $('bDup').onclick=()=>{const it=get(sel);if(it)add(Object.assign({},it,{id:uid(),x:it.x+20,y:it.y+20}))};
 $('op').oninput=e=>upd(i=>i.o=+e.target.value);
 $('kr').onchange=e=>{keepRatio=e.target.checked};
+$('rot').oninput=e=>upd(i=>i.r=+e.target.value);
 $('tx').oninput=e=>upd(i=>i.text=e.target.value);
 $('ff').onchange=e=>upd(i=>i.ff=e.target.value);
 $('fc').oninput=e=>upd(i=>i.fc=e.target.value);
@@ -422,17 +425,28 @@ stage.addEventListener('pointerdown',e=>{
   if(!el){sel=null;renderAll();return}
   const it=get(el.dataset.id);sel=it.id;S.items.push(S.items.splice(S.items.indexOf(it),1)[0]);renderAll();
   if(it.locked)return;
-  const rz=e.target.classList.contains('rz'),sx=e.clientX,sy=e.clientY,o={x:it.x,y:it.y,w:it.w,h:it.h};
-  el=stage.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);dragging=true;document.body.classList.add('drag');
+  const rz=e.target.classList.contains('rz'),sx=e.clientX,sy=e.clientY,o={x:it.x,y:it.y,w:it.w,h:it.h,r:it.r||0},rot=e.altKey||rotHeld;
+  el=stage.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);const rc=el.getBoundingClientRect(),cx=rc.left+rc.width/2,cy=rc.top+rc.height/2,a0=Math.atan2(sy-cy,sx-cx);dragging=true;document.body.classList.add('drag');
   const mv=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale;
-    if(rz){
+    if(rot){   /* зажат Q (или Alt) + тянем мышью где угодно по элементу: вращение вокруг центра, Shift — шаг 15° */
+      let a=o.r+(Math.atan2(ev.clientY-cy,ev.clientX-cx)-a0)*180/Math.PI;
+      if(ev.shiftKey)a=Math.round(a/15)*15;
+      it.r=Math.round(((a+180)%360+360)%360-180);
+    }
+    else if(rz){
+      const R=o.r*Math.PI/180,co=Math.cos(R),si=Math.sin(R),lx=dx*co+dy*si,ly=-dx*si+dy*co;   // сдвиг в осях повёрнутого элемента
       /* Shift / Ctrl (зажаты) или режим R (включён) — сохраняем исходные пропорции */
       if(ev.shiftKey||ev.ctrlKey||keepRatio){
-        let k=Math.max((o.w+dx)/o.w,(o.h+dy)/o.h);
+        let k=Math.max((o.w+lx)/o.w,(o.h+ly)/o.h);
         k=Math.max(k,20/Math.min(o.w,o.h));
         it.w=Math.round(o.w*k);it.h=Math.round(o.h*k);
       }else{
-        it.w=Math.max(20,Math.round(o.w+dx));it.h=Math.max(20,Math.round(o.h+dy));
+        it.w=Math.max(20,Math.round(o.w+lx));it.h=Math.max(20,Math.round(o.h+ly));
+      }
+      if(o.r){   // левый верхний угол остаётся на месте
+        const tx=o.x+o.w/2-o.w/2*co+o.h/2*si,ty=o.y+o.h/2-o.w/2*si-o.h/2*co;
+        it.y=Math.round(ty+it.w/2*si+it.h/2*co-it.h/2);
+        it.x=Math.round(tx+(it.w/2*co-it.h/2*si)-it.w/2);
       }
     }
     else{it.x=Math.round(o.x+dx);it.y=Math.round(o.y+dy)}
@@ -443,15 +457,25 @@ stage.addEventListener('pointerdown',e=>{
 addEventListener('keydown',e=>{
   const t=e.target.tagName,ty=e.target.type;
   if((t==='INPUT'&&ty!=='checkbox'&&ty!=='range')||t==='TEXTAREA'||t==='SELECT')return;
+  if(e.code==='KeyQ'&&!e.ctrlKey&&!e.metaKey){rotHeld=true;document.body.classList.add('rotk');return}
   if(e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У'){document.body.classList.toggle('edit');sel=null;renderAll();layout();return}
   if(e.key==='m'||e.key==='M'||e.key==='ь'||e.key==='Ь'){if(document.body.classList.contains('edit'))toggleMenu();return}
   if((e.key==='p'||e.key==='P'||e.key==='з'||e.key==='З')&&document.body.classList.contains('edit')){toggleUi();return}
   if((e.key==='r'||e.key==='R'||e.key==='к'||e.key==='К')&&!e.ctrlKey&&!e.metaKey&&document.body.classList.contains('edit')){keepRatio=!keepRatio;$('kr').checked=keepRatio;toast('Пропорции: '+(keepRatio?'сохраняются':'свободно'));return}
   if(!document.body.classList.contains('edit')||!sel)return;
   const it=get(sel);if(e.key==='Delete'){delSel();return}
+  if(e.code==='BracketLeft'||e.code==='BracketRight'||e.code==='Digit0'){
+    if(it.locked)return;e.preventDefault();
+    const st=e.shiftKey?15:5;
+    it.r=e.code==='Digit0'?0:Math.round((((it.r||0)+(e.code==='BracketRight'?st:-st)+180)%360+360)%360-180);
+    save();build(it);inspect();return}
   const d=e.shiftKey?10:1,m={ArrowLeft:[-d,0],ArrowRight:[d,0],ArrowUp:[0,-d],ArrowDown:[0,d]}[e.key];
   if(m&&!it.locked){e.preventDefault();it.x+=m[0];it.y+=m[1];save();build(it)}
 });
+
+const rotOff=()=>{rotHeld=false;document.body.classList.remove('rotk')};
+addEventListener('keyup',e=>{if(e.code==='KeyQ')rotOff()});
+addEventListener('blur',rotOff);
 
 /* ---------- озвучка ---------- */
 load();

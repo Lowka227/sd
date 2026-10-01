@@ -107,6 +107,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
       <button id="bDup">Дублировать</button><button id="bDel" class="d">Удалить</button>
     </div>
     <label>Прозрачность <input type="range" id="op" min="0" max="100"></label>
+    <label><input type="checkbox" id="kr"> Сохранять пропорции (Shift / Ctrl / R)</label>
     <label id="pVol" title="Для виджетов громкость работает только у YouTube">Громкость <input type="range" id="vl" min="0" max="100"></label>
     <div id="pVid" hidden>
       <label>Перемотка <input type="range" id="vs" min="0" max="100" step="1"></label>
@@ -154,7 +155,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <h4>Сцена</h4>
   <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
   <input type="file" id="fImp" accept=".json" hidden>
-  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель.<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>).<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
 </aside>
 <div id="toast" role="status"></div>
 
@@ -164,6 +165,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 const $=id=>document.getElementById(id), stage=$('stage');
 const KEY='obs-canvas-v2';
 let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
+let keepRatio=false;       // постоянный режим сохранения пропорций (клавиша R / чекбокс)
 const liveSet=new Set();   // элементы, которыми управляют напрямую (только в этой вкладке)
 const inOBS=!!window.obsstudio;
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
@@ -340,7 +342,8 @@ function renderAll(){
 }
 
 /* ---------- добавление ---------- */
-function add(o){const it=Object.assign({id:uid(),x:60+S.items.length%8*24,y:60+S.items.length%8*24,w:240,h:160,o:100,vol:100,css:''},o);S.items.push(it);sel=it.id;save();renderAll()}
+/* новые элементы по умолчанию скрыты (hidden:true); при дублировании копия берёт состояние оригинала */
+function add(o){const it=Object.assign({id:uid(),x:60+S.items.length%8*24,y:60+S.items.length%8*24,w:240,h:160,o:100,vol:100,css:'',hidden:true},o);S.items.push(it);sel=it.id;save();renderAll();if(it.hidden)toast('Элемент добавлен скрытым — нажмите «Показать»')}
 function pickFile(accept,cb,media){const f=$('file');f.accept=accept;f.value='';f.onchange=()=>{const file=f.files[0];if(!file)return;
   if(media){uploadMedia(file).then(cb).catch(e=>toast(e.message||'Ошибка загрузки'));return}
   readURL(file).then(cb)};f.click()}
@@ -369,7 +372,7 @@ function inspect(){
   const sv=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};   // не трогаем поле, в котором печатают
   $('bHide').textContent=it.hidden?'Показать':'Скрыть';
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
-  sv('op',it.o);sv('css',it.css||'');
+  sv('op',it.o);sv('css',it.css||'');$('kr').checked=keepRatio;
   $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
   $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
   $('pLive').hidden=it.type!=='widget';$('bLive').classList.toggle('on',liveSet.has(it.id));
@@ -384,6 +387,7 @@ $('bLock').onclick=()=>{upd(i=>i.locked=!i.locked);inspect()};
 $('bDel').onclick=delSel;
 $('bDup').onclick=()=>{const it=get(sel);if(it)add(Object.assign({},it,{id:uid(),x:it.x+20,y:it.y+20}))};
 $('op').oninput=e=>upd(i=>i.o=+e.target.value);
+$('kr').onchange=e=>{keepRatio=e.target.checked};
 $('tx').oninput=e=>upd(i=>i.text=e.target.value);
 $('ff').onchange=e=>upd(i=>i.ff=e.target.value);
 $('fc').oninput=e=>upd(i=>i.fc=e.target.value);
@@ -421,17 +425,28 @@ stage.addEventListener('pointerdown',e=>{
   const rz=e.target.classList.contains('rz'),sx=e.clientX,sy=e.clientY,o={x:it.x,y:it.y,w:it.w,h:it.h};
   el=stage.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);dragging=true;document.body.classList.add('drag');
   const mv=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale;
-    if(rz){it.w=Math.max(20,Math.round(o.w+dx));it.h=Math.max(20,Math.round(o.h+dy));if(ev.shiftKey)it.h=Math.round(it.w*o.h/o.w)}
+    if(rz){
+      /* Shift / Ctrl (зажаты) или режим R (включён) — сохраняем исходные пропорции */
+      if(ev.shiftKey||ev.ctrlKey||keepRatio){
+        let k=Math.max((o.w+dx)/o.w,(o.h+dy)/o.h);
+        k=Math.max(k,20/Math.min(o.w,o.h));
+        it.w=Math.round(o.w*k);it.h=Math.round(o.h*k);
+      }else{
+        it.w=Math.max(20,Math.round(o.w+dx));it.h=Math.max(20,Math.round(o.h+dy));
+      }
+    }
     else{it.x=Math.round(o.x+dx);it.y=Math.round(o.y+dy)}
     build(it);sync()};
   const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);dragging=false;document.body.classList.remove('drag');save()};
   el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);
 });
 addEventListener('keydown',e=>{
-  const t=e.target.tagName;if(t==='INPUT'||t==='TEXTAREA'||t==='SELECT')return;
+  const t=e.target.tagName,ty=e.target.type;
+  if((t==='INPUT'&&ty!=='checkbox'&&ty!=='range')||t==='TEXTAREA'||t==='SELECT')return;
   if(e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У'){document.body.classList.toggle('edit');sel=null;renderAll();layout();return}
   if(e.key==='m'||e.key==='M'||e.key==='ь'||e.key==='Ь'){if(document.body.classList.contains('edit'))toggleMenu();return}
   if((e.key==='p'||e.key==='P'||e.key==='з'||e.key==='З')&&document.body.classList.contains('edit')){toggleUi();return}
+  if((e.key==='r'||e.key==='R'||e.key==='к'||e.key==='К')&&!e.ctrlKey&&!e.metaKey&&document.body.classList.contains('edit')){keepRatio=!keepRatio;$('kr').checked=keepRatio;toast('Пропорции: '+(keepRatio?'сохраняются':'свободно'));return}
   if(!document.body.classList.contains('edit')||!sel)return;
   const it=get(sel);if(e.key==='Delete'){delSel();return}
   const d=e.shiftKey?10:1,m={ArrowLeft:[-d,0],ArrowRight:[d,0],ArrowUp:[0,-d],ArrowDown:[0,d]}[e.key];

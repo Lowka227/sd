@@ -157,7 +157,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <h4>Сцена</h4>
   <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
   <input type="file" id="fImp" accept=".json" hidden>
-  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>), <b>[</b> и <b>]</b> — поворот на 5° (с <b>Shift</b> — на 15°), <b>0</b> — сбросить поворот. Вращать мышью: зажмите <b>Q</b> (или <b>Alt</b>) и тяните элемент в любом месте — он вращается вокруг центра (с <b>Shift</b> — шаг 15°).<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>), <b>[</b> и <b>]</b> — поворот на 5° (с <b>Shift</b> — на 15°), <b>0</b> — сбросить поворот, <b>Shift+0</b> — вернуть положение, размер и поворот как при создании. Вращать мышью: зажмите <b>Q</b> (или <b>Alt</b>) и тяните элемент в любом месте — он вращается вокруг центра (с <b>Shift</b> — шаг 15°).<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
 </aside>
 <div id="toast" role="status"></div>
 
@@ -345,7 +345,7 @@ function renderAll(){
 
 /* ---------- добавление ---------- */
 /* новые элементы по умолчанию скрыты (hidden:true); при дублировании копия берёт состояние оригинала */
-function add(o){const it=Object.assign({id:uid(),x:60+S.items.length%8*24,y:60+S.items.length%8*24,w:240,h:160,o:100,vol:100,css:'',hidden:true},o);S.items.push(it);sel=it.id;save();renderAll();if(it.hidden)toast('Элемент добавлен скрытым — нажмите «Показать»')}
+function add(o){const it=Object.assign({id:uid(),x:60+S.items.length%8*24,y:60+S.items.length%8*24,w:240,h:160,o:100,vol:100,css:'',hidden:true},o);if(it.gx===undefined){it.gx=it.x;it.gy=it.y;it.gw=it.w;it.gh=it.h}S.items.push(it);sel=it.id;save();renderAll();if(it.hidden)toast('Элемент добавлен скрытым — нажмите «Показать»')}
 function pickFile(accept,cb,media){const f=$('file');f.accept=accept;f.value='';f.onchange=()=>{const file=f.files[0];if(!file)return;
   if(media){uploadMedia(file).then(cb).catch(e=>toast(e.message||'Ошибка загрузки'));return}
   readURL(file).then(cb)};f.click()}
@@ -455,7 +455,7 @@ stage.addEventListener('pointerdown',e=>{
   el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);
 });
 addEventListener('keydown',e=>{
-  const t=e.target.tagName,ty=e.target.type;
+  const t=e.target.tagName,ty=e.target.type;if(t==='BUTTON')e.target.blur();
   if((t==='INPUT'&&ty!=='checkbox'&&ty!=='range')||t==='TEXTAREA'||t==='SELECT')return;
   if(e.code==='KeyQ'&&!e.ctrlKey&&!e.metaKey){rotHeld=true;document.body.classList.add('rotk');return}
   if(e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У'){document.body.classList.toggle('edit');sel=null;renderAll();layout();return}
@@ -464,10 +464,17 @@ addEventListener('keydown',e=>{
   if((e.key==='r'||e.key==='R'||e.key==='к'||e.key==='К')&&!e.ctrlKey&&!e.metaKey&&document.body.classList.contains('edit')){keepRatio=!keepRatio;$('kr').checked=keepRatio;toast('Пропорции: '+(keepRatio?'сохраняются':'свободно'));return}
   if(!document.body.classList.contains('edit')||!sel)return;
   const it=get(sel);if(e.key==='Delete'){delSel();return}
-  if(e.code==='BracketLeft'||e.code==='BracketRight'||e.code==='Digit0'){
-    if(it.locked)return;e.preventDefault();
-    const st=e.shiftKey?15:5;
-    it.r=e.code==='Digit0'?0:Math.round((((it.r||0)+(e.code==='BracketRight'?st:-st)+180)%360+360)%360-180);
+  const zero=e.key==='0'||e.key===')'||e.code==='Digit0'||e.code==='Numpad0';   // 0 на основной и цифровой клавиатуре
+  if(e.code==='BracketLeft'||e.code==='BracketRight'||zero){
+    if(it.locked){toast('Элемент закреплён — сначала откройте');return}e.preventDefault();
+    if(zero){
+      it.r=0;
+      if(e.shiftKey&&it.gx!==undefined){it.x=it.gx;it.y=it.gy;it.w=it.gw;it.h=it.gh}   // Shift+0: ещё и положение и размер как при создании
+      toast(e.shiftKey?'Положение, размер и поворот сброшены':'Поворот сброшен');
+    }else{
+      const st=e.shiftKey?15:5;
+      it.r=Math.round((((it.r||0)+(e.code==='BracketRight'?st:-st)+180)%360+360)%360-180);
+    }
     save();build(it);inspect();return}
   const d=e.shiftKey?10:1,m={ArrowLeft:[-d,0],ArrowRight:[d,0],ArrowUp:[0,-d],ArrowDown:[0,d]}[e.key];
   if(m&&!it.locked){e.preventDefault();it.x+=m[0];it.y+=m[1];save();build(it)}

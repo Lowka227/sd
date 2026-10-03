@@ -22,7 +22,7 @@ body.edit{background:#101216}
 .nomenu #top{display:none!important}
 #showMenu{display:none;position:fixed;top:8px;right:8px;z-index:111;padding:4px 10px;font-size:12px;background:var(--bg)}
 .edit.nomenu #showMenu{display:block}
-.it{position:absolute;touch-action:none;user-select:none;transition:left .1s linear,top .1s linear,width .1s linear,height .1s linear,opacity .2s}
+.it{position:absolute;touch-action:none;user-select:none;transition:transform .08s linear,width .08s linear,height .08s linear,opacity .2s}
 body.drag .it{transition:none}
 .it>.c{width:100%;height:100%;overflow:hidden}
 .it img{width:100%;height:100%;object-fit:fill;display:block;pointer-events:none}
@@ -101,6 +101,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="ckdefs"><filter id="ckAll" color-interpolation-filters="sRGB"><feColorMatrix in="SourceGraphic" result="k" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1.667 -3.333 1.667 0 1.583"/><feComposite in="k" in2="SourceGraphic" operator="in"/></filter></defs></svg>
 <div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
 <button id="showUi" title="Клавиша P">☰ Панель</button>
@@ -124,6 +125,10 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
     </div>
     <label>Прозрачность <input type="range" id="op" min="0" max="100"></label>
     <label>Поворот <input type="range" id="rot" min="-180" max="180" step="1"></label>
+    <div id="pCk" hidden>
+      <label><input type="checkbox" id="ck"> Хромакей на этом элементе (убрать зелёный)</label>
+      <label>Чувствительность <input type="range" id="cks" min="0" max="100"></label>
+    </div>
     <label><input type="checkbox" id="kr"> Сохранять пропорции (Shift / Ctrl / R)</label>
     <label id="pVol" title="Для виджетов громкость работает только у YouTube">Громкость <input type="range" id="vl" min="0" max="100"></label>
     <div id="pVid" hidden>
@@ -204,6 +209,7 @@ function uid0(){return Date.now().toString(36)+Math.random().toString(36).slice(
 
 /* ---------- сохранение ---------- */
 function save(){persist();sync();renderBar()}
+let pT=0;const persistLater=()=>{clearTimeout(pT);pT=setTimeout(persist,500)};
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Не удалось сохранить: слишком большой файл. Используйте ссылку вместо загрузки.')}}
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.items))S=Object.assign(S,d)}catch(e){}}
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3200)}
@@ -275,6 +281,21 @@ addEventListener('message',e=>{
   else ytlive(get(id),f)});
 const applyVol=()=>S.items.forEach(i=>i.type==='widget'&&wvol(i));
 
+/* ---------- хромакей на отдельном элементе: SVG-фильтр делает зелёные пиксели прозрачными (видео, камера, картинка, виджет) ---------- */
+function ckFilter(it){
+  const id='ck_'+it.id,NS='http://www.w3.org/2000/svg';let f=document.getElementById(id);
+  if(!f){
+    f=document.createElementNS(NS,'filter');f.id=id;f.setAttribute('color-interpolation-filters','sRGB');
+    const m=document.createElementNS(NS,'feColorMatrix');m.setAttribute('type','matrix');m.setAttribute('in','SourceGraphic');m.setAttribute('result','k');f.appendChild(m);
+    /* умножаем на исходную прозрачность: иначе прозрачные области холста становятся чёрными и закрывают всё */
+    const c=document.createElementNS(NS,'feComposite');c.setAttribute('in','k');c.setAttribute('in2','SourceGraphic');c.setAttribute('operator','in');f.appendChild(c);
+    $('ckdefs').appendChild(f);
+  }
+  /* «зелёность» g = G − (R+B)/2; альфа = 1 при g ≤ lo, 0 при g ≥ lo+0.3; чувствительность двигает lo */
+  const k=(it.cs??50)/100,w=0.3,lo=0.3-0.25*k,sl=1/w,off=1+lo/w;
+  f.firstChild.setAttribute('values',`1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  ${(sl/2).toFixed(3)} ${(-sl).toFixed(3)} ${(sl/2).toFixed(3)} 0 ${off.toFixed(3)}`);
+}
+
 /* ---------- отрисовка ---------- */
 function build(it){
   let el=stage.querySelector(`[data-id="${it.id}"]`);
@@ -284,7 +305,8 @@ function build(it){
     stage.appendChild(el);
   }
   const c=el.firstChild;
-  el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:rotate(${it.r||0}deg);`;
+  el.style.cssText=`left:0;top:0;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:translate(${it.x}px,${it.y}px) rotate(${it.r||0}deg);${it.ck?`filter:url(#ck_${it.id});`:''}`;
+  if(it.ck)ckFilter(it);
   if(it.id===sel&&it.type==='widget')whSync(it);
   el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);el.classList.toggle('live',liveSet.has(it.id));
   if(c.style.cssText!==(it.css||''))c.style.cssText=it.css||'';
@@ -396,7 +418,7 @@ function inspect(){
   const sv=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};   // не трогаем поле, в котором печатают
   $('bHide').textContent=it.hidden?'Показать':'Скрыть';
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
-  sv('op',it.o);sv('rot',it.r||0);sv('css',it.css||'');$('kr').checked=keepRatio;
+  sv('op',it.o);sv('rot',it.r||0);$('pCk').hidden=!['image','video','cam','widget'].includes(it.type);$('ck').checked=!!it.ck;sv('cks',it.cs??50);sv('css',it.css||'');$('kr').checked=keepRatio;
   $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
   $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
   $('pLive').hidden=it.type!=='widget';$('bLive').classList.toggle('on',liveSet.has(it.id));
@@ -412,6 +434,8 @@ $('bDel').onclick=delSel;
 $('bDup').onclick=()=>{const it=get(sel);if(it)add(Object.assign({},it,{id:uid(),x:it.x+20,y:it.y+20}))};
 $('op').oninput=e=>upd(i=>i.o=+e.target.value);
 $('kr').onchange=e=>{keepRatio=e.target.checked};
+$('ck').onchange=e=>upd(i=>i.ck=e.target.checked?1:0);
+$('cks').oninput=e=>upd(i=>i.cs=+e.target.value);
 $('ww').oninput=e=>upd(i=>{const v=Math.max(20,Math.round(+e.target.value)||20);if(keepRatio)i.h=Math.max(20,Math.round(v*i.h/i.w));i.w=v});
 $('wh').oninput=e=>upd(i=>{const v=Math.max(20,Math.round(+e.target.value)||20);if(keepRatio)i.w=Math.max(20,Math.round(v*i.w/i.h));i.h=v});
 $('rot').oninput=e=>upd(i=>i.r=+e.target.value);
@@ -440,6 +464,7 @@ $('cd').onchange=e=>{const it=get(sel);if(it)startCam(it.id,'cam',e.target.value
 function delSel(){
   if(!sel)return;const d=get(sel);S.items=S.items.filter(i=>i.id!==sel);liveSet.delete(sel);if(d&&d.type==='cam')stopCam(d.id);
   if(d&&/^fb:/.test(d.src||'')&&root&&!S.items.some(i=>i.src===d.src))root.child('media/'+d.src.slice(3)).remove();
+  {const fe=document.getElementById('ck_'+(d&&d.id));if(fe)fe.remove()}
   sel=null;save();renderAll()}
 
 /* ---------- перетаскивание и размер ---------- */
@@ -634,8 +659,8 @@ const room=(new URLSearchParams(location.search).get('room')||'main').replace(/[
 let db=null,root=null,last={},remoteReady=false,dragging=false,timer=0,cmdReady=false;
 function netSet(t,c){const n=$('net');n.textContent='● '+t;n.style.color=c||''}
 const same=(a,b)=>{const ks=o=>Object.keys(o).filter(k=>o[k]!==undefined),A=ks(a),B=ks(b);return A.length===B.length&&A.every(k=>a[k]===b[k])};
-/* throttle вместо debounce: изменения уходят каждые ~40 мс, даже пока элемент тянут */
-function sync(){if(root&&!timer)timer=setTimeout(flush,40)}
+/* throttle вместо debounce: изменения уходят каждые ~30 мс, даже пока элемент тянут */
+function sync(){if(root&&!timer)timer=setTimeout(flush,30)}
 function flush(){
   timer=0;if(!root||!remoteReady)return;
   const up={},ids=new Set();
@@ -670,9 +695,13 @@ function initFB(){
     if(dragging||timer)return;
     const R=Object.keys(d||{}).map(k=>Object.assign({id:k},d[k])).sort((a,b)=>(a.z||0)-(b.z||0));
     if(R.length===S.items.length&&R.every((r,i)=>same(r,S.items[i])))return;
+    const prev=S.items,sameOrder=prev.length===R.length&&prev.every((p,i)=>p.id===R[i].id);
     S.items=R;last={};R.forEach(r=>last[r.id]=Object.assign({},r));
     if(sel&&!get(sel))sel=null;
-    persist();renderAll();
+    persistLater();
+    if(!sameOrder){renderAll();return}   // добавили/удалили/переставили — полная перерисовка
+    R.forEach((r,i)=>{if(!same(r,prev[i]))build(r)});   // иначе только то, что изменилось
+    inspect();renderBar();
   },()=>{netSet('нет доступа (проверьте правила БД)','var(--dg)');gotOff=gotItems=true;setNetReady()});
   root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
   root.child('cams').on('value',s=>{liveCams=s.val()||{};syncCams()});
@@ -733,6 +762,7 @@ function owsConnect(){
       let m;try{m=JSON.parse(ev.data)}catch(e){return}
       const d=m.d;
       if(m.op===0){   // Hello → Identify (с паролем, если нужен)
+        if(d.authentication&&!c.pw){rej(new Error('NOPW'));ws.close();return}   // нужен пароль, а его нет — подключение необязательно
         const id={rpcVersion:1,eventSubscriptions:0};
         try{if(d.authentication){
           const sec=b64(await sha(c.pw+d.authentication.salt));
@@ -756,11 +786,11 @@ async function owsReq(type,data){
 async function owsSource(){
   const c=wsCfg();if(c.src)return c.src;
   const l=await owsReq('GetInputList',{inputKind:'browser_source'}),list=(l.responseData&&l.responseData.inputs)||[];
-  const href=location.href.split('#')[0];let found='';
+  const norm=u=>{try{const x=new URL(u);return x.origin+x.pathname}catch(e){return u}},href=norm(location.href);let found='';
   for(const i of list){
     const r=await owsReq('GetInputSettings',{inputName:i.inputName}),st=(r.responseData&&r.responseData.inputSettings)||{};
     const lf=(st.local_file||'').replace(/\\/g,'/');
-    if((st.url&&st.url.split('#')[0]===href)||(lf&&decodeURI(href).endsWith(lf))){found=i.inputName;break}
+    if((st.url&&norm(st.url)===href)||(lf&&decodeURI(href).toLowerCase().endsWith(lf.toLowerCase()))){found=i.inputName;break}
   }
   if(!found&&list.length===1)found=list[0].inputName;
   if(!found)throw new Error('не найден источник — укажите его имя в «⚙ OBS»');
@@ -768,6 +798,7 @@ async function owsSource(){
 /* применить состояние к локальному OBS; возвращает '' при успехе или текст ошибки */
 async function owsApply(want){
   const c=wsCfg();
+  if(c.off)return 'OFF';   // подключение к OBS отключено в настройках
   try{
     const src=await owsSource();
     const r=await owsReq('GetSourceFilter',{sourceName:src,filterName:c.flt});
@@ -787,20 +818,30 @@ async function owsApply(want){
   }catch(err){return err.message||'ошибка'}}
 
 let chroma=null,chromaBusy=false,chromaAgain=false,chromaTry=0;   // chroma: общее состояние {on}, null — ещё не задано
-function reportChroma(err){   // каждый OBS сообщает, получилось ли у него (видно в редакторе)
-  if(!root)return;const r=root.child('chromaObs/'+me);r.onDisconnect().remove();r.set({ok:err?0:1,msg:err||''}).catch(()=>{})}
+function reportChroma(err,note){   // каждый OBS сообщает, получилось ли у него (видно в редакторе)
+  if(!root)return;const r=root.child('chromaObs/'+me);r.onDisconnect().remove();r.set({ok:err?0:1,msg:err||note||''}).catch(()=>{})}
 async function applyChroma(){
   if(!inOBS||!chroma)return;   // применяют только страницы, открытые внутри OBS
   if(chromaBusy){chromaAgain=true;return}
   chromaBusy=true;let err;
-  do{chromaAgain=false;err=await owsApply(!!chroma.on);reportChroma(err)}while(chromaAgain);
+  do{chromaAgain=false;const on=!!chroma.on;err=await owsApply(on);
+    if(err){   // OBS недоступен — хромакей делает сама страница (встроенный фильтр)
+      const quiet=err==='NOPW'||err==='OFF';   // пароля нет или подключение отключено — это нормально, повторять незачем
+      stage.style.filter=on?'url(#ckAll)':'';
+      reportChroma('',on?'встроенный фильтр'+(quiet?'':', т.к. '+err):'');
+      if(quiet)err=''}
+    else{stage.style.filter='';reportChroma('')}}while(chromaAgain);
   chromaBusy=false;
-  if(err&&chromaTry++<5)setTimeout(applyChroma,15000);   // OBS ещё не запустился / WebSocket не готов — повторяем
+  if(err&&chromaTry++<20)setTimeout(applyChroma,15000);   // OBS ещё не запустился / WebSocket не готов — повторяем
   else if(!err)chromaTry=0}
 function chromaStatus(v){   // сколько OBS уже применили состояние
   const ids=Object.keys(v||{}),ok=ids.filter(k=>v[k].ok).length,el=$('obsSt');
-  el.textContent=ids.length?`OBS: ${ok}/${ids.length}`:'';
-  el.title=ids.length?ids.map(k=>v[k].ok?'✓ применено':'✗ '+v[k].msg).join('\n'):'';
+  const bad=ids.filter(k=>!v[k].ok),soft=ids.filter(k=>v[k].ok&&v[k].msg);
+  const line=(k,i)=>`OBS ${i+1}: `+(v[k].ok?(v[k].msg?'применено встроенным фильтром'+(v[k].msg!=='встроенный фильтр'?' ('+v[k].msg+')':''):'применено фильтром OBS'):'ошибка — '+v[k].msg);
+  el.textContent=ids.length?`OBS: ${ok}/${ids.length}`+(bad.length?` · ${v[bad[0]].msg}`:soft.length?` · встроенный фильтр: ${soft.length}`:''):'';
+  el.title=ids.length?'Нажмите, чтобы увидеть подробности\n'+ids.map(line).join('\n'):'';
+  el.onclick=()=>ids.length&&alert(ids.map(line).join('\n'));
+  el.style.cursor=ids.length?'pointer':'';
   el.style.color=ids.length&&ok<ids.length?'var(--dg)':'var(--ac)'}
 $('obsCk').onchange=()=>{
   const on=$('obsCk').checked?1:0;chroma={on};chromaTry=0;
@@ -809,12 +850,29 @@ $('obsCk').onchange=()=>{
   else owsApply(!!on).then(err=>{if(err){$('obsCk').checked=!on;toast('OBS: '+err)}else toast('Хромакей в OBS '+(on?'включён':'выключен'))})};
 $('obsCfg').onclick=()=>{   // настройки подключения — у каждого OBS свои (открывать в «Интерактивно» этого источника)
   const c=wsCfg();
-  const u=prompt('Адрес OBS WebSocket:',c.url);if(u===null)return;
+  const u=prompt('Адрес OBS WebSocket (напишите «-», чтобы вообще не подключаться к OBS):',c.off?'-':c.url);if(u===null)return;
   const pw=prompt('Пароль WebSocket (пусто, если не задан):',c.pw);if(pw===null)return;
   const src=prompt('Имя источника «Браузер» в OBS (пусто — определить автоматически):',c.src);if(src===null)return;
   const flt=prompt('Название фильтра хромакея:',c.flt);if(flt===null)return;
-  wsSave({url:u.trim()||OBS_DEF.url,pw,src:src.trim(),flt:flt.trim()||OBS_DEF.flt});
+  wsSave({url:u.trim()==='-'?c.url:(u.trim()||OBS_DEF.url),off:u.trim()==='-',pw,src:src.trim(),flt:flt.trim()||OBS_DEF.flt});
   if(ows)ows.close();ows=null;owsP=null;chromaTry=0;applyChroma()};
+
+/* ---------- автообновление в OBS: если файл страницы на сервере изменился — перезагружаемся сами ---------- */
+(function(){
+  if(!inOBS)return;
+  const url=location.href.split('#')[0],web=/^https?:/i.test(url);let base=null;
+  const fetchSelf=()=>{
+    const u=web?url+(url.includes('?')?'&':'?')+'_='+Date.now():url;   // обход кэша
+    return fetch(u,{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.text()}).catch(()=>new Promise((res,rej)=>{   // для локального файла — через XHR
+      try{const x=new XMLHttpRequest();x.open('GET',u);x.onload=()=>res(x.responseText);x.onerror=()=>rej();x.send()}catch(e){rej()}}))};
+  const hash=t=>{let n=0;for(let i=0;i<t.length;i++)n=(n*31+t.charCodeAt(i))|0;return t.length+':'+n};
+  const check=async()=>{
+    try{const v=hash(await fetchSelf());
+      if(base===null)base=v;
+      else if(v!==base&&!dragging)setTimeout(()=>location.reload(),500)}
+    catch(e){}};   // не удалось прочитать файл (например, запрещено для file://) — тихо пропускаем
+  check();setInterval(check,30000);
+})();
 
 /* ---------- старт ---------- */
 if(!inOBS)document.body.classList.add('edit');

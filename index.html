@@ -32,6 +32,7 @@ body.drag .it{transition:none}
 .it .snd{display:none}
 .edit .it{cursor:move;outline:1px dashed rgba(255,255,255,.25)}
 .edit .it.sel{outline:2px solid var(--ac)}
+.edit.rotk .it:not(.lock),.edit.rotk .it:not(.lock) .rz{cursor:grab}
 .edit .it.lock{cursor:default;outline-color:rgba(239,107,107,.5)}
 .edit .it.hid{display:block;opacity:.25!important}
 .it.hid{display:none}
@@ -42,6 +43,19 @@ body.drag .it{transition:none}
 .edit .it .snd{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--bg);border-radius:8px;font-size:22px}
 .rz{display:none;position:absolute;right:calc(-8px / var(--s));bottom:calc(-8px / var(--s));width:calc(18px / var(--s));height:calc(18px / var(--s));background:var(--ac);border-radius:50%;cursor:nwse-resize}
 .edit .it.sel:not(.lock) .rz{display:block}
+/* режим обрезки (клавиша B) */
+.crbox{display:none;position:absolute;pointer-events:none;border:calc(2px / var(--s)) solid #f5a623;box-shadow:0 0 0 9999px rgba(0,0,0,.55)}
+.edit.cropping .it.sel:not(.lock) .crbox{display:block}
+.cropping .rz{display:none!important}
+.ch{position:absolute;width:calc(14px / var(--s));height:calc(14px / var(--s));background:#f5a623;border-radius:2px;pointer-events:auto}
+.ch[data-h=tl]{left:calc(-7px / var(--s));top:calc(-7px / var(--s));cursor:nwse-resize}
+.ch[data-h=tr]{right:calc(-7px / var(--s));top:calc(-7px / var(--s));cursor:nesw-resize}
+.ch[data-h=bl]{left:calc(-7px / var(--s));bottom:calc(-7px / var(--s));cursor:nesw-resize}
+.ch[data-h=br]{right:calc(-7px / var(--s));bottom:calc(-7px / var(--s));cursor:nwse-resize}
+.ch[data-h=t]{left:50%;top:calc(-7px / var(--s));margin-left:calc(-7px / var(--s));cursor:ns-resize}
+.ch[data-h=b]{left:50%;bottom:calc(-7px / var(--s));margin-left:calc(-7px / var(--s));cursor:ns-resize}
+.ch[data-h=l]{top:50%;left:calc(-7px / var(--s));margin-top:calc(-7px / var(--s));cursor:ew-resize}
+.ch[data-h=r]{top:50%;right:calc(-7px / var(--s));margin-top:calc(-7px / var(--s));cursor:ew-resize}
 #ui{position:fixed;top:calc(var(--mh,0px) + 12px);left:12px;width:280px;max-height:calc(100% - var(--mh,0px) - 24px);overflow:auto;background:var(--bg);border:1px solid var(--ln);border-radius:12px;padding:12px;display:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.45)}
 .edit #ui{display:block}
 .noui #ui{display:none!important}
@@ -71,6 +85,7 @@ label input[type=number]{width:70px}
 .tr>b{font-size:12px;color:var(--mu);min-width:82px}
 #tools{flex-wrap:wrap}
 #tools button{padding:4px 9px;font-size:12px}
+#tools label{width:auto;margin:0;color:var(--tx);cursor:pointer;white-space:nowrap}
 button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 #net{margin-left:auto;font-size:12px;color:var(--mu)}
 #els{flex:1;display:flex;gap:8px;overflow-x:auto;padding:7px 6px 8px 2px}
@@ -93,6 +108,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <div class="tr" id="tools"><b>Инструменты:</b>
     <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aVid">🎬 Видео</button><button id="aCam">📷 Камера</button><button id="aScr">🖥 Экран</button><button id="aWid">🧩 Виджет</button>
     <button id="bClr" class="d">🗑 Очистить</button><button id="bTts" class="sy">🎙 Синхронная озвучка</button>
+    <label id="obsCkL" title="Включает/выключает фильтр «Хромакей» во всех OBS, где открыт этот оверлей (через obs-websocket)"><input type="checkbox" id="obsCk"> Хромакей OBS</label><span id="obsSt" style="font-size:12px"></span><button id="obsCfg" title="Настройки подключения к OBS (у каждого OBS свои)">⚙ OBS</button>
     <button id="bMenu" title="Клавиша M">⇧ Скрыть меню</button><span id="net">● офлайн</span></div>
   <div class="tr"><b>Элементы:</b><div id="els"></div></div>
 </header>
@@ -107,6 +123,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
       <button id="bDup">Дублировать</button><button id="bDel" class="d">Удалить</button>
     </div>
     <label>Прозрачность <input type="range" id="op" min="0" max="100"></label>
+    <label>Поворот <input type="range" id="rot" min="-180" max="180" step="1"></label>
     <label><input type="checkbox" id="kr"> Сохранять пропорции (Shift / Ctrl / R)</label>
     <label id="pVol" title="Для виджетов громкость работает только у YouTube">Громкость <input type="range" id="vl" min="0" max="100"></label>
     <div id="pVid" hidden>
@@ -128,6 +145,8 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
     </div>
     <div id="pUrl" hidden>
       <input type="url" id="url" placeholder="https://…">
+      <label style="margin-top:6px">Ширина <input type="number" id="ww" min="20" max="10000"> px</label>
+      <label>Высота <input type="number" id="wh" min="20" max="10000"> px</label>
       <div class="row" style="margin-top:6px"><button id="bUrl">Применить URL</button><button id="bRef">Обновить</button></div>
     </div>
     <div id="pSnd" hidden><div class="row"><button id="bPlay">▶ Играть</button><button id="bStop">■ Стоп</button></div></div>
@@ -155,7 +174,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <h4>Сцена</h4>
   <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
   <input type="file" id="fImp" accept=".json" hidden>
-  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>).<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>), <b>[</b> и <b>]</b> — поворот на 5° (с <b>Shift</b> — на 15°), <b>B</b> — режим обрезки (тяните оранжевые точки), <b>Shift+B</b> — сбросить обрезку, <b>0</b> — сбросить поворот, <b>Shift+0</b> — вернуть положение, размер и поворот как при создании. Вращать мышью: зажмите <b>Q</b> (или <b>Alt</b>) и тяните элемент в любом месте — он вращается вокруг центра (с <b>Shift</b> — шаг 15°).<br>Хромакей OBS: в каждом OBS включите «Сервис → Настройки WebSocket-сервера». Если порт не 4455 или есть пароль — откройте источник через «Интерактивно» и нажмите «⚙ OBS».<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
 </aside>
 <div id="toast" role="status"></div>
 
@@ -165,7 +184,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 const $=id=>document.getElementById(id), stage=$('stage');
 const KEY='obs-canvas-v2';
 let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
-let keepRatio=false;       // постоянный режим сохранения пропорций (клавиша R / чекбокс)
+let keepRatio=false,rotHeld=false,cropMode=false;       // постоянный режим сохранения пропорций (клавиша R / чекбокс)
 const liveSet=new Set();   // элементы, которыми управляют напрямую (только в этой вкладке)
 const inOBS=!!window.obsstudio;
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
@@ -261,13 +280,17 @@ function build(it){
   let el=stage.querySelector(`[data-id="${it.id}"]`);
   if(!el){
     el=document.createElement('div');el.className='it';el.dataset.id=it.id;
-    el.innerHTML='<div class="c"></div><div class="rz"></div>';
+    el.innerHTML='<div class="c"></div><div class="rz"></div><div class="crbox">'+['tl','tr','bl','br','t','b','l','r'].map(h=>`<i class="ch" data-h="${h}"></i>`).join('')+'</div>';
     stage.appendChild(el);
   }
   const c=el.firstChild;
-  el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};`;
+  el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:rotate(${it.r||0}deg);`;
+  if(it.id===sel&&it.type==='widget')whSync(it);
   el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);el.classList.toggle('live',liveSet.has(it.id));
   if(c.style.cssText!==(it.css||''))c.style.cssText=it.css||'';
+  {const l=it.cl||0,t=it.ct||0,r=it.cr||0,b=it.cb||0,full=cropMode&&it.id===sel&&document.body.classList.contains('edit');
+   c.style.clipPath=(!full&&(l||t||r||b))?`inset(${t}% ${r}% ${b}% ${l}%)`:'';   // в режиме обрезки выбранный элемент виден целиком
+   const bx=el.querySelector('.crbox');if(bx)bx.style.cssText=`left:${l}%;top:${t}%;right:${r}%;bottom:${b}%`}
   if(it.type==='image'){if(!c.firstChild||c.firstChild.src!==it.src){c.innerHTML='';const i=new Image();i.src=it.src;i.alt='';i.onerror=()=>toast('Не удалось загрузить картинку');c.appendChild(i)}}
   else if(it.type==='text'){
     let t=c.querySelector('.t');if(!t){c.innerHTML='<div class="t"></div>';t=c.firstChild}
@@ -343,7 +366,7 @@ function renderAll(){
 
 /* ---------- добавление ---------- */
 /* новые элементы по умолчанию скрыты (hidden:true); при дублировании копия берёт состояние оригинала */
-function add(o){const it=Object.assign({id:uid(),x:60+S.items.length%8*24,y:60+S.items.length%8*24,w:240,h:160,o:100,vol:100,css:'',hidden:true},o);S.items.push(it);sel=it.id;save();renderAll();if(it.hidden)toast('Элемент добавлен скрытым — нажмите «Показать»')}
+function add(o){const it=Object.assign({id:uid(),x:60+S.items.length%8*24,y:60+S.items.length%8*24,w:240,h:160,o:100,vol:100,css:'',hidden:true},o);if(it.gx===undefined){it.gx=it.x;it.gy=it.y;it.gw=it.w;it.gh=it.h}S.items.push(it);sel=it.id;save();renderAll();if(it.hidden)toast('Элемент добавлен скрытым — нажмите «Показать»')}
 function pickFile(accept,cb,media){const f=$('file');f.accept=accept;f.value='';f.onchange=()=>{const file=f.files[0];if(!file)return;
   if(media){uploadMedia(file).then(cb).catch(e=>toast(e.message||'Ошибка загрузки'));return}
   readURL(file).then(cb)};f.click()}
@@ -367,19 +390,20 @@ function fixUrl(u){
   return m?`https://www.youtube.com/embed/${m[1]}?autoplay=1&enablejsapi=1&cc_load_policy=0`:u}
 
 /* ---------- инспектор ---------- */
+function whSync(it){if(document.activeElement!==$('ww'))$('ww').value=it.w;if(document.activeElement!==$('wh'))$('wh').value=it.h}
 function inspect(){
   const it=get(sel);$('insp').hidden=!it;if(!it)return;
   const sv=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};   // не трогаем поле, в котором печатают
   $('bHide').textContent=it.hidden?'Показать':'Скрыть';
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
-  sv('op',it.o);sv('css',it.css||'');$('kr').checked=keepRatio;
+  sv('op',it.o);sv('rot',it.r||0);sv('css',it.css||'');$('kr').checked=keepRatio;
   $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
   $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
   $('pLive').hidden=it.type!=='widget';$('bLive').classList.toggle('on',liveSet.has(it.id));
   $('bLive').textContent=liveSet.has(it.id)?'✋ Вернуть перетаскивание':'🖱 Управлять плеером напрямую';
   sv('vl',it.vol??100);$('vLoop').checked=!!it.loop;
   if(it.type==='text'){sv('tx',it.text);sv('ff',it.ff);sv('fc',it.fc);sv('fs',it.fs);$('fb').checked=!!it.fb}
-  if(it.type==='widget')sv('url',it.src);
+  if(it.type==='widget'){sv('url',it.src);whSync(it)}
 }
 const upd=(f)=>{const it=get(sel);if(it){f(it);save();build(it)}};
 $('bHide').onclick=()=>{upd(i=>i.hidden=!i.hidden);inspect()};
@@ -388,6 +412,9 @@ $('bDel').onclick=delSel;
 $('bDup').onclick=()=>{const it=get(sel);if(it)add(Object.assign({},it,{id:uid(),x:it.x+20,y:it.y+20}))};
 $('op').oninput=e=>upd(i=>i.o=+e.target.value);
 $('kr').onchange=e=>{keepRatio=e.target.checked};
+$('ww').oninput=e=>upd(i=>{const v=Math.max(20,Math.round(+e.target.value)||20);if(keepRatio)i.h=Math.max(20,Math.round(v*i.h/i.w));i.w=v});
+$('wh').oninput=e=>upd(i=>{const v=Math.max(20,Math.round(+e.target.value)||20);if(keepRatio)i.w=Math.max(20,Math.round(v*i.w/i.h));i.h=v});
+$('rot').oninput=e=>upd(i=>i.r=+e.target.value);
 $('tx').oninput=e=>upd(i=>i.text=e.target.value);
 $('ff').onchange=e=>upd(i=>i.ff=e.target.value);
 $('fc').oninput=e=>upd(i=>i.fc=e.target.value);
@@ -418,21 +445,48 @@ function delSel(){
 /* ---------- перетаскивание и размер ---------- */
 stage.addEventListener('pointerdown',e=>{
   if(!document.body.classList.contains('edit'))return;
+  const hd=e.target.closest('.ch');
+  if(hd){   /* точка обрезки: края двигаются в осях самого (возможно повёрнутого) элемента */
+    const el0=hd.closest('.it'),it=get(el0.dataset.id);if(!it||it.locked)return;
+    const side=hd.dataset.h,sx=e.clientX,sy=e.clientY,o={l:it.cl||0,t:it.ct||0,r:it.cr||0,b:it.cb||0};
+    const R=(it.r||0)*Math.PI/180,co=Math.cos(R),si=Math.sin(R),cl=(v,lo,hi)=>Math.round(Math.max(lo,Math.min(hi,v))*10)/10;
+    el0.setPointerCapture(e.pointerId);dragging=true;document.body.classList.add('drag');
+    const mv=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale,px=(dx*co+dy*si)/it.w*100,py=(-dx*si+dy*co)/it.h*100;
+      it.cl=o.l;it.cr=o.r;it.ct=o.t;it.cb=o.b;
+      if(side.includes('l'))it.cl=cl(o.l+px,0,100-o.r-2);
+      if(side.includes('r'))it.cr=cl(o.r-px,0,100-o.l-2);
+      if(side.includes('t'))it.ct=cl(o.t+py,0,100-o.b-2);
+      if(side.includes('b'))it.cb=cl(o.b-py,0,100-o.t-2);
+      build(it);sync()};
+    const up=()=>{el0.removeEventListener('pointermove',mv);el0.removeEventListener('pointerup',up);dragging=false;document.body.classList.remove('drag');save()};
+    el0.addEventListener('pointermove',mv);el0.addEventListener('pointerup',up);
+    return}
   let el=e.target.closest('.it');
   if(!el){sel=null;renderAll();return}
   const it=get(el.dataset.id);sel=it.id;S.items.push(S.items.splice(S.items.indexOf(it),1)[0]);renderAll();
   if(it.locked)return;
-  const rz=e.target.classList.contains('rz'),sx=e.clientX,sy=e.clientY,o={x:it.x,y:it.y,w:it.w,h:it.h};
-  el=stage.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);dragging=true;document.body.classList.add('drag');
+  const rz=e.target.classList.contains('rz'),sx=e.clientX,sy=e.clientY,o={x:it.x,y:it.y,w:it.w,h:it.h,r:it.r||0},rot=e.altKey||rotHeld;
+  el=stage.querySelector(`[data-id="${it.id}"]`);el.setPointerCapture(e.pointerId);const rc=el.getBoundingClientRect(),cx=rc.left+rc.width/2,cy=rc.top+rc.height/2,a0=Math.atan2(sy-cy,sx-cx);dragging=true;document.body.classList.add('drag');
   const mv=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale;
-    if(rz){
+    if(rot){   /* зажат Q (или Alt) + тянем мышью где угодно по элементу: вращение вокруг центра, Shift — шаг 15° */
+      let a=o.r+(Math.atan2(ev.clientY-cy,ev.clientX-cx)-a0)*180/Math.PI;
+      if(ev.shiftKey)a=Math.round(a/15)*15;
+      it.r=Math.round(((a+180)%360+360)%360-180);
+    }
+    else if(rz){
+      const R=o.r*Math.PI/180,co=Math.cos(R),si=Math.sin(R),lx=dx*co+dy*si,ly=-dx*si+dy*co;   // сдвиг в осях повёрнутого элемента
       /* Shift / Ctrl (зажаты) или режим R (включён) — сохраняем исходные пропорции */
       if(ev.shiftKey||ev.ctrlKey||keepRatio){
-        let k=Math.max((o.w+dx)/o.w,(o.h+dy)/o.h);
+        let k=Math.max((o.w+lx)/o.w,(o.h+ly)/o.h);
         k=Math.max(k,20/Math.min(o.w,o.h));
         it.w=Math.round(o.w*k);it.h=Math.round(o.h*k);
       }else{
-        it.w=Math.max(20,Math.round(o.w+dx));it.h=Math.max(20,Math.round(o.h+dy));
+        it.w=Math.max(20,Math.round(o.w+lx));it.h=Math.max(20,Math.round(o.h+ly));
+      }
+      if(o.r){   // левый верхний угол остаётся на месте
+        const tx=o.x+o.w/2-o.w/2*co+o.h/2*si,ty=o.y+o.h/2-o.w/2*si-o.h/2*co;
+        it.y=Math.round(ty+it.w/2*si+it.h/2*co-it.h/2);
+        it.x=Math.round(tx+(it.w/2*co-it.h/2*si)-it.w/2);
       }
     }
     else{it.x=Math.round(o.x+dx);it.y=Math.round(o.y+dy)}
@@ -441,37 +495,77 @@ stage.addEventListener('pointerdown',e=>{
   el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);
 });
 addEventListener('keydown',e=>{
-  const t=e.target.tagName,ty=e.target.type;
+  const t=e.target.tagName,ty=e.target.type;if(t==='BUTTON')e.target.blur();
   if((t==='INPUT'&&ty!=='checkbox'&&ty!=='range')||t==='TEXTAREA'||t==='SELECT')return;
+  if(e.code==='KeyQ'&&!e.ctrlKey&&!e.metaKey){rotHeld=true;document.body.classList.add('rotk');return}
   if(e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У'){document.body.classList.toggle('edit');sel=null;renderAll();layout();return}
   if(e.key==='m'||e.key==='M'||e.key==='ь'||e.key==='Ь'){if(document.body.classList.contains('edit'))toggleMenu();return}
   if((e.key==='p'||e.key==='P'||e.key==='з'||e.key==='З')&&document.body.classList.contains('edit')){toggleUi();return}
   if((e.key==='r'||e.key==='R'||e.key==='к'||e.key==='К')&&!e.ctrlKey&&!e.metaKey&&document.body.classList.contains('edit')){keepRatio=!keepRatio;$('kr').checked=keepRatio;toast('Пропорции: '+(keepRatio?'сохраняются':'свободно'));return}
+  if(e.code==='KeyB'&&!e.ctrlKey&&!e.metaKey&&document.body.classList.contains('edit')){
+    if(e.shiftKey){const i=get(sel);if(i&&!i.locked){i.cl=i.ct=i.cr=i.cb=0;save();build(i);toast('Обрезка сброшена')}return}
+    cropMode=!cropMode;document.body.classList.toggle('cropping',cropMode);
+    toast(cropMode?(sel?'Режим обрезки: тяните оранжевые точки (B — выход, Shift+B — сброс)':'Режим обрезки: выберите элемент'):'Режим обрезки выключен');
+    renderAll();return}
   if(!document.body.classList.contains('edit')||!sel)return;
   const it=get(sel);if(e.key==='Delete'){delSel();return}
+  const zero=e.key==='0'||e.key===')'||e.code==='Digit0'||e.code==='Numpad0';   // 0 на основной и цифровой клавиатуре
+  if(e.code==='BracketLeft'||e.code==='BracketRight'||zero){
+    if(it.locked){toast('Элемент закреплён — сначала откройте');return}e.preventDefault();
+    if(zero){
+      it.r=0;
+      if(e.shiftKey&&it.gx!==undefined){it.x=it.gx;it.y=it.gy;it.w=it.gw;it.h=it.gh}   // Shift+0: ещё и положение и размер как при создании
+      toast(e.shiftKey?'Положение, размер и поворот сброшены':'Поворот сброшен');
+    }else{
+      const st=e.shiftKey?15:5;
+      it.r=Math.round((((it.r||0)+(e.code==='BracketRight'?st:-st)+180)%360+360)%360-180);
+    }
+    save();build(it);inspect();return}
   const d=e.shiftKey?10:1,m={ArrowLeft:[-d,0],ArrowRight:[d,0],ArrowUp:[0,-d],ArrowDown:[0,d]}[e.key];
   if(m&&!it.locked){e.preventDefault();it.x+=m[0];it.y+=m[1];save();build(it)}
 });
 
+const rotOff=()=>{rotHeld=false;document.body.classList.remove('rotk')};
+addEventListener('keyup',e=>{if(e.code==='KeyQ')rotOff()});
+addEventListener('blur',rotOff);
+
 /* ---------- озвучка ---------- */
 load();
-let voices=[];
+let voiceN=-1;
 function fillVoices(){
-  voices=speechSynthesis.getVoices();const s=$('voice');
-  s.innerHTML='<option value="">Голос по умолчанию</option>'+voices.map(v=>`<option value="${v.name}">${v.name} (${v.lang})</option>`).join('');
-  s.value=S.tts.voice||'';
+  const list=speechSynthesis.getVoices();
+  if(list.length===voiceN)return;voiceN=list.length;   // список мог дозагрузиться — перерисовываем только при изменении
+  const s=$('voice'),cur=S.tts.voice||'';
+  s.replaceChildren(new Option('Голос по умолчанию',''));
+  list.forEach(v=>{const o=new Option(`${v.name} (${v.lang})`,v.name);o.dataset.lang=v.lang;s.appendChild(o)});
+  s.value=cur;
 }
-if('speechSynthesis' in window){fillVoices();speechSynthesis.onvoiceschanged=fillVoices}
-else $('bSay').disabled=true;
+if('speechSynthesis' in window){
+  fillVoices();speechSynthesis.onvoiceschanged=fillVoices;
+  /* в OBS/CEF и некоторых браузерах голоса подгружаются постепенно и без события — опрашиваем первые секунды */
+  let tries=0;const iv=setInterval(()=>{fillVoices();if(++tries>20)clearInterval(iv)},500);
+  addEventListener('focus',fillVoices);
+}else $('bSay').disabled=true;
 function speak(m){
   if(!('speechSynthesis' in window))return;
+  const list=speechSynthesis.getVoices();   // всегда свежий список, а не снимок при загрузке страницы
+  const pick=(m.voice&&(list.find(x=>x.name===m.voice)||list.find(x=>x.voiceURI===m.voice)))
+    ||(m.lang&&list.find(x=>x.lang===m.lang))||null;   // нет такого голоса на этом ПК — берём любой с тем же языком
+  speakWith(m,pick,true)}
+function speakWith(m,v,retry){
+  const u=new SpeechSynthesisUtterance(m.text),tok=speakWith._t=(speakWith._t||0)+1;
+  if(v){u.voice=v;u.lang=v.lang}else u.lang=m.lang||'ru-RU';
+  u.volume=m.vol/100;u.rate=m.rate/10;u.pitch=m.pitch/10;
+  u.onerror=e=>{
+    if(e.error==='canceled'||e.error==='interrupted')return;
+    if(v&&retry){toast('Голос «'+v.name+'» не сработал — читаю голосом по умолчанию');speakWith(m,null,false)}
+    else toast('Озвучка: '+e.error)};
+  speakWith._u=u;   // держим ссылку: иначе Chrome может оборвать озвучку сборщиком мусора
   speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(m.text);
-  const v=voices.find(x=>x.name===m.voice);if(v){u.voice=v;u.lang=v.lang}else u.lang='ru-RU';
-  u.volume=m.vol/100;u.rate=m.rate/10;u.pitch=m.pitch/10;speechSynthesis.speak(u)}
+  setTimeout(()=>{if(tok!==speakWith._t)return;if(speechSynthesis.paused)speechSynthesis.resume();speechSynthesis.speak(u)},80)}
 if(chan)chan.onmessage=e=>{if(!root)runCmd(e.data)};
-const ttsCfg=()=>({voice:S.tts.voice,vol:S.tts.vol,rate:S.tts.rate,pitch:S.tts.pitch});
-$('voice').onchange=e=>{S.tts.voice=e.target.value;save()};
+const ttsCfg=()=>({voice:S.tts.voice,lang:S.tts.lang||'',vol:S.tts.vol,rate:S.tts.rate,pitch:S.tts.pitch});
+$('voice').onchange=e=>{const o=e.target.selectedOptions[0];S.tts.voice=e.target.value;S.tts.lang=(o&&o.dataset.lang)||'';save()};
 [['tv','vol'],['tr','rate'],['tp','pitch']].forEach(([id,k])=>{$(id).value=S.tts[k];$(id).oninput=e=>{S.tts[k]=+e.target.value;save()}});
 $('bSay').onclick=()=>{const text=$('ttsText').value.trim();if(!text)return toast('Введите текст для озвучки');sendCmd(Object.assign({t:'say',text},ttsCfg()))};
 $('bShut').onclick=()=>sendCmd({t:'stop'});
@@ -582,6 +676,8 @@ function initFB(){
   },()=>{netSet('нет доступа (проверьте правила БД)','var(--dg)');gotOff=gotItems=true;setNetReady()});
   root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
   root.child('cams').on('value',s=>{liveCams=s.val()||{};syncCams()});
+  root.child('chroma').on('value',s=>{const v=s.val();if(v===null)return;chroma={on:v.on?1:0};$('obsCk').checked=!!chroma.on;chromaTry=0;applyChroma()});
+  root.child('chromaObs').on('value',s=>chromaStatus(s.val()));
 }
 
 /* ---------- полотно ----------
@@ -618,6 +714,107 @@ if(localStorage.getItem('obs-canvas-noui')==='1')document.body.classList.add('no
 if(localStorage.getItem('obs-canvas-nomenu')==='1')document.body.classList.add('nomenu');
 addEventListener('resize',layout);
 if('ResizeObserver' in window)new ResizeObserver(layout).observe($('top'));
+
+/* ---------- хромакей в самом OBS ----------
+   Флажок пишет общее состояние в Firebase (chroma). Каждая страница, открытая внутри OBS, сама применяет его
+   к своему OBS через obs-websocket v5: включает фильтр, а если его нет — добавляет. Так срабатывает во всех OBS сразу. */
+const OBS_KEY='obs-ws',OBS_DEF={url:'ws://127.0.0.1:4455',pw:'',src:'',flt:'Хромакей'};
+const wsCfg=()=>{try{return Object.assign({},OBS_DEF,JSON.parse(localStorage.getItem(OBS_KEY)))}catch(e){return Object.assign({},OBS_DEF)}};
+const wsSave=c=>{try{localStorage.setItem(OBS_KEY,JSON.stringify(c))}catch(e){}};
+let ows=null,owsP=null,owsN=0;const owsPend={};
+const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
+const sha=s=>crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+function owsConnect(){
+  if(owsP)return owsP;
+  const c=wsCfg();
+  const p=new Promise((res,rej)=>{
+    let ws;try{ws=new WebSocket(c.url,'obswebsocket.json')}catch(e){rej(e);return}
+    ws.onmessage=async ev=>{
+      let m;try{m=JSON.parse(ev.data)}catch(e){return}
+      const d=m.d;
+      if(m.op===0){   // Hello → Identify (с паролем, если нужен)
+        const id={rpcVersion:1,eventSubscriptions:0};
+        try{if(d.authentication){
+          const sec=b64(await sha(c.pw+d.authentication.salt));
+          id.authentication=b64(await sha(sec+d.authentication.challenge))}}
+        catch(e){rej(new Error('нужен https или localhost для пароля'));return}
+        ws.send(JSON.stringify({op:1,d:id}));
+      }else if(m.op===2){ows=ws;res(ws)}
+      else if(m.op===7){const f=owsPend[d.requestId];if(f){delete owsPend[d.requestId];f(d)}}
+    };
+    ws.onclose=e=>{ows=null;owsP=null;rej(new Error(e.code===4009?'неверный пароль WebSocket':'нет связи с OBS WebSocket'))};
+  });
+  owsP=p;p.catch(()=>{if(owsP===p)owsP=null});
+  return p}
+async function owsReq(type,data){
+  const ws=await owsConnect(),id='r'+(++owsN);
+  return new Promise((res,rej)=>{
+    owsPend[id]=res;
+    ws.send(JSON.stringify({op:6,d:{requestType:type,requestId:id,requestData:data||{}}}));
+    setTimeout(()=>{if(owsPend[id]){delete owsPend[id];rej(new Error('OBS не ответил'))}},5000)})}
+/* имя источника: из настроек, иначе ищем среди «Браузер»-источников тот, что открывает эту страницу */
+async function owsSource(){
+  const c=wsCfg();if(c.src)return c.src;
+  const l=await owsReq('GetInputList',{inputKind:'browser_source'}),list=(l.responseData&&l.responseData.inputs)||[];
+  const href=location.href.split('#')[0];let found='';
+  for(const i of list){
+    const r=await owsReq('GetInputSettings',{inputName:i.inputName}),st=(r.responseData&&r.responseData.inputSettings)||{};
+    const lf=(st.local_file||'').replace(/\\/g,'/');
+    if((st.url&&st.url.split('#')[0]===href)||(lf&&decodeURI(href).endsWith(lf))){found=i.inputName;break}
+  }
+  if(!found&&list.length===1)found=list[0].inputName;
+  if(!found)throw new Error('не найден источник — укажите его имя в «⚙ OBS»');
+  wsSave(Object.assign(c,{src:found}));return found}
+/* применить состояние к локальному OBS; возвращает '' при успехе или текст ошибки */
+async function owsApply(want){
+  const c=wsCfg();
+  try{
+    const src=await owsSource();
+    const r=await owsReq('GetSourceFilter',{sourceName:src,filterName:c.flt});
+    if(!r.requestStatus.result){
+      if(r.requestStatus.code!==600)throw new Error(r.requestStatus.comment||'ошибка OBS');
+      if(!want)return '';   // фильтра нет и он не нужен
+      const mk=kind=>owsReq('CreateSourceFilter',{sourceName:src,filterName:c.flt,filterKind:kind,filterSettings:{key_color_type:'green'}});
+      let k=await mk('chroma_key_filter_v2');
+      if(!k.requestStatus.result)k=await mk('chroma_key_filter');
+      if(!k.requestStatus.result){
+        if(k.requestStatus.code===600)wsSave(Object.assign(wsCfg(),{src:''}));   // источник не найден — определим заново
+        throw new Error(k.requestStatus.comment||'не удалось добавить фильтр')}
+      return ''}
+    const e=await owsReq('SetSourceFilterEnabled',{sourceName:src,filterName:c.flt,filterEnabled:want});
+    if(!e.requestStatus.result)throw new Error(e.requestStatus.comment||'ошибка OBS');
+    return ''
+  }catch(err){return err.message||'ошибка'}}
+
+let chroma=null,chromaBusy=false,chromaAgain=false,chromaTry=0;   // chroma: общее состояние {on}, null — ещё не задано
+function reportChroma(err){   // каждый OBS сообщает, получилось ли у него (видно в редакторе)
+  if(!root)return;const r=root.child('chromaObs/'+me);r.onDisconnect().remove();r.set({ok:err?0:1,msg:err||''}).catch(()=>{})}
+async function applyChroma(){
+  if(!inOBS||!chroma)return;   // применяют только страницы, открытые внутри OBS
+  if(chromaBusy){chromaAgain=true;return}
+  chromaBusy=true;let err;
+  do{chromaAgain=false;err=await owsApply(!!chroma.on);reportChroma(err)}while(chromaAgain);
+  chromaBusy=false;
+  if(err&&chromaTry++<5)setTimeout(applyChroma,15000);   // OBS ещё не запустился / WebSocket не готов — повторяем
+  else if(!err)chromaTry=0}
+function chromaStatus(v){   // сколько OBS уже применили состояние
+  const ids=Object.keys(v||{}),ok=ids.filter(k=>v[k].ok).length,el=$('obsSt');
+  el.textContent=ids.length?`OBS: ${ok}/${ids.length}`:'';
+  el.title=ids.length?ids.map(k=>v[k].ok?'✓ применено':'✗ '+v[k].msg).join('\n'):'';
+  el.style.color=ids.length&&ok<ids.length?'var(--dg)':'var(--ac)'}
+$('obsCk').onchange=()=>{
+  const on=$('obsCk').checked?1:0;chroma={on};chromaTry=0;
+  if(root){root.child('chroma').set({on,n:uid()}).catch(e=>toast('Firebase: '+e.message));toast('Хромакей '+(on?'включается':'выключается')+' во всех OBS')}
+  else if(inOBS)applyChroma();
+  else owsApply(!!on).then(err=>{if(err){$('obsCk').checked=!on;toast('OBS: '+err)}else toast('Хромакей в OBS '+(on?'включён':'выключен'))})};
+$('obsCfg').onclick=()=>{   // настройки подключения — у каждого OBS свои (открывать в «Интерактивно» этого источника)
+  const c=wsCfg();
+  const u=prompt('Адрес OBS WebSocket:',c.url);if(u===null)return;
+  const pw=prompt('Пароль WebSocket (пусто, если не задан):',c.pw);if(pw===null)return;
+  const src=prompt('Имя источника «Браузер» в OBS (пусто — определить автоматически):',c.src);if(src===null)return;
+  const flt=prompt('Название фильтра хромакея:',c.flt);if(flt===null)return;
+  wsSave({url:u.trim()||OBS_DEF.url,pw,src:src.trim(),flt:flt.trim()||OBS_DEF.flt});
+  if(ows)ows.close();ows=null;owsP=null;chromaTry=0;applyChroma()};
 
 /* ---------- старт ---------- */
 if(!inOBS)document.body.classList.add('edit');

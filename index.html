@@ -43,6 +43,19 @@ body.drag .it{transition:none}
 .edit .it .snd{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--bg);border-radius:8px;font-size:22px}
 .rz{display:none;position:absolute;right:calc(-8px / var(--s));bottom:calc(-8px / var(--s));width:calc(18px / var(--s));height:calc(18px / var(--s));background:var(--ac);border-radius:50%;cursor:nwse-resize}
 .edit .it.sel:not(.lock) .rz{display:block}
+/* режим обрезки (клавиша B) */
+.crbox{display:none;position:absolute;pointer-events:none;border:calc(2px / var(--s)) solid #f5a623;box-shadow:0 0 0 9999px rgba(0,0,0,.55)}
+.edit.cropping .it.sel:not(.lock) .crbox{display:block}
+.cropping .rz{display:none!important}
+.ch{position:absolute;width:calc(14px / var(--s));height:calc(14px / var(--s));background:#f5a623;border-radius:2px;pointer-events:auto}
+.ch[data-h=tl]{left:calc(-7px / var(--s));top:calc(-7px / var(--s));cursor:nwse-resize}
+.ch[data-h=tr]{right:calc(-7px / var(--s));top:calc(-7px / var(--s));cursor:nesw-resize}
+.ch[data-h=bl]{left:calc(-7px / var(--s));bottom:calc(-7px / var(--s));cursor:nesw-resize}
+.ch[data-h=br]{right:calc(-7px / var(--s));bottom:calc(-7px / var(--s));cursor:nwse-resize}
+.ch[data-h=t]{left:50%;top:calc(-7px / var(--s));margin-left:calc(-7px / var(--s));cursor:ns-resize}
+.ch[data-h=b]{left:50%;bottom:calc(-7px / var(--s));margin-left:calc(-7px / var(--s));cursor:ns-resize}
+.ch[data-h=l]{top:50%;left:calc(-7px / var(--s));margin-top:calc(-7px / var(--s));cursor:ew-resize}
+.ch[data-h=r]{top:50%;right:calc(-7px / var(--s));margin-top:calc(-7px / var(--s));cursor:ew-resize}
 #ui{position:fixed;top:calc(var(--mh,0px) + 12px);left:12px;width:280px;max-height:calc(100% - var(--mh,0px) - 24px);overflow:auto;background:var(--bg);border:1px solid var(--ln);border-radius:12px;padding:12px;display:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.45)}
 .edit #ui{display:block}
 .noui #ui{display:none!important}
@@ -159,7 +172,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <h4>Сцена</h4>
   <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
   <input type="file" id="fImp" accept=".json" hidden>
-  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>), <b>[</b> и <b>]</b> — поворот на 5° (с <b>Shift</b> — на 15°), <b>0</b> — сбросить поворот, <b>Shift+0</b> — вернуть положение, размер и поворот как при создании. Вращать мышью: зажмите <b>Q</b> (или <b>Alt</b>) и тяните элемент в любом месте — он вращается вокруг центра (с <b>Shift</b> — шаг 15°).<br>Хромакей OBS: в каждом OBS включите «Сервис → Настройки WebSocket-сервера». Если порт не 4455 или есть пароль — откройте источник через «Интерактивно» и нажмите «⚙ OBS».<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>), <b>[</b> и <b>]</b> — поворот на 5° (с <b>Shift</b> — на 15°), <b>B</b> — режим обрезки (тяните оранжевые точки), <b>Shift+B</b> — сбросить обрезку, <b>0</b> — сбросить поворот, <b>Shift+0</b> — вернуть положение, размер и поворот как при создании. Вращать мышью: зажмите <b>Q</b> (или <b>Alt</b>) и тяните элемент в любом месте — он вращается вокруг центра (с <b>Shift</b> — шаг 15°).<br>Хромакей OBS: в каждом OBS включите «Сервис → Настройки WebSocket-сервера». Если порт не 4455 или есть пароль — откройте источник через «Интерактивно» и нажмите «⚙ OBS».<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
 </aside>
 <div id="toast" role="status"></div>
 
@@ -169,7 +182,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 const $=id=>document.getElementById(id), stage=$('stage');
 const KEY='obs-canvas-v2';
 let S={items:[],tts:{voice:'',vol:100,rate:10,pitch:10}}, sel=null;
-let keepRatio=false,rotHeld=false;       // постоянный режим сохранения пропорций (клавиша R / чекбокс)
+let keepRatio=false,rotHeld=false,cropMode=false;       // постоянный режим сохранения пропорций (клавиша R / чекбокс)
 const liveSet=new Set();   // элементы, которыми управляют напрямую (только в этой вкладке)
 const inOBS=!!window.obsstudio;
 const chan='BroadcastChannel' in window?new BroadcastChannel('obs-canvas-tts'):null;
@@ -265,13 +278,16 @@ function build(it){
   let el=stage.querySelector(`[data-id="${it.id}"]`);
   if(!el){
     el=document.createElement('div');el.className='it';el.dataset.id=it.id;
-    el.innerHTML='<div class="c"></div><div class="rz"></div>';
+    el.innerHTML='<div class="c"></div><div class="rz"></div><div class="crbox">'+['tl','tr','bl','br','t','b','l','r'].map(h=>`<i class="ch" data-h="${h}"></i>`).join('')+'</div>';
     stage.appendChild(el);
   }
   const c=el.firstChild;
   el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:rotate(${it.r||0}deg);`;
   el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);el.classList.toggle('live',liveSet.has(it.id));
   if(c.style.cssText!==(it.css||''))c.style.cssText=it.css||'';
+  {const l=it.cl||0,t=it.ct||0,r=it.cr||0,b=it.cb||0,full=cropMode&&it.id===sel&&document.body.classList.contains('edit');
+   c.style.clipPath=(!full&&(l||t||r||b))?`inset(${t}% ${r}% ${b}% ${l}%)`:'';   // в режиме обрезки выбранный элемент виден целиком
+   const bx=el.querySelector('.crbox');if(bx)bx.style.cssText=`left:${l}%;top:${t}%;right:${r}%;bottom:${b}%`}
   if(it.type==='image'){if(!c.firstChild||c.firstChild.src!==it.src){c.innerHTML='';const i=new Image();i.src=it.src;i.alt='';i.onerror=()=>toast('Не удалось загрузить картинку');c.appendChild(i)}}
   else if(it.type==='text'){
     let t=c.querySelector('.t');if(!t){c.innerHTML='<div class="t"></div>';t=c.firstChild}
@@ -423,6 +439,22 @@ function delSel(){
 /* ---------- перетаскивание и размер ---------- */
 stage.addEventListener('pointerdown',e=>{
   if(!document.body.classList.contains('edit'))return;
+  const hd=e.target.closest('.ch');
+  if(hd){   /* точка обрезки: края двигаются в осях самого (возможно повёрнутого) элемента */
+    const el0=hd.closest('.it'),it=get(el0.dataset.id);if(!it||it.locked)return;
+    const side=hd.dataset.h,sx=e.clientX,sy=e.clientY,o={l:it.cl||0,t:it.ct||0,r:it.cr||0,b:it.cb||0};
+    const R=(it.r||0)*Math.PI/180,co=Math.cos(R),si=Math.sin(R),cl=(v,lo,hi)=>Math.round(Math.max(lo,Math.min(hi,v))*10)/10;
+    el0.setPointerCapture(e.pointerId);dragging=true;document.body.classList.add('drag');
+    const mv=ev=>{const dx=(ev.clientX-sx)/scale,dy=(ev.clientY-sy)/scale,px=(dx*co+dy*si)/it.w*100,py=(-dx*si+dy*co)/it.h*100;
+      it.cl=o.l;it.cr=o.r;it.ct=o.t;it.cb=o.b;
+      if(side.includes('l'))it.cl=cl(o.l+px,0,100-o.r-2);
+      if(side.includes('r'))it.cr=cl(o.r-px,0,100-o.l-2);
+      if(side.includes('t'))it.ct=cl(o.t+py,0,100-o.b-2);
+      if(side.includes('b'))it.cb=cl(o.b-py,0,100-o.t-2);
+      build(it);sync()};
+    const up=()=>{el0.removeEventListener('pointermove',mv);el0.removeEventListener('pointerup',up);dragging=false;document.body.classList.remove('drag');save()};
+    el0.addEventListener('pointermove',mv);el0.addEventListener('pointerup',up);
+    return}
   let el=e.target.closest('.it');
   if(!el){sel=null;renderAll();return}
   const it=get(el.dataset.id);sel=it.id;S.items.push(S.items.splice(S.items.indexOf(it),1)[0]);renderAll();
@@ -464,6 +496,11 @@ addEventListener('keydown',e=>{
   if(e.key==='m'||e.key==='M'||e.key==='ь'||e.key==='Ь'){if(document.body.classList.contains('edit'))toggleMenu();return}
   if((e.key==='p'||e.key==='P'||e.key==='з'||e.key==='З')&&document.body.classList.contains('edit')){toggleUi();return}
   if((e.key==='r'||e.key==='R'||e.key==='к'||e.key==='К')&&!e.ctrlKey&&!e.metaKey&&document.body.classList.contains('edit')){keepRatio=!keepRatio;$('kr').checked=keepRatio;toast('Пропорции: '+(keepRatio?'сохраняются':'свободно'));return}
+  if(e.code==='KeyB'&&!e.ctrlKey&&!e.metaKey&&document.body.classList.contains('edit')){
+    if(e.shiftKey){const i=get(sel);if(i&&!i.locked){i.cl=i.ct=i.cr=i.cb=0;save();build(i);toast('Обрезка сброшена')}return}
+    cropMode=!cropMode;document.body.classList.toggle('cropping',cropMode);
+    toast(cropMode?(sel?'Режим обрезки: тяните оранжевые точки (B — выход, Shift+B — сброс)':'Режим обрезки: выберите элемент'):'Режим обрезки выключен');
+    renderAll();return}
   if(!document.body.classList.contains('edit')||!sel)return;
   const it=get(sel);if(e.key==='Delete'){delSel();return}
   const zero=e.key==='0'||e.key===')'||e.code==='Digit0'||e.code==='Numpad0';   // 0 на основной и цифровой клавиатуре

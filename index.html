@@ -145,6 +145,8 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
     </div>
     <div id="pUrl" hidden>
       <input type="url" id="url" placeholder="https://…">
+      <label style="margin-top:6px">Ширина <input type="number" id="ww" min="20" max="10000"> px</label>
+      <label>Высота <input type="number" id="wh" min="20" max="10000"> px</label>
       <div class="row" style="margin-top:6px"><button id="bUrl">Применить URL</button><button id="bRef">Обновить</button></div>
     </div>
     <div id="pSnd" hidden><div class="row"><button id="bPlay">▶ Играть</button><button id="bStop">■ Стоп</button></div></div>
@@ -283,6 +285,7 @@ function build(it){
   }
   const c=el.firstChild;
   el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:rotate(${it.r||0}deg);`;
+  if(it.id===sel&&it.type==='widget')whSync(it);
   el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);el.classList.toggle('live',liveSet.has(it.id));
   if(c.style.cssText!==(it.css||''))c.style.cssText=it.css||'';
   {const l=it.cl||0,t=it.ct||0,r=it.cr||0,b=it.cb||0,full=cropMode&&it.id===sel&&document.body.classList.contains('edit');
@@ -387,6 +390,7 @@ function fixUrl(u){
   return m?`https://www.youtube.com/embed/${m[1]}?autoplay=1&enablejsapi=1&cc_load_policy=0`:u}
 
 /* ---------- инспектор ---------- */
+function whSync(it){if(document.activeElement!==$('ww'))$('ww').value=it.w;if(document.activeElement!==$('wh'))$('wh').value=it.h}
 function inspect(){
   const it=get(sel);$('insp').hidden=!it;if(!it)return;
   const sv=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};   // не трогаем поле, в котором печатают
@@ -399,7 +403,7 @@ function inspect(){
   $('bLive').textContent=liveSet.has(it.id)?'✋ Вернуть перетаскивание':'🖱 Управлять плеером напрямую';
   sv('vl',it.vol??100);$('vLoop').checked=!!it.loop;
   if(it.type==='text'){sv('tx',it.text);sv('ff',it.ff);sv('fc',it.fc);sv('fs',it.fs);$('fb').checked=!!it.fb}
-  if(it.type==='widget')sv('url',it.src);
+  if(it.type==='widget'){sv('url',it.src);whSync(it)}
 }
 const upd=(f)=>{const it=get(sel);if(it){f(it);save();build(it)}};
 $('bHide').onclick=()=>{upd(i=>i.hidden=!i.hidden);inspect()};
@@ -408,6 +412,8 @@ $('bDel').onclick=delSel;
 $('bDup').onclick=()=>{const it=get(sel);if(it)add(Object.assign({},it,{id:uid(),x:it.x+20,y:it.y+20}))};
 $('op').oninput=e=>upd(i=>i.o=+e.target.value);
 $('kr').onchange=e=>{keepRatio=e.target.checked};
+$('ww').oninput=e=>upd(i=>{const v=Math.max(20,Math.round(+e.target.value)||20);if(keepRatio)i.h=Math.max(20,Math.round(v*i.h/i.w));i.w=v});
+$('wh').oninput=e=>upd(i=>{const v=Math.max(20,Math.round(+e.target.value)||20);if(keepRatio)i.w=Math.max(20,Math.round(v*i.w/i.h));i.h=v});
 $('rot').oninput=e=>upd(i=>i.r=+e.target.value);
 $('tx').oninput=e=>upd(i=>i.text=e.target.value);
 $('ff').onchange=e=>upd(i=>i.ff=e.target.value);

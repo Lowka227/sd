@@ -739,6 +739,7 @@ function owsConnect(){
       let m;try{m=JSON.parse(ev.data)}catch(e){return}
       const d=m.d;
       if(m.op===0){   // Hello → Identify (с паролем, если нужен)
+        if(d.authentication&&!c.pw){rej(new Error('NOPW'));ws.close();return}   // нужен пароль, а его нет — подключение необязательно
         const id={rpcVersion:1,eventSubscriptions:0};
         try{if(d.authentication){
           const sec=b64(await sha(c.pw+d.authentication.salt));
@@ -774,6 +775,7 @@ async function owsSource(){
 /* применить состояние к локальному OBS; возвращает '' при успехе или текст ошибки */
 async function owsApply(want){
   const c=wsCfg();
+  if(c.off)return 'OFF';   // подключение к OBS отключено в настройках
   try{
     const src=await owsSource();
     const r=await owsReq('GetSourceFilter',{sourceName:src,filterName:c.flt});
@@ -800,7 +802,11 @@ async function applyChroma(){
   if(chromaBusy){chromaAgain=true;return}
   chromaBusy=true;let err;
   do{chromaAgain=false;const on=!!chroma.on;err=await owsApply(on);
-    if(err){stage.style.filter=on?'url(#ckAll)':'';reportChroma('',on?'встроенный фильтр, т.к. '+err:'')}   // нет WebSocket/пароля — хромакей делает сама страница
+    if(err){   // OBS недоступен — хромакей делает сама страница (встроенный фильтр)
+      const quiet=err==='NOPW'||err==='OFF';   // пароля нет или подключение отключено — это нормально, повторять незачем
+      stage.style.filter=on?'url(#ckAll)':'';
+      reportChroma('',on?'встроенный фильтр'+(quiet?'':', т.к. '+err):'');
+      if(quiet)err=''}
     else{stage.style.filter='';reportChroma('')}}while(chromaAgain);
   chromaBusy=false;
   if(err&&chromaTry++<20)setTimeout(applyChroma,15000);   // OBS ещё не запустился / WebSocket не готов — повторяем
@@ -808,7 +814,7 @@ async function applyChroma(){
 function chromaStatus(v){   // сколько OBS уже применили состояние
   const ids=Object.keys(v||{}),ok=ids.filter(k=>v[k].ok).length,el=$('obsSt');
   const bad=ids.filter(k=>!v[k].ok),soft=ids.filter(k=>v[k].ok&&v[k].msg);
-  const line=(k,i)=>`OBS ${i+1}: `+(v[k].ok?(v[k].msg?'применено встроенным фильтром ('+v[k].msg+')':'применено фильтром OBS'):'ошибка — '+v[k].msg);
+  const line=(k,i)=>`OBS ${i+1}: `+(v[k].ok?(v[k].msg?'применено встроенным фильтром'+(v[k].msg!=='встроенный фильтр'?' ('+v[k].msg+')':''):'применено фильтром OBS'):'ошибка — '+v[k].msg);
   el.textContent=ids.length?`OBS: ${ok}/${ids.length}`+(bad.length?` · ${v[bad[0]].msg}`:soft.length?` · встроенный фильтр: ${soft.length}`:''):'';
   el.title=ids.length?'Нажмите, чтобы увидеть подробности\n'+ids.map(line).join('\n'):'';
   el.onclick=()=>ids.length&&alert(ids.map(line).join('\n'));
@@ -821,11 +827,11 @@ $('obsCk').onchange=()=>{
   else owsApply(!!on).then(err=>{if(err){$('obsCk').checked=!on;toast('OBS: '+err)}else toast('Хромакей в OBS '+(on?'включён':'выключен'))})};
 $('obsCfg').onclick=()=>{   // настройки подключения — у каждого OBS свои (открывать в «Интерактивно» этого источника)
   const c=wsCfg();
-  const u=prompt('Адрес OBS WebSocket:',c.url);if(u===null)return;
+  const u=prompt('Адрес OBS WebSocket (напишите «-», чтобы вообще не подключаться к OBS):',c.off?'-':c.url);if(u===null)return;
   const pw=prompt('Пароль WebSocket (пусто, если не задан):',c.pw);if(pw===null)return;
   const src=prompt('Имя источника «Браузер» в OBS (пусто — определить автоматически):',c.src);if(src===null)return;
   const flt=prompt('Название фильтра хромакея:',c.flt);if(flt===null)return;
-  wsSave({url:u.trim()||OBS_DEF.url,pw,src:src.trim(),flt:flt.trim()||OBS_DEF.flt});
+  wsSave({url:u.trim()==='-'?c.url:(u.trim()||OBS_DEF.url),off:u.trim()==='-',pw,src:src.trim(),flt:flt.trim()||OBS_DEF.flt});
   if(ows)ows.close();ows=null;owsP=null;chromaTry=0;applyChroma()};
 
 /* ---------- автообновление в OBS: если файл страницы на сервере изменился — перезагружаемся сами ---------- */

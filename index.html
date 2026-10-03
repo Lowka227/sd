@@ -22,7 +22,7 @@ body.edit{background:#101216}
 .nomenu #top{display:none!important}
 #showMenu{display:none;position:fixed;top:8px;right:8px;z-index:111;padding:4px 10px;font-size:12px;background:var(--bg)}
 .edit.nomenu #showMenu{display:block}
-.it{position:absolute;touch-action:none;user-select:none;transition:left .1s linear,top .1s linear,width .1s linear,height .1s linear,opacity .2s}
+.it{position:absolute;touch-action:none;user-select:none;transition:transform .08s linear,width .08s linear,height .08s linear,opacity .2s}
 body.drag .it{transition:none}
 .it>.c{width:100%;height:100%;overflow:hidden}
 .it img{width:100%;height:100%;object-fit:fill;display:block;pointer-events:none}
@@ -204,6 +204,7 @@ function uid0(){return Date.now().toString(36)+Math.random().toString(36).slice(
 
 /* ---------- сохранение ---------- */
 function save(){persist();sync();renderBar()}
+let pT=0;const persistLater=()=>{clearTimeout(pT);pT=setTimeout(persist,500)};
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('Не удалось сохранить: слишком большой файл. Используйте ссылку вместо загрузки.')}}
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&Array.isArray(d.items))S=Object.assign(S,d)}catch(e){}}
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3200)}
@@ -284,7 +285,7 @@ function build(it){
     stage.appendChild(el);
   }
   const c=el.firstChild;
-  el.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:rotate(${it.r||0}deg);`;
+  el.style.cssText=`left:0;top:0;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:translate(${it.x}px,${it.y}px) rotate(${it.r||0}deg);`;
   if(it.id===sel&&it.type==='widget')whSync(it);
   el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);el.classList.toggle('live',liveSet.has(it.id));
   if(c.style.cssText!==(it.css||''))c.style.cssText=it.css||'';
@@ -531,23 +532,41 @@ addEventListener('blur',rotOff);
 
 /* ---------- озвучка ---------- */
 load();
-let voices=[];
+let voiceN=-1;
 function fillVoices(){
-  voices=speechSynthesis.getVoices();const s=$('voice');
-  s.innerHTML='<option value="">Голос по умолчанию</option>'+voices.map(v=>`<option value="${v.name}">${v.name} (${v.lang})</option>`).join('');
-  s.value=S.tts.voice||'';
+  const list=speechSynthesis.getVoices();
+  if(list.length===voiceN)return;voiceN=list.length;   // список мог дозагрузиться — перерисовываем только при изменении
+  const s=$('voice'),cur=S.tts.voice||'';
+  s.replaceChildren(new Option('Голос по умолчанию',''));
+  list.forEach(v=>{const o=new Option(`${v.name} (${v.lang})`,v.name);o.dataset.lang=v.lang;s.appendChild(o)});
+  s.value=cur;
 }
-if('speechSynthesis' in window){fillVoices();speechSynthesis.onvoiceschanged=fillVoices}
-else $('bSay').disabled=true;
+if('speechSynthesis' in window){
+  fillVoices();speechSynthesis.onvoiceschanged=fillVoices;
+  /* в OBS/CEF и некоторых браузерах голоса подгружаются постепенно и без события — опрашиваем первые секунды */
+  let tries=0;const iv=setInterval(()=>{fillVoices();if(++tries>20)clearInterval(iv)},500);
+  addEventListener('focus',fillVoices);
+}else $('bSay').disabled=true;
 function speak(m){
   if(!('speechSynthesis' in window))return;
+  const list=speechSynthesis.getVoices();   // всегда свежий список, а не снимок при загрузке страницы
+  const pick=(m.voice&&(list.find(x=>x.name===m.voice)||list.find(x=>x.voiceURI===m.voice)))
+    ||(m.lang&&list.find(x=>x.lang===m.lang))||null;   // нет такого голоса на этом ПК — берём любой с тем же языком
+  speakWith(m,pick,true)}
+function speakWith(m,v,retry){
+  const u=new SpeechSynthesisUtterance(m.text),tok=speakWith._t=(speakWith._t||0)+1;
+  if(v){u.voice=v;u.lang=v.lang}else u.lang=m.lang||'ru-RU';
+  u.volume=m.vol/100;u.rate=m.rate/10;u.pitch=m.pitch/10;
+  u.onerror=e=>{
+    if(e.error==='canceled'||e.error==='interrupted')return;
+    if(v&&retry){toast('Голос «'+v.name+'» не сработал — читаю голосом по умолчанию');speakWith(m,null,false)}
+    else toast('Озвучка: '+e.error)};
+  speakWith._u=u;   // держим ссылку: иначе Chrome может оборвать озвучку сборщиком мусора
   speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(m.text);
-  const v=voices.find(x=>x.name===m.voice);if(v){u.voice=v;u.lang=v.lang}else u.lang='ru-RU';
-  u.volume=m.vol/100;u.rate=m.rate/10;u.pitch=m.pitch/10;speechSynthesis.speak(u)}
+  setTimeout(()=>{if(tok!==speakWith._t)return;if(speechSynthesis.paused)speechSynthesis.resume();speechSynthesis.speak(u)},80)}
 if(chan)chan.onmessage=e=>{if(!root)runCmd(e.data)};
-const ttsCfg=()=>({voice:S.tts.voice,vol:S.tts.vol,rate:S.tts.rate,pitch:S.tts.pitch});
-$('voice').onchange=e=>{S.tts.voice=e.target.value;save()};
+const ttsCfg=()=>({voice:S.tts.voice,lang:S.tts.lang||'',vol:S.tts.vol,rate:S.tts.rate,pitch:S.tts.pitch});
+$('voice').onchange=e=>{const o=e.target.selectedOptions[0];S.tts.voice=e.target.value;S.tts.lang=(o&&o.dataset.lang)||'';save()};
 [['tv','vol'],['tr','rate'],['tp','pitch']].forEach(([id,k])=>{$(id).value=S.tts[k];$(id).oninput=e=>{S.tts[k]=+e.target.value;save()}});
 $('bSay').onclick=()=>{const text=$('ttsText').value.trim();if(!text)return toast('Введите текст для озвучки');sendCmd(Object.assign({t:'say',text},ttsCfg()))};
 $('bShut').onclick=()=>sendCmd({t:'stop'});
@@ -616,8 +635,8 @@ const room=(new URLSearchParams(location.search).get('room')||'main').replace(/[
 let db=null,root=null,last={},remoteReady=false,dragging=false,timer=0,cmdReady=false;
 function netSet(t,c){const n=$('net');n.textContent='● '+t;n.style.color=c||''}
 const same=(a,b)=>{const ks=o=>Object.keys(o).filter(k=>o[k]!==undefined),A=ks(a),B=ks(b);return A.length===B.length&&A.every(k=>a[k]===b[k])};
-/* throttle вместо debounce: изменения уходят каждые ~40 мс, даже пока элемент тянут */
-function sync(){if(root&&!timer)timer=setTimeout(flush,40)}
+/* throttle вместо debounce: изменения уходят каждые ~30 мс, даже пока элемент тянут */
+function sync(){if(root&&!timer)timer=setTimeout(flush,30)}
 function flush(){
   timer=0;if(!root||!remoteReady)return;
   const up={},ids=new Set();
@@ -652,9 +671,13 @@ function initFB(){
     if(dragging||timer)return;
     const R=Object.keys(d||{}).map(k=>Object.assign({id:k},d[k])).sort((a,b)=>(a.z||0)-(b.z||0));
     if(R.length===S.items.length&&R.every((r,i)=>same(r,S.items[i])))return;
+    const prev=S.items,sameOrder=prev.length===R.length&&prev.every((p,i)=>p.id===R[i].id);
     S.items=R;last={};R.forEach(r=>last[r.id]=Object.assign({},r));
     if(sel&&!get(sel))sel=null;
-    persist();renderAll();
+    persistLater();
+    if(!sameOrder){renderAll();return}   // добавили/удалили/переставили — полная перерисовка
+    R.forEach((r,i)=>{if(!same(r,prev[i]))build(r)});   // иначе только то, что изменилось
+    inspect();renderBar();
   },()=>{netSet('нет доступа (проверьте правила БД)','var(--dg)');gotOff=gotItems=true;setNetReady()});
   root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
   root.child('cams').on('value',s=>{liveCams=s.val()||{};syncCams()});

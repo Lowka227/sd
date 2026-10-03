@@ -101,6 +101,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><filter id="ckAll" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1.667 -3.333 1.667 0 1.583"/></filter></defs></svg>
 <div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
 <button id="showUi" title="Клавиша P">☰ Панель</button>
@@ -792,22 +793,25 @@ async function owsApply(want){
   }catch(err){return err.message||'ошибка'}}
 
 let chroma=null,chromaBusy=false,chromaAgain=false,chromaTry=0;   // chroma: общее состояние {on}, null — ещё не задано
-function reportChroma(err){   // каждый OBS сообщает, получилось ли у него (видно в редакторе)
-  if(!root)return;const r=root.child('chromaObs/'+me);r.onDisconnect().remove();r.set({ok:err?0:1,msg:err||''}).catch(()=>{})}
+function reportChroma(err,note){   // каждый OBS сообщает, получилось ли у него (видно в редакторе)
+  if(!root)return;const r=root.child('chromaObs/'+me);r.onDisconnect().remove();r.set({ok:err?0:1,msg:err||note||''}).catch(()=>{})}
 async function applyChroma(){
   if(!inOBS||!chroma)return;   // применяют только страницы, открытые внутри OBS
   if(chromaBusy){chromaAgain=true;return}
   chromaBusy=true;let err;
-  do{chromaAgain=false;err=await owsApply(!!chroma.on);reportChroma(err)}while(chromaAgain);
+  do{chromaAgain=false;const on=!!chroma.on;err=await owsApply(on);
+    if(err){stage.style.filter=on?'url(#ckAll)':'';reportChroma('',on?'встроенный фильтр, т.к. '+err:'')}   // нет WebSocket/пароля — хромакей делает сама страница
+    else{stage.style.filter='';reportChroma('')}}while(chromaAgain);
   chromaBusy=false;
   if(err&&chromaTry++<20)setTimeout(applyChroma,15000);   // OBS ещё не запустился / WebSocket не готов — повторяем
   else if(!err)chromaTry=0}
 function chromaStatus(v){   // сколько OBS уже применили состояние
   const ids=Object.keys(v||{}),ok=ids.filter(k=>v[k].ok).length,el=$('obsSt');
-  const bad=ids.filter(k=>!v[k].ok);
-  el.textContent=ids.length?`OBS: ${ok}/${ids.length}`+(bad.length?` · ${v[bad[0]].msg}`:''):'';
-  el.title=ids.length?'Нажмите, чтобы увидеть подробности\n'+ids.map((k,i)=>`OBS ${i+1}: `+(v[k].ok?'✓ применено':'✗ '+v[k].msg)).join('\n'):'';
-  el.onclick=()=>ids.length&&alert(ids.map((k,i)=>`OBS ${i+1}: `+(v[k].ok?'применено':'ошибка — '+v[k].msg)).join('\n'));
+  const bad=ids.filter(k=>!v[k].ok),soft=ids.filter(k=>v[k].ok&&v[k].msg);
+  const line=(k,i)=>`OBS ${i+1}: `+(v[k].ok?(v[k].msg?'применено встроенным фильтром ('+v[k].msg+')':'применено фильтром OBS'):'ошибка — '+v[k].msg);
+  el.textContent=ids.length?`OBS: ${ok}/${ids.length}`+(bad.length?` · ${v[bad[0]].msg}`:soft.length?` · встроенный фильтр: ${soft.length}`:''):'';
+  el.title=ids.length?'Нажмите, чтобы увидеть подробности\n'+ids.map(line).join('\n'):'';
+  el.onclick=()=>ids.length&&alert(ids.map(line).join('\n'));
   el.style.cursor=ids.length?'pointer':'';
   el.style.color=ids.length&&ok<ids.length?'var(--dg)':'var(--ac)'}
 $('obsCk').onchange=()=>{

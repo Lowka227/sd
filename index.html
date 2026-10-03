@@ -828,6 +828,23 @@ $('obsCfg').onclick=()=>{   // настройки подключения — у 
   wsSave({url:u.trim()||OBS_DEF.url,pw,src:src.trim(),flt:flt.trim()||OBS_DEF.flt});
   if(ows)ows.close();ows=null;owsP=null;chromaTry=0;applyChroma()};
 
+/* ---------- автообновление в OBS: если файл страницы на сервере изменился — перезагружаемся сами ---------- */
+(function(){
+  if(!inOBS)return;
+  const url=location.href.split('#')[0],web=/^https?:/i.test(url);let base=null;
+  const fetchSelf=()=>{
+    const u=web?url+(url.includes('?')?'&':'?')+'_='+Date.now():url;   // обход кэша
+    return fetch(u,{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.text()}).catch(()=>new Promise((res,rej)=>{   // для локального файла — через XHR
+      try{const x=new XMLHttpRequest();x.open('GET',u);x.onload=()=>res(x.responseText);x.onerror=()=>rej();x.send()}catch(e){rej()}}))};
+  const hash=t=>{let n=0;for(let i=0;i<t.length;i++)n=(n*31+t.charCodeAt(i))|0;return t.length+':'+n};
+  const check=async()=>{
+    try{const v=hash(await fetchSelf());
+      if(base===null)base=v;
+      else if(v!==base&&!dragging)setTimeout(()=>location.reload(),500)}
+    catch(e){}};   // не удалось прочитать файл (например, запрещено для file://) — тихо пропускаем
+  check();setInterval(check,30000);
+})();
+
 /* ---------- старт ---------- */
 if(!inOBS)document.body.classList.add('edit');
 renderAll();

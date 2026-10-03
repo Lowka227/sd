@@ -761,11 +761,11 @@ async function owsReq(type,data){
 async function owsSource(){
   const c=wsCfg();if(c.src)return c.src;
   const l=await owsReq('GetInputList',{inputKind:'browser_source'}),list=(l.responseData&&l.responseData.inputs)||[];
-  const href=location.href.split('#')[0];let found='';
+  const norm=u=>{try{const x=new URL(u);return x.origin+x.pathname}catch(e){return u}},href=norm(location.href);let found='';
   for(const i of list){
     const r=await owsReq('GetInputSettings',{inputName:i.inputName}),st=(r.responseData&&r.responseData.inputSettings)||{};
     const lf=(st.local_file||'').replace(/\\/g,'/');
-    if((st.url&&st.url.split('#')[0]===href)||(lf&&decodeURI(href).endsWith(lf))){found=i.inputName;break}
+    if((st.url&&norm(st.url)===href)||(lf&&decodeURI(href).toLowerCase().endsWith(lf.toLowerCase()))){found=i.inputName;break}
   }
   if(!found&&list.length===1)found=list[0].inputName;
   if(!found)throw new Error('не найден источник — укажите его имя в «⚙ OBS»');
@@ -800,12 +800,15 @@ async function applyChroma(){
   chromaBusy=true;let err;
   do{chromaAgain=false;err=await owsApply(!!chroma.on);reportChroma(err)}while(chromaAgain);
   chromaBusy=false;
-  if(err&&chromaTry++<5)setTimeout(applyChroma,15000);   // OBS ещё не запустился / WebSocket не готов — повторяем
+  if(err&&chromaTry++<20)setTimeout(applyChroma,15000);   // OBS ещё не запустился / WebSocket не готов — повторяем
   else if(!err)chromaTry=0}
 function chromaStatus(v){   // сколько OBS уже применили состояние
   const ids=Object.keys(v||{}),ok=ids.filter(k=>v[k].ok).length,el=$('obsSt');
-  el.textContent=ids.length?`OBS: ${ok}/${ids.length}`:'';
-  el.title=ids.length?ids.map(k=>v[k].ok?'✓ применено':'✗ '+v[k].msg).join('\n'):'';
+  const bad=ids.filter(k=>!v[k].ok);
+  el.textContent=ids.length?`OBS: ${ok}/${ids.length}`+(bad.length?` · ${v[bad[0]].msg}`:''):'';
+  el.title=ids.length?'Нажмите, чтобы увидеть подробности\n'+ids.map((k,i)=>`OBS ${i+1}: `+(v[k].ok?'✓ применено':'✗ '+v[k].msg)).join('\n'):'';
+  el.onclick=()=>ids.length&&alert(ids.map((k,i)=>`OBS ${i+1}: `+(v[k].ok?'применено':'ошибка — '+v[k].msg)).join('\n'));
+  el.style.cursor=ids.length?'pointer':'';
   el.style.color=ids.length&&ok<ids.length?'var(--dg)':'var(--ac)'}
 $('obsCk').onchange=()=>{
   const on=$('obsCk').checked?1:0;chroma={on};chromaTry=0;

@@ -101,7 +101,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><filter id="ckAll" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1.667 -3.333 1.667 0 1.583"/></filter></defs></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="ckdefs"><filter id="ckAll" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1.667 -3.333 1.667 0 1.583"/></filter></defs></svg>
 <div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
 <button id="showUi" title="Клавиша P">☰ Панель</button>
@@ -125,6 +125,10 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
     </div>
     <label>Прозрачность <input type="range" id="op" min="0" max="100"></label>
     <label>Поворот <input type="range" id="rot" min="-180" max="180" step="1"></label>
+    <div id="pCk" hidden>
+      <label><input type="checkbox" id="ck"> Хромакей на этом элементе (убрать зелёный)</label>
+      <label>Чувствительность <input type="range" id="cks" min="0" max="100"></label>
+    </div>
     <label><input type="checkbox" id="kr"> Сохранять пропорции (Shift / Ctrl / R)</label>
     <label id="pVol" title="Для виджетов громкость работает только у YouTube">Громкость <input type="range" id="vl" min="0" max="100"></label>
     <div id="pVid" hidden>
@@ -277,6 +281,19 @@ addEventListener('message',e=>{
   else ytlive(get(id),f)});
 const applyVol=()=>S.items.forEach(i=>i.type==='widget'&&wvol(i));
 
+/* ---------- хромакей на отдельном элементе: SVG-фильтр делает зелёные пиксели прозрачными (видео, камера, картинка, виджет) ---------- */
+function ckFilter(it){
+  const id='ck_'+it.id,NS='http://www.w3.org/2000/svg';let f=document.getElementById(id);
+  if(!f){
+    f=document.createElementNS(NS,'filter');f.id=id;f.setAttribute('color-interpolation-filters','sRGB');
+    f.appendChild(document.createElementNS(NS,'feColorMatrix')).setAttribute('type','matrix');
+    $('ckdefs').appendChild(f);
+  }
+  /* «зелёность» g = G − (R+B)/2; альфа = 1 при g ≤ lo, 0 при g ≥ lo+0.3; чувствительность двигает lo */
+  const k=(it.cs??50)/100,w=0.3,lo=0.3-0.25*k,sl=1/w,off=1+lo/w;
+  f.firstChild.setAttribute('values',`1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  ${(sl/2).toFixed(3)} ${(-sl).toFixed(3)} ${(sl/2).toFixed(3)} 0 ${off.toFixed(3)}`);
+}
+
 /* ---------- отрисовка ---------- */
 function build(it){
   let el=stage.querySelector(`[data-id="${it.id}"]`);
@@ -286,7 +303,8 @@ function build(it){
     stage.appendChild(el);
   }
   const c=el.firstChild;
-  el.style.cssText=`left:0;top:0;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:translate(${it.x}px,${it.y}px) rotate(${it.r||0}deg);`;
+  el.style.cssText=`left:0;top:0;width:${it.w}px;height:${it.h}px;opacity:${it.o/100};z-index:${S.items.indexOf(it)+1};transform:translate(${it.x}px,${it.y}px) rotate(${it.r||0}deg);${it.ck?`filter:url(#ck_${it.id});`:''}`;
+  if(it.ck)ckFilter(it);
   if(it.id===sel&&it.type==='widget')whSync(it);
   el.classList.toggle('hid',!!it.hidden);el.classList.toggle('lock',!!it.locked);el.classList.toggle('sel',it.id===sel);el.classList.toggle('live',liveSet.has(it.id));
   if(c.style.cssText!==(it.css||''))c.style.cssText=it.css||'';
@@ -398,7 +416,7 @@ function inspect(){
   const sv=(id,v)=>{if(document.activeElement!==$(id))$(id).value=v};   // не трогаем поле, в котором печатают
   $('bHide').textContent=it.hidden?'Показать':'Скрыть';
   $('bLock').textContent=it.locked?'Открепить':'Закрепить';
-  sv('op',it.o);sv('rot',it.r||0);sv('css',it.css||'');$('kr').checked=keepRatio;
+  sv('op',it.o);sv('rot',it.r||0);$('pCk').hidden=!['image','video','cam','widget'].includes(it.type);$('ck').checked=!!it.ck;sv('cks',it.cs??50);sv('css',it.css||'');$('kr').checked=keepRatio;
   $('pTxt').hidden=it.type!=='text';$('pUrl').hidden=it.type!=='widget';$('pSnd').hidden=it.type!=='sound';
   $('pVid').hidden=!(it.type==='video'||isYT(it));$('pCam').hidden=it.type!=='cam';$('pVol').hidden=!['video','sound','widget','cam'].includes(it.type);
   $('pLive').hidden=it.type!=='widget';$('bLive').classList.toggle('on',liveSet.has(it.id));
@@ -414,6 +432,8 @@ $('bDel').onclick=delSel;
 $('bDup').onclick=()=>{const it=get(sel);if(it)add(Object.assign({},it,{id:uid(),x:it.x+20,y:it.y+20}))};
 $('op').oninput=e=>upd(i=>i.o=+e.target.value);
 $('kr').onchange=e=>{keepRatio=e.target.checked};
+$('ck').onchange=e=>upd(i=>i.ck=e.target.checked?1:0);
+$('cks').oninput=e=>upd(i=>i.cs=+e.target.value);
 $('ww').oninput=e=>upd(i=>{const v=Math.max(20,Math.round(+e.target.value)||20);if(keepRatio)i.h=Math.max(20,Math.round(v*i.h/i.w));i.w=v});
 $('wh').oninput=e=>upd(i=>{const v=Math.max(20,Math.round(+e.target.value)||20);if(keepRatio)i.w=Math.max(20,Math.round(v*i.w/i.h));i.h=v});
 $('rot').oninput=e=>upd(i=>i.r=+e.target.value);
@@ -442,6 +462,7 @@ $('cd').onchange=e=>{const it=get(sel);if(it)startCam(it.id,'cam',e.target.value
 function delSel(){
   if(!sel)return;const d=get(sel);S.items=S.items.filter(i=>i.id!==sel);liveSet.delete(sel);if(d&&d.type==='cam')stopCam(d.id);
   if(d&&/^fb:/.test(d.src||'')&&root&&!S.items.some(i=>i.src===d.src))root.child('media/'+d.src.slice(3)).remove();
+  {const fe=document.getElementById('ck_'+(d&&d.id));if(fe)fe.remove()}
   sel=null;save();renderAll()}
 
 /* ---------- перетаскивание и размер ---------- */

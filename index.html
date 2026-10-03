@@ -101,7 +101,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="ckdefs"><filter id="ckAll" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1.667 -3.333 1.667 0 1.583"/></filter></defs></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="ckdefs"><filter id="ckAll" color-interpolation-filters="sRGB"><feColorMatrix in="SourceGraphic" result="k" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1.667 -3.333 1.667 0 1.583"/><feComposite in="k" in2="SourceGraphic" operator="in"/></filter></defs></svg>
 <div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
 <button id="showUi" title="Клавиша P">☰ Панель</button>
@@ -286,7 +286,9 @@ function ckFilter(it){
   const id='ck_'+it.id,NS='http://www.w3.org/2000/svg';let f=document.getElementById(id);
   if(!f){
     f=document.createElementNS(NS,'filter');f.id=id;f.setAttribute('color-interpolation-filters','sRGB');
-    f.appendChild(document.createElementNS(NS,'feColorMatrix')).setAttribute('type','matrix');
+    const m=document.createElementNS(NS,'feColorMatrix');m.setAttribute('type','matrix');m.setAttribute('in','SourceGraphic');m.setAttribute('result','k');f.appendChild(m);
+    /* умножаем на исходную прозрачность: иначе прозрачные области холста становятся чёрными и закрывают всё */
+    const c=document.createElementNS(NS,'feComposite');c.setAttribute('in','k');c.setAttribute('in2','SourceGraphic');c.setAttribute('operator','in');f.appendChild(c);
     $('ckdefs').appendChild(f);
   }
   /* «зелёность» g = G − (R+B)/2; альфа = 1 при g ≤ lo, 0 при g ≥ lo+0.3; чувствительность двигает lo */

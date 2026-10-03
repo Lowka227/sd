@@ -72,6 +72,7 @@ label input[type=number]{width:70px}
 .tr>b{font-size:12px;color:var(--mu);min-width:82px}
 #tools{flex-wrap:wrap}
 #tools button{padding:4px 9px;font-size:12px}
+#tools label{width:auto;margin:0;color:var(--tx);cursor:pointer;white-space:nowrap}
 button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 #net{margin-left:auto;font-size:12px;color:var(--mu)}
 #els{flex:1;display:flex;gap:8px;overflow-x:auto;padding:7px 6px 8px 2px}
@@ -94,6 +95,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <div class="tr" id="tools"><b>Инструменты:</b>
     <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aVid">🎬 Видео</button><button id="aCam">📷 Камера</button><button id="aScr">🖥 Экран</button><button id="aWid">🧩 Виджет</button>
     <button id="bClr" class="d">🗑 Очистить</button><button id="bTts" class="sy">🎙 Синхронная озвучка</button>
+    <label id="obsCkL" title="Включает/выключает фильтр «Хромакей» во всех OBS, где открыт этот оверлей (через obs-websocket)"><input type="checkbox" id="obsCk"> Хромакей OBS</label><span id="obsSt" style="font-size:12px"></span><button id="obsCfg" title="Настройки подключения к OBS (у каждого OBS свои)">⚙ OBS</button>
     <button id="bMenu" title="Клавиша M">⇧ Скрыть меню</button><span id="net">● офлайн</span></div>
   <div class="tr"><b>Элементы:</b><div id="els"></div></div>
 </header>
@@ -157,7 +159,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
   <h4>Сцена</h4>
   <div class="row"><button id="bExp">Экспорт</button><button id="bImp">Импорт</button></div>
   <input type="file" id="fImp" accept=".json" hidden>
-  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>), <b>[</b> и <b>]</b> — поворот на 5° (с <b>Shift</b> — на 15°), <b>0</b> — сбросить поворот, <b>Shift+0</b> — вернуть положение, размер и поворот как при создании. Вращать мышью: зажмите <b>Q</b> (или <b>Alt</b>) и тяните элемент в любом месте — он вращается вокруг центра (с <b>Shift</b> — шаг 15°).<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
+  <div id="hint">Клавиши: <b>E</b> — показать/скрыть редактор, <b>Del</b> — удалить, стрелки — сдвиг, <b>M</b> — скрыть/показать верхнее меню, <b>P</b> — скрыть/показать эту панель, <b>R</b> — вкл/выкл сохранение пропорций при изменении размера (или удерживайте <b>Shift</b> / <b>Ctrl</b>), <b>[</b> и <b>]</b> — поворот на 5° (с <b>Shift</b> — на 15°), <b>0</b> — сбросить поворот, <b>Shift+0</b> — вернуть положение, размер и поворот как при создании. Вращать мышью: зажмите <b>Q</b> (или <b>Alt</b>) и тяните элемент в любом месте — он вращается вокруг центра (с <b>Shift</b> — шаг 15°).<br>Хромакей OBS: в каждом OBS включите «Сервис → Настройки WebSocket-сервера». Если порт не 4455 или есть пароль — откройте источник через «Интерактивно» и нажмите «⚙ OBS».<br>В OBS редактор скрыт сам. Чтобы вернуть его: ПКМ по источнику → «Интерактивно» → E.</div>
 </aside>
 <div id="toast" role="status"></div>
 
@@ -613,6 +615,8 @@ function initFB(){
   },()=>{netSet('нет доступа (проверьте правила БД)','var(--dg)');gotOff=gotItems=true;setNetReady()});
   root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
   root.child('cams').on('value',s=>{liveCams=s.val()||{};syncCams()});
+  root.child('chroma').on('value',s=>{const v=s.val();if(v===null)return;chroma={on:v.on?1:0};$('obsCk').checked=!!chroma.on;chromaTry=0;applyChroma()});
+  root.child('chromaObs').on('value',s=>chromaStatus(s.val()));
 }
 
 /* ---------- полотно ----------
@@ -649,6 +653,107 @@ if(localStorage.getItem('obs-canvas-noui')==='1')document.body.classList.add('no
 if(localStorage.getItem('obs-canvas-nomenu')==='1')document.body.classList.add('nomenu');
 addEventListener('resize',layout);
 if('ResizeObserver' in window)new ResizeObserver(layout).observe($('top'));
+
+/* ---------- хромакей в самом OBS ----------
+   Флажок пишет общее состояние в Firebase (chroma). Каждая страница, открытая внутри OBS, сама применяет его
+   к своему OBS через obs-websocket v5: включает фильтр, а если его нет — добавляет. Так срабатывает во всех OBS сразу. */
+const OBS_KEY='obs-ws',OBS_DEF={url:'ws://127.0.0.1:4455',pw:'',src:'',flt:'Хромакей'};
+const wsCfg=()=>{try{return Object.assign({},OBS_DEF,JSON.parse(localStorage.getItem(OBS_KEY)))}catch(e){return Object.assign({},OBS_DEF)}};
+const wsSave=c=>{try{localStorage.setItem(OBS_KEY,JSON.stringify(c))}catch(e){}};
+let ows=null,owsP=null,owsN=0;const owsPend={};
+const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b)));
+const sha=s=>crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+function owsConnect(){
+  if(owsP)return owsP;
+  const c=wsCfg();
+  const p=new Promise((res,rej)=>{
+    let ws;try{ws=new WebSocket(c.url,'obswebsocket.json')}catch(e){rej(e);return}
+    ws.onmessage=async ev=>{
+      let m;try{m=JSON.parse(ev.data)}catch(e){return}
+      const d=m.d;
+      if(m.op===0){   // Hello → Identify (с паролем, если нужен)
+        const id={rpcVersion:1,eventSubscriptions:0};
+        try{if(d.authentication){
+          const sec=b64(await sha(c.pw+d.authentication.salt));
+          id.authentication=b64(await sha(sec+d.authentication.challenge))}}
+        catch(e){rej(new Error('нужен https или localhost для пароля'));return}
+        ws.send(JSON.stringify({op:1,d:id}));
+      }else if(m.op===2){ows=ws;res(ws)}
+      else if(m.op===7){const f=owsPend[d.requestId];if(f){delete owsPend[d.requestId];f(d)}}
+    };
+    ws.onclose=e=>{ows=null;owsP=null;rej(new Error(e.code===4009?'неверный пароль WebSocket':'нет связи с OBS WebSocket'))};
+  });
+  owsP=p;p.catch(()=>{if(owsP===p)owsP=null});
+  return p}
+async function owsReq(type,data){
+  const ws=await owsConnect(),id='r'+(++owsN);
+  return new Promise((res,rej)=>{
+    owsPend[id]=res;
+    ws.send(JSON.stringify({op:6,d:{requestType:type,requestId:id,requestData:data||{}}}));
+    setTimeout(()=>{if(owsPend[id]){delete owsPend[id];rej(new Error('OBS не ответил'))}},5000)})}
+/* имя источника: из настроек, иначе ищем среди «Браузер»-источников тот, что открывает эту страницу */
+async function owsSource(){
+  const c=wsCfg();if(c.src)return c.src;
+  const l=await owsReq('GetInputList',{inputKind:'browser_source'}),list=(l.responseData&&l.responseData.inputs)||[];
+  const href=location.href.split('#')[0];let found='';
+  for(const i of list){
+    const r=await owsReq('GetInputSettings',{inputName:i.inputName}),st=(r.responseData&&r.responseData.inputSettings)||{};
+    const lf=(st.local_file||'').replace(/\\/g,'/');
+    if((st.url&&st.url.split('#')[0]===href)||(lf&&decodeURI(href).endsWith(lf))){found=i.inputName;break}
+  }
+  if(!found&&list.length===1)found=list[0].inputName;
+  if(!found)throw new Error('не найден источник — укажите его имя в «⚙ OBS»');
+  wsSave(Object.assign(c,{src:found}));return found}
+/* применить состояние к локальному OBS; возвращает '' при успехе или текст ошибки */
+async function owsApply(want){
+  const c=wsCfg();
+  try{
+    const src=await owsSource();
+    const r=await owsReq('GetSourceFilter',{sourceName:src,filterName:c.flt});
+    if(!r.requestStatus.result){
+      if(r.requestStatus.code!==600)throw new Error(r.requestStatus.comment||'ошибка OBS');
+      if(!want)return '';   // фильтра нет и он не нужен
+      const mk=kind=>owsReq('CreateSourceFilter',{sourceName:src,filterName:c.flt,filterKind:kind,filterSettings:{key_color_type:'green'}});
+      let k=await mk('chroma_key_filter_v2');
+      if(!k.requestStatus.result)k=await mk('chroma_key_filter');
+      if(!k.requestStatus.result){
+        if(k.requestStatus.code===600)wsSave(Object.assign(wsCfg(),{src:''}));   // источник не найден — определим заново
+        throw new Error(k.requestStatus.comment||'не удалось добавить фильтр')}
+      return ''}
+    const e=await owsReq('SetSourceFilterEnabled',{sourceName:src,filterName:c.flt,filterEnabled:want});
+    if(!e.requestStatus.result)throw new Error(e.requestStatus.comment||'ошибка OBS');
+    return ''
+  }catch(err){return err.message||'ошибка'}}
+
+let chroma=null,chromaBusy=false,chromaAgain=false,chromaTry=0;   // chroma: общее состояние {on}, null — ещё не задано
+function reportChroma(err){   // каждый OBS сообщает, получилось ли у него (видно в редакторе)
+  if(!root)return;const r=root.child('chromaObs/'+me);r.onDisconnect().remove();r.set({ok:err?0:1,msg:err||''}).catch(()=>{})}
+async function applyChroma(){
+  if(!inOBS||!chroma)return;   // применяют только страницы, открытые внутри OBS
+  if(chromaBusy){chromaAgain=true;return}
+  chromaBusy=true;let err;
+  do{chromaAgain=false;err=await owsApply(!!chroma.on);reportChroma(err)}while(chromaAgain);
+  chromaBusy=false;
+  if(err&&chromaTry++<5)setTimeout(applyChroma,15000);   // OBS ещё не запустился / WebSocket не готов — повторяем
+  else if(!err)chromaTry=0}
+function chromaStatus(v){   // сколько OBS уже применили состояние
+  const ids=Object.keys(v||{}),ok=ids.filter(k=>v[k].ok).length,el=$('obsSt');
+  el.textContent=ids.length?`OBS: ${ok}/${ids.length}`:'';
+  el.title=ids.length?ids.map(k=>v[k].ok?'✓ применено':'✗ '+v[k].msg).join('\n'):'';
+  el.style.color=ids.length&&ok<ids.length?'var(--dg)':'var(--ac)'}
+$('obsCk').onchange=()=>{
+  const on=$('obsCk').checked?1:0;chroma={on};chromaTry=0;
+  if(root){root.child('chroma').set({on,n:uid()}).catch(e=>toast('Firebase: '+e.message));toast('Хромакей '+(on?'включается':'выключается')+' во всех OBS')}
+  else if(inOBS)applyChroma();
+  else owsApply(!!on).then(err=>{if(err){$('obsCk').checked=!on;toast('OBS: '+err)}else toast('Хромакей в OBS '+(on?'включён':'выключен'))})};
+$('obsCfg').onclick=()=>{   // настройки подключения — у каждого OBS свои (открывать в «Интерактивно» этого источника)
+  const c=wsCfg();
+  const u=prompt('Адрес OBS WebSocket:',c.url);if(u===null)return;
+  const pw=prompt('Пароль WebSocket (пусто, если не задан):',c.pw);if(pw===null)return;
+  const src=prompt('Имя источника «Браузер» в OBS (пусто — определить автоматически):',c.src);if(src===null)return;
+  const flt=prompt('Название фильтра хромакея:',c.flt);if(flt===null)return;
+  wsSave({url:u.trim()||OBS_DEF.url,pw,src:src.trim(),flt:flt.trim()||OBS_DEF.flt});
+  if(ows)ows.close();ows=null;owsP=null;chromaTry=0;applyChroma()};
 
 /* ---------- старт ---------- */
 if(!inOBS)document.body.classList.add('edit');

@@ -99,7 +99,10 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 .th .x{top:-5px;background:var(--dg);border-color:var(--dg);color:#fff}
 .th .v{bottom:-5px}
 /* хромакей прямо на странице: действует на содержимое элементов, не на рамки редактора */
-.ck .it>.c{filter:url(#ckf)}
+.ck .it>.c:not(.gl){filter:url(#ckf)}
+.it>.c{position:relative}
+.it canvas.kc{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
+.ck .it video.kv{visibility:hidden}
 </style>
 </head>
 <body>
@@ -826,6 +829,46 @@ function applyCk(){document.body.classList.toggle('ck',$('ckLoc').checked)}
 try{$('ckLoc').checked=localStorage.getItem(CK_KEY)==='1'}catch(e){}
 $('ckLoc').onchange=()=>{try{localStorage.setItem(CK_KEY,$('ckLoc').checked?'1':'0')}catch(e){}applyCk()};
 applyCk();
+
+/* Видео, камера, экран: SVG-фильтр на <video> работает не везде, поэтому кадры вырезаются через WebGL
+   и показываются на canvas поверх скрытого видео. Если браузер не даёт читать кадры (чужой сайт без CORS) —
+   остаётся SVG-фильтр. */
+function ckInit(){
+  const cv=document.createElement('canvas');cv.className='kc';
+  const gl=cv.getContext('webgl',{premultipliedAlpha:true,alpha:true});if(!gl)return null;
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o};
+  const p=gl.createProgram();
+  gl.attachShader(p,sh(gl.VERTEX_SHADER,'attribute vec2 a;varying vec2 u;void main(){u=vec2(a.x*.5+.5,.5-a.y*.5);gl_Position=vec4(a,0.,1.);}'));
+  gl.attachShader(p,sh(gl.FRAGMENT_SHADER,'precision mediump float;varying vec2 u;uniform sampler2D t;void main(){vec4 c=texture2D(t,u);float k=clamp(1.-6.*(c.g-(c.r+c.b)*.5),0.,1.);c.g=min(c.g,(c.r+c.b)*.5);gl_FragColor=vec4(c.rgb*k,k);}'));
+  gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))return null;
+  gl.useProgram(p);
+  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  const a=gl.getAttribLocation(p,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+  const tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  return {cv,gl}}
+function ckOff(v){const k=v._k;if(k&&k.cv&&k.cv.parentNode)k.cv.remove();v.classList.remove('kv');if(v.parentNode)v.parentNode.classList.remove('gl')}
+function ckLoop(){
+  const on=document.body.classList.contains('ck');
+  stage.querySelectorAll('.it video').forEach(v=>{
+    if(!on||v.offsetParent===null||v.readyState<2||!v.videoWidth){if(v._k&&!v._k.bad)ckOff(v);return}
+    let k=v._k;if(k&&k.bad)return;
+    if(!k){k=v._k=ckInit()||{bad:true};if(k.bad)return}
+    const c=v.parentNode;
+    try{
+      const gl=k.gl,cv=k.cv;
+      if(cv.width!==v.videoWidth||cv.height!==v.videoHeight){cv.width=v.videoWidth;cv.height=v.videoHeight}
+      gl.viewport(0,0,cv.width,cv.height);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,v);
+      gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+      if(!cv.parentNode)c.appendChild(cv);
+      v.classList.add('kv');c.classList.add('gl');
+    }catch(e){ckOff(v);v._k={bad:true}}   // кадры недоступны — работает SVG-фильтр
+  });
+  requestAnimationFrame(ckLoop)}
+requestAnimationFrame(ckLoop);
 
 /* ---------- старт ---------- */
 if(!inOBS)document.body.classList.add('edit');

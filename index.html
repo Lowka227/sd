@@ -98,9 +98,12 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 .th button{position:absolute;right:-5px;width:16px;height:16px;padding:0;font-size:9px;line-height:1;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .th .x{top:-5px;background:var(--dg);border-color:var(--dg);color:#fff}
 .th .v{bottom:-5px}
+/* хромакей прямо на странице: действует на содержимое элементов, не на рамки редактора */
+.ck .it>.c{filter:url(#ckf)}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="ckf" color-interpolation-filters="sRGB"><feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  3 -6 3 0 1" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in"/></filter></svg>
 <div id="stage"><div id="outerFrame"><span class="fl" id="olab"></span></div><div id="inFrame"><span class="fl" id="ilab"></span></div></div>
 <button id="showMenu" title="Клавиша M">☰ Меню</button>
 <button id="showUi" title="Клавиша P">☰ Панель</button>
@@ -109,6 +112,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
     <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aVid">🎬 Видео</button><button id="aCam">📷 Камера</button><button id="aScr">🖥 Экран</button><button id="aWid">🧩 Виджет</button>
     <button id="bClr" class="d">🗑 Очистить</button><button id="bTts" class="sy">🎙 Синхронная озвучка</button>
     <label id="obsCkL" title="Включает/выключает фильтр «Хромакей» во всех OBS, где открыт этот оверлей (через obs-websocket)"><input type="checkbox" id="obsCk"> Хромакей OBS</label><span id="obsSt" style="font-size:12px"></span><button id="obsCfg" title="Настройки подключения к OBS (у каждого OBS свои)">⚙ OBS</button>
+    <label id="ckL" title="Вырезает зелёный цвет прямо на странице, без OBS (только в этой вкладке)"><input type="checkbox" id="ckLoc"> Хромакей (без OBS)</label>
     <button id="bMenu" title="Клавиша M">⇧ Скрыть меню</button><span id="net">● офлайн</span></div>
   <div class="tr"><b>Элементы:</b><div id="els"></div></div>
 </header>
@@ -815,6 +819,13 @@ $('obsCfg').onclick=()=>{   // настройки подключения — у 
   const flt=prompt('Название фильтра хромакея:',c.flt);if(flt===null)return;
   wsSave({url:u.trim()||OBS_DEF.url,pw,src:src.trim(),flt:flt.trim()||OBS_DEF.flt});
   if(ows)ows.close();ows=null;owsP=null;chromaTry=0;applyChroma()};
+
+/* ---------- хромакей без OBS (локально, SVG-фильтр) ---------- */
+const CK_KEY='obs-canvas-ck';
+function applyCk(){document.body.classList.toggle('ck',$('ckLoc').checked)}
+try{$('ckLoc').checked=localStorage.getItem(CK_KEY)==='1'}catch(e){}
+$('ckLoc').onchange=()=>{try{localStorage.setItem(CK_KEY,$('ckLoc').checked?'1':'0')}catch(e){}applyCk()};
+applyCk();
 
 /* ---------- старт ---------- */
 if(!inOBS)document.body.classList.add('edit');

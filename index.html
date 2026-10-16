@@ -113,7 +113,7 @@ button.sy{background:#8e44ad;border-color:#8e44ad;color:#fff}
 <header id="top" aria-label="Меню (в OBS не видно)">
   <div class="tr" id="tools"><b>Инструменты:</b>
     <button id="aImg">🖼 Изображение</button><button id="aTxt">📝 Текст</button><button id="aSnd">🔊 Звук</button><button id="aVid">🎬 Видео</button><button id="aCam">📷 Камера</button><button id="aScr">🖥 Экран</button><button id="aWid">🧩 Виджет</button>
-    <button id="bClr" class="d">🗑 Очистить</button><button id="bTts" class="sy">🎙 Синхронная озвучка</button>
+    <button id="bClr" class="d">🗑 Очистить</button><button id="bTts" class="sy">🎙 Синхронная озвучка</button><button id="bCk" title="Включить/выключить хромакей">🟩 Хромакей: вкл</button>
     <button id="bMenu" title="Клавиша M">⇧ Скрыть меню</button><span id="net">● офлайн</span></div>
   <div class="tr"><b>Элементы:</b><div id="els"></div></div>
 </header>
@@ -681,6 +681,10 @@ function initFB(){
   },()=>{netSet('нет доступа (проверьте правила БД)','var(--dg)');gotOff=gotItems=true;setNetReady()});
   root.child('cmd').on('value',s=>{const c=s.val();if(!cmdReady){cmdReady=true;return}if(c)runCmd(c)});
   root.child('cams').on('value',s=>{liveCams=s.val()||{};syncCams()});
+  root.child('ck').on('value',s=>{
+    const v=s.val();
+    if(v===null){root.child('ck').set(ckOn).catch(()=>{});return}   // в базе значения ещё нет — записываем текущее
+    setCk(v,true)});
 }
 
 /* ---------- полотно ----------
@@ -718,8 +722,25 @@ if(localStorage.getItem('obs-canvas-nomenu')==='1')document.body.classList.add('
 addEventListener('resize',layout);
 if('ResizeObserver' in window)new ResizeObserver(layout).observe($('top'));
 
-/* ---------- хромакей на странице: всегда включён, без кнопок и без OBS ---------- */
-document.body.classList.add('ck');
+/* ---------- хромакей на странице: включается кнопкой, состояние общее для всех вкладок и OBS ---------- */
+let ckOn=true;
+try{ckOn=localStorage.getItem('obs-canvas-ck')!=='0'}catch(e){}
+function paintCk(){
+  document.body.classList.toggle('ck',ckOn);
+  const b=$('bCk');
+  b.textContent=ckOn?'🟩 Хромакей: вкл':'⬜ Хромакей: выкл';
+  b.classList.toggle('on',ckOn);
+}
+function setCk(v,fromNet){
+  v=!!v;
+  if(v===ckOn&&fromNet){paintCk();return}
+  ckOn=v;
+  try{localStorage.setItem('obs-canvas-ck',ckOn?'1':'0')}catch(e){}
+  paintCk();
+  if(!fromNet&&root&&remoteReady)root.child('ck').set(ckOn).catch(e=>toast('Firebase: '+e.message));
+}
+$('bCk').onclick=()=>setCk(!ckOn,false);
+paintCk();
 
 /* Видео, камера, экран: SVG-фильтр на <video> работает не везде, поэтому кадры вырезаются через WebGL
    и показываются на canvas поверх скрытого видео. Если браузер не даёт читать кадры (чужой сайт без CORS) —
